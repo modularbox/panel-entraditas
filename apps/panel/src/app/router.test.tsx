@@ -40,4 +40,21 @@ describe("AppRoutes", () => {
     renderApp(["/eventos"]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Eventos" })).toBeInTheDocument());
   });
+
+  it("shows the team list to an authenticated admin", async () => {
+    useSessionStore.setState({
+      status: "authenticated",
+      token: "t",
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      effectivePermissions: new Set(["users:manage"]),
+      eventScopes: []
+    });
+    renderApp(["/equipo"]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Equipo" })).toBeInTheDocument());
+  });
+
+  it("opens an invitation link without an authenticated session", async () => {
+    renderApp(["/invitacion/unknown"]);
+    await waitFor(() => expect(screen.getByText("Invitación no disponible")).toBeInTheDocument());
+  });
 });

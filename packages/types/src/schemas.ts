@@ -32,6 +32,18 @@ export const UserSchema = z.object({
 });
 export type User = z.infer<typeof UserSchema>;
 
+export const InvitationSchema = z.object({
+  id: z.string(),
+  token: z.string(),
+  userId: z.string(),
+  email: z.string().email(),
+  organizationId: z.string(),
+  invitedByUserId: z.string(),
+  status: z.enum(["pending", "accepted"]),
+  createdAt: z.string()
+});
+export type Invitation = z.infer<typeof InvitationSchema>;
+
 export const VenueSchema = z.object({
   id: z.string(),
   organizationId: z.string(),

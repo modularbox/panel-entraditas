@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EventSchema, TicketTypeSchema, UserSchema } from "./schemas";
+import { EventSchema, InvitationSchema, TicketTypeSchema, UserSchema } from "./schemas";
 
 const validEvent = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -68,5 +68,21 @@ describe("UserSchema", () => {
         eventScopes: []
       })
     ).toThrow();
+  });
+});
+
+describe("InvitationSchema", () => {
+  it("accepts a valid pending invitation", () => {
+    expect(() => InvitationSchema.parse({
+      id: "inv-1", token: "tok-abc123", userId: "user-1", email: "nueva@example.com",
+      organizationId: "org-1", invitedByUserId: "user-admin", status: "pending", createdAt: "2026-08-25T00:00:00.000Z"
+    })).not.toThrow();
+  });
+
+  it("rejects an invalid status", () => {
+    expect(() => InvitationSchema.parse({
+      id: "inv-1", token: "tok-abc123", userId: "user-1", email: "nueva@example.com",
+      organizationId: "org-1", invitedByUserId: "user-admin", status: "expired", createdAt: "2026-08-25T00:00:00.000Z"
+    })).toThrow();
   });
 });

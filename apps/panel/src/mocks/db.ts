@@ -1,5 +1,5 @@
 import type {
-  CapacityPool, Event, Organization, SubEvent, TicketType, TicketTypePrice, User, Venue, Zone
+  CapacityPool, Event, Invitation, Organization, SubEvent, TicketType, TicketTypePrice, User, Venue, Zone
 } from "@entraditas/types";
 
 export interface Database {
@@ -12,6 +12,7 @@ export interface Database {
   capacityPools: CapacityPool[];
   ticketTypes: TicketType[];
   ticketTypePrices: TicketTypePrice[];
+  invitations: Invitation[];
 }
 
 export const DEMO_SUPERADMIN_ID = "user-superadmin";
@@ -166,7 +167,7 @@ export function createSeedDatabase(): Database {
     {
       id: DEMO_SUBUSER_ID, organizationId: org1.id, parentUserId: DEMO_ADMIN_ID, role: "subuser",
       email: "subusuario@entraditas.com", fullName: "Personal de puerta", status: "active",
-      permissionOverrides: [{ permission: "guestlist:manage", effect: "allow" }],
+      permissionOverrides: [],
       eventScopes: [event1.id]
     }
   ];
@@ -180,6 +181,7 @@ export function createSeedDatabase(): Database {
     subEvents: [event1SubEvent, event2SubEvent, ...event3SubEvents, ...event4SubEvents, event5SubEvent],
     capacityPools: [event1Pool, event2PoolPista, event2PoolGrada],
     ticketTypes: [event1TicketType, event2TicketTypePista, event2TicketTypeGrada, event3TicketType, event4PassTicketType],
-    ticketTypePrices: []
+    ticketTypePrices: [],
+    invitations: []
   };
 }
