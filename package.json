@@ -1,0 +1,9 @@
+{
+  "name": "entraditas",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "test": "pnpm -r --if-present run test",
+    "build": "pnpm -r --if-present run build"
+  }
+}

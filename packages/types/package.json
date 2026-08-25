@@ -1,0 +1,17 @@
+{
+  "name": "@entraditas/types",
+  "private": true,
+  "version": "0.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.5",
+    "typescript": "^5.5.4"
+  },
+  "scripts": {
+    "test": "vitest run"
+  }
+}
