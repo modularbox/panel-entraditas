@@ -48,6 +48,58 @@ describe("events handlers", () => {
     expect(updated.title).toBe("Título actualizado");
   });
 
+  it("reuses an existing venue when the name and city match, case-insensitively", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    const created = await apiClient.post<Event>(
+      "/events",
+      { title: "Evento en Apolo", category: "concierto", venueName: "sala apolo", city: "MADRID" },
+      { token }
+    );
+    expect(created.venueId).toBe("venue-1");
+    expect(db.venues).toHaveLength(3); // no se crea un recinto nuevo
+  });
+
+  it("creates a new venue with an unbounded default capacity when no match exists", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    const created = await apiClient.post<Event>(
+      "/events",
+      { title: "Evento nuevo recinto", category: "concierto", venueName: "Nuevo Recinto", city: "Bilbao" },
+      { token }
+    );
+    const venue = db.venues.find((v) => v.id === created.venueId)!;
+    expect(venue).toMatchObject({ name: "Nuevo Recinto", city: "Bilbao", totalCapacity: 999999 });
+  });
+
+  it("creates the first sub-event from date and time for a single-function event", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    const created = await apiClient.post<Event>(
+      "/events",
+      { title: "Evento con fecha", category: "concierto", hasSubEvents: false, date: "2026-12-05", time: "21:00" },
+      { token }
+    );
+    const subEvents = db.subEvents.filter((s) => s.eventId === created.id);
+    expect(subEvents).toHaveLength(1);
+    expect(subEvents[0]).toMatchObject({ startsAt: "2026-12-05T21:00:00.000Z", endsAt: "2026-12-06T00:00:00.000Z" });
+  });
+
+  it("does not auto-create a sub-event when the event has multiple functions", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    const created = await apiClient.post<Event>(
+      "/events",
+      { title: "Evento multi-función", category: "concierto", hasSubEvents: true, date: "2026-12-05", time: "21:00" },
+      { token }
+    );
+    expect(db.subEvents.filter((s) => s.eventId === created.id)).toHaveLength(0);
+  });
+
+  it("updates the first sub-event's date and time on PATCH", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    await apiClient.patch<Event>("/events/event-1", { date: "2026-10-15", time: "22:00" }, { token });
+    const updated = db.subEvents.find((s) => s.id === "sub-event-1")!;
+    expect(updated.startsAt).toBe("2026-10-15T22:00:00.000Z");
+    expect(updated.endsAt).toBe("2026-10-16T01:00:00.000Z");
+  });
+
   it("blocks deleting a non-draft event and allows deleting a draft one", async () => {
     const token = await loginAs("admin@entraditas.com");
     await expect(apiClient.delete("/events/event-1", { token })).rejects.toMatchObject({
@@ -66,8 +118,9 @@ describe("events handlers", () => {
 
     db.ticketTypes.push({
       id: "tt-5", groupId: "tt-5", eventId: "event-5", subEventId: null, capacityPoolId: null,
-      name: "General", kind: "paid", basePrice: 1000, currency: "EUR", quantityTotal: 100, quantitySold: 0,
-      minPerOrder: 1, maxPerOrder: 4, visibility: "public", isTransferable: true, isRefundable: true, sortOrder: 0
+      name: "General", kind: "pago", basePrice: 1000, currency: "EUR", quantityTotal: 100, quantitySold: 0,
+      minPerOrder: 1, maxPerOrder: 4, visibility: "public", isTransferable: true, isRefundable: true, sortOrder: 0,
+      color: null
     });
 
     const published = await apiClient.post<Event>("/events/event-5/publish", undefined, { token });

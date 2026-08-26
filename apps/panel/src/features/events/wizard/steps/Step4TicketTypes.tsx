@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -7,22 +7,25 @@ import type { TicketType } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
+import { cn } from "@/shared/lib/cn";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 
 export interface Step4TicketTypesProps {
   eventId: string | null;
   onSaved: (id: string) => void;
-  goNext: () => void;
+  onValidationChange?: (valid: boolean) => void;
 }
 
-interface TicketTypeGroup {
+const TICKET_TYPE_COLORS = ["#22c55e", "#3b82f6", "#ef4444", "#a855f7", "#f97316", "#64748b"];
+
+export interface TicketTypeGroup {
   groupId: string;
   name: string;
   basePrice: number;
   sortOrder: number;
 }
 
-function groupTicketTypes(ticketTypes: TicketType[]): TicketTypeGroup[] {
+export function groupTicketTypes(ticketTypes: TicketType[]): TicketTypeGroup[] {
   const byGroup = new Map<string, TicketType[]>();
   for (const tt of ticketTypes) byGroup.set(tt.groupId, [...(byGroup.get(tt.groupId) ?? []), tt]);
   return [...byGroup.values()]
@@ -74,18 +77,32 @@ function SortableRow({
   );
 }
 
-export function Step4TicketTypes({ eventId, goNext }: Step4TicketTypesProps) {
+export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTypesProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
   const { data: subEvents = [] } = useSubEventsQuery(eventId);
   const groups = groupTicketTypes(ticketTypes);
 
+  useEffect(() => {
+    onValidationChange?.(groups.length > 0);
+  }, [groups.length, onValidationChange]);
+
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [priceEuros, setPriceEuros] = useState("0.00");
+  const [quantityInput, setQuantityInput] = useState("");
+  const [color, setColor] = useState<string | null>(null);
   const [scopeMode, setScopeMode] = useState<"event" | "subevents">("event");
   const [selectedSubEventIds, setSelectedSubEventIds] = useState<string[]>([]);
+  const [isFree, setIsFree] = useState(false);
+
+  const canCreate = name.trim() !== "" && quantityInput.trim() !== "" && (isFree || priceEuros.trim() !== "");
+
+  function toggleFree(free: boolean) {
+    setIsFree(free);
+    setPriceEuros("0.00");
+  }
 
   async function createTicketType() {
     setError(null);
@@ -94,10 +111,11 @@ export function Step4TicketTypes({ eventId, goNext }: Step4TicketTypesProps) {
         `/events/${eventId}/ticket-types`,
         {
           name,
-          kind: "paid",
-          basePrice: Math.round(Number(priceEuros) * 100),
+          kind: isFree ? "gratis" : "pago",
+          basePrice: isFree ? 0 : Math.round(Number(priceEuros) * 100),
           currency: "EUR",
-          quantityTotal: null,
+          quantityTotal: quantityInput === "" ? null : Number(quantityInput),
+          color,
           minPerOrder: 1,
           maxPerOrder: 6,
           visibility: "public",
@@ -109,7 +127,10 @@ export function Step4TicketTypes({ eventId, goNext }: Step4TicketTypesProps) {
       );
       setName("");
       setPriceEuros("0.00");
+      setQuantityInput("");
+      setColor(null);
       setSelectedSubEventIds([]);
+      setIsFree(false);
       await queryClient.invalidateQueries({ queryKey: ["ticket-types", eventId] });
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
@@ -176,13 +197,52 @@ export function Step4TicketTypes({ eventId, goNext }: Step4TicketTypesProps) {
             step="0.01"
             min="0"
             inputMode="decimal"
+            disabled={isFree}
             value={priceEuros}
             onChange={(e) => setPriceEuros(e.target.value)}
             onBlur={(e) => setPriceEuros(Number(e.target.value || 0).toFixed(2))}
-            className="h-10 w-28 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground"
+            className="h-10 w-28 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground disabled:opacity-50"
           />
           <span className="text-sm font-semibold text-muted-foreground">€</span>
         </div>
+
+        <label className="mt-1 flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" checked={isFree} onChange={(e) => toggleFree(e.target.checked)} />
+          Gratuito
+        </label>
+
+        <label htmlFor="tt-quantity">Cantidad</label>
+        <input
+          id="tt-quantity"
+          type="number"
+          min="0"
+          inputMode="numeric"
+          value={quantityInput}
+          onChange={(e) => setQuantityInput(e.target.value)}
+          placeholder="Ilimitada"
+          className="h-10 w-28 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground"
+        />
+
+        <fieldset className="mt-3">
+          <legend>Color</legend>
+          <div role="radiogroup" aria-label="Color" className="flex gap-2">
+            {TICKET_TYPE_COLORS.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                role="radio"
+                aria-checked={color === hex}
+                aria-label={hex}
+                onClick={() => setColor(hex)}
+                style={{ backgroundColor: hex }}
+                className={cn(
+                  "h-7 w-7 rounded-full border-2",
+                  color === hex ? "border-foreground ring-2 ring-offset-2 ring-foreground" : "border-transparent"
+                )}
+              />
+            ))}
+          </div>
+        </fieldset>
 
         <div className="mt-3 flex flex-wrap gap-4">
           <label className="flex items-center gap-2 text-sm font-medium">
@@ -222,14 +282,10 @@ export function Step4TicketTypes({ eventId, goNext }: Step4TicketTypesProps) {
           </fieldset>
         )}
 
-        <Button type="button" onClick={createTicketType} className="mt-4">
+        <Button type="button" onClick={createTicketType} disabled={!canCreate} className="mt-4">
           Crear tipo de entrada
         </Button>
       </fieldset>
-
-      <Button type="button" onClick={goNext} className="mt-4 self-start">
-        Continuar
-      </Button>
     </div>
   );
 }

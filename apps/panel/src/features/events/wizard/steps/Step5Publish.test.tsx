@@ -14,7 +14,7 @@ function renderStep(eventId: string) {
         <Routes>
           <Route
             path="/eventos/:id/editar"
-            element={<Step5Publish eventId={eventId} onSaved={() => {}} goNext={() => {}} />}
+            element={<Step5Publish eventId={eventId} onSaved={() => {}} />}
           />
           <Route path="/eventos/:id" element={<div>Detalle del evento</div>} />
         </Routes>
@@ -29,17 +29,16 @@ describe("Step5Publish", () => {
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
-  it("disables Publicar and shows a failing checklist item with zero ticket types", async () => {
+  it("disables Publicar with zero ticket types", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
     renderStep("event-5");
-    await waitFor(() => expect(screen.getByText(/Al menos un tipo de entrada/)).toHaveTextContent("❌"));
-    expect(screen.getByRole("button", { name: "Publicar evento" })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Publicar evento" })).toBeDisabled());
   });
 
   it("publishes an event that already has a ticket type, then navigates to its detail page", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
     renderStep("event-3"); // seeded with tt-3
-    await waitFor(() => expect(screen.getByText(/Al menos un tipo de entrada/)).toHaveTextContent("✅"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Publicar evento" })).toBeEnabled());
 
     fireEvent.click(screen.getByRole("button", { name: "Publicar evento" }));
 

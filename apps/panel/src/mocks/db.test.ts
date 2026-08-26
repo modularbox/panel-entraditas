@@ -43,7 +43,7 @@ describe("createSeedDatabase", () => {
 
   it("seeds a festival event with an event-scoped pass ticket type (subEventId null)", () => {
     const db = createSeedDatabase();
-    const pass = db.ticketTypes.find((tt) => tt.kind === "pass" && tt.subEventId === null);
+    const pass = db.ticketTypes.find((tt) => tt.kind === "abono" && tt.subEventId === null);
     expect(pass).toBeDefined();
   });
 

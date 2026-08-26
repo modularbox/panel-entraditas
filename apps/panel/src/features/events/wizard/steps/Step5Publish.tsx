@@ -8,7 +8,6 @@ import { Button } from "@/shared/ui/button";
 export interface Step5PublishProps {
   eventId: string | null;
   onSaved: (id: string) => void;
-  goNext: () => void;
 }
 
 interface EventSummary {
@@ -49,13 +48,6 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2>Checklist de publicación</h2>
-      <ul className="flex flex-col gap-2">
-        <li className="rounded-md border-2 border-border bg-surface px-3 py-2 text-sm font-medium">
-          {hasTicketTypes ? "✅" : "❌"} Al menos un tipo de entrada
-        </li>
-      </ul>
-
       {publishError && <p role="alert">{publishError}</p>}
 
       <Button type="button" onClick={publish} disabled={!hasTicketTypes} className="self-start">

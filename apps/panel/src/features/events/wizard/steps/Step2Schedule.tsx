@@ -10,10 +10,9 @@ import { useSubEventsQuery } from "./useSubEventsQuery";
 export interface Step2ScheduleProps {
   eventId: string | null;
   onSaved: (id: string) => void;
-  goNext: () => void;
 }
 
-export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
+export function Step2Schedule({ eventId }: Step2ScheduleProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
   const { data: subEvents = [] } = useSubEventsQuery(eventId);
@@ -96,10 +95,6 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
       </Button>
 
       {error && <p role="alert">{error}</p>}
-
-      <Button type="button" onClick={goNext} className="mt-4 self-start">
-        Continuar
-      </Button>
     </div>
   );
 }

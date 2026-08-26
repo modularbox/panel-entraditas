@@ -11,7 +11,7 @@ function renderStep(eventId: string) {
   const queryClient = new QueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <Step2Schedule eventId={eventId} onSaved={() => {}} goNext={() => {}} />
+      <Step2Schedule eventId={eventId} onSaved={() => {}} />
     </QueryClientProvider>
   );
 }

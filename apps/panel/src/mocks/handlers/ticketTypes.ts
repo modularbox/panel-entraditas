@@ -39,6 +39,7 @@ interface CreateTicketTypeBody {
   basePrice: number;
   currency: string;
   quantityTotal: number | null;
+  color: string | null;
   minPerOrder: number;
   maxPerOrder: number;
   visibility: TicketType["visibility"];
@@ -70,6 +71,7 @@ export const ticketTypesHandlers = [
       basePrice: body.basePrice,
       currency: body.currency,
       quantityTotal: body.quantityTotal,
+      color: body.color ?? null,
       quantitySold: 0,
       minPerOrder: body.minPerOrder,
       maxPerOrder: body.maxPerOrder,

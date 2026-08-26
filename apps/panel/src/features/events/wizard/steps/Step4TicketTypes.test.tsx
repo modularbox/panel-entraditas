@@ -1,17 +1,17 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { db, resetDb } from "@/mocks/state";
 import { server } from "@/mocks/server";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { Step4TicketTypes } from "./Step4TicketTypes";
 
-function renderStep(eventId: string) {
+function renderStep(eventId: string, onValidationChange?: (valid: boolean) => void) {
   const queryClient = new QueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <Step4TicketTypes eventId={eventId} onSaved={() => {}} goNext={() => {}} />
+      <Step4TicketTypes eventId={eventId} onSaved={() => {}} onValidationChange={onValidationChange} />
     </QueryClientProvider>
   );
 }
@@ -35,10 +35,28 @@ describe("Step4TicketTypes", () => {
 
     fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "General" } });
     fireEvent.change(screen.getByLabelText("Precio (€)"), { target: { value: "15.00" } });
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "100" } });
     fireEvent.click(screen.getByRole("button", { name: "Crear tipo de entrada" }));
 
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
     expect(db.ticketTypes.filter((t) => t.eventId === "event-5")).toHaveLength(1);
+  });
+
+  it("creates a ticket type with a quantity limit and a color", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    renderStep("event-5"); // seeded with zero ticket types
+    await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
+
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "VIP" } });
+    fireEvent.change(screen.getByLabelText("Precio (€)"), { target: { value: "50.00" } });
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "20" } });
+    fireEvent.click(screen.getByLabelText("#3b82f6"));
+    fireEvent.click(screen.getByRole("button", { name: "Crear tipo de entrada" }));
+
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
+    const created = db.ticketTypes.find((t) => t.name === "VIP")!;
+    expect(created.quantityTotal).toBe(20);
+    expect(created.color).toBe("#3b82f6");
   });
 
   it("creates one row per selected sub-event but displays a single group", async () => {
@@ -48,6 +66,7 @@ describe("Step4TicketTypes", () => {
 
     fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "VIP funciones seleccionadas" } });
     fireEvent.change(screen.getByLabelText("Precio (€)"), { target: { value: "30.00" } });
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "50" } });
     fireEvent.click(screen.getByLabelText("Subeventos concretos"));
     fireEvent.click(screen.getByLabelText("Sábado 1"));
     fireEvent.click(screen.getByLabelText("Sábado 2"));
@@ -89,11 +108,63 @@ describe("Step4TicketTypes", () => {
 
     fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "General" } });
     fireEvent.change(screen.getByLabelText("Precio (€)"), { target: { value: "15.00" } });
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "100" } });
     fireEvent.click(screen.getByRole("button", { name: "Crear tipo de entrada" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No se pudo crear el tipo de entrada"));
     expect(db.ticketTypes.filter((t) => t.eventId === "event-5")).toHaveLength(0);
     expect(screen.getByLabelText("Nombre")).toHaveValue("General");
+  });
+
+  it("reports invalid with zero ticket types and valid once one is created", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    const onValidationChange = vi.fn();
+    renderStep("event-5", onValidationChange); // seeded with zero ticket types
+    await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(false));
+
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "General" } });
+    fireEvent.change(screen.getByLabelText("Precio (€)"), { target: { value: "15.00" } });
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "100" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear tipo de entrada" }));
+
+    await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(true));
+  });
+
+  it("disables Crear tipo de entrada until Nombre, Precio and Cantidad are filled", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    renderStep("event-5"); // seeded with zero ticket types
+    await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
+    expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "General" } });
+    expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Precio (€)"), { target: { value: "15.00" } });
+    expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "100" } });
+    expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeEnabled();
+  });
+
+  it("disables and zeroes the price input when Gratuito is checked, and creates a free ticket type", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    renderStep("event-5"); // seeded with zero ticket types
+    await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
+
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Acreditación" } });
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "30" } });
+    fireEvent.click(screen.getByLabelText("Gratuito"));
+
+    expect(screen.getByLabelText("Precio (€)")).toBeDisabled();
+    expect(screen.getByLabelText("Precio (€)")).toHaveValue(0);
+    expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Crear tipo de entrada" }));
+
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
+    const created = db.ticketTypes.find((t) => t.name === "Acreditación")!;
+    expect(created.kind).toBe("gratis");
+    expect(created.basePrice).toBe(0);
   });
 
   it("shows an error and leaves sortOrder unchanged when the server rejects reordering", async () => {
