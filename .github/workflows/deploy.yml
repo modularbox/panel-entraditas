@@ -1,0 +1,46 @@
+name: Desplegar a panel.entraditas.com
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Compilar el panel
+        run: pnpm --filter panel build
+
+      - name: Comprobar que la carpeta de destino está configurada
+        run: |
+          if [ -z "${{ vars.FTP_REMOTE_DIR }}" ]; then
+            echo "::error::Falta la variable de repositorio FTP_REMOTE_DIR (carpeta del subdominio panel.entraditas.com). Sin ella el deploy no continúa, para no subir por error a la raíz del FTP o pisar httpdocs de entraditas.com."
+            exit 1
+          fi
+
+      - name: Subir por FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./apps/panel/dist/
+          server-dir: ${{ vars.FTP_REMOTE_DIR }}
