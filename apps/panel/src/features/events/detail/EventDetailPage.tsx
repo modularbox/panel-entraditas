@@ -7,17 +7,19 @@ import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { cn } from "@/shared/lib/cn";
 import { Step1BasicInfo } from "../wizard/steps/Step1BasicInfo";
 import { Step2Schedule } from "../wizard/steps/Step2Schedule";
-import { Step3Capacity } from "../wizard/steps/Step3Capacity";
 import { Step4TicketTypes } from "../wizard/steps/Step4TicketTypes";
+import { SeatingPlanSection } from "../wizard/steps/SeatingPlanSection";
+import { DiscountCodesSection } from "../wizard/steps/DiscountCodesSection";
 
 const ENABLED_TABS = [
   { key: "general", label: "Información general" },
   { key: "subeventos", label: "Subeventos" },
-  { key: "aforos", label: "Aforos y zonas" },
-  { key: "tipos", label: "Tipos de entrada" }
+  { key: "plano", label: "Plano de asientos" },
+  { key: "tipos", label: "Tipos de entrada" },
+  { key: "descuentos", label: "Códigos de descuento" }
 ] as const;
 
-const DISABLED_TABS = ["Códigos de descuento", "Puertas", "Invitados", "Pedidos", "Métricas"];
+const DISABLED_TABS = ["Puertas", "Invitados", "Pedidos", "Métricas"];
 
 function noop() {
   // Reused wizard step components call onSaved/goNext; there is no "next
@@ -88,10 +90,11 @@ export function EventDetailPage() {
         aria-label={ENABLED_TABS.find((t) => t.key === activeTab)!.label}
         className="rounded-lg border-2 border-foreground bg-surface p-6 shadow-flat"
       >
-        {activeTab === "general" && <Step1BasicInfo eventId={eventId} onSaved={noop} goNext={noop} />}
-        {activeTab === "subeventos" && <Step2Schedule eventId={eventId} onSaved={noop} goNext={noop} />}
-        {activeTab === "aforos" && <Step3Capacity eventId={eventId} onSaved={noop} goNext={noop} />}
-        {activeTab === "tipos" && <Step4TicketTypes eventId={eventId} onSaved={noop} goNext={noop} />}
+        {activeTab === "general" && <Step1BasicInfo eventId={eventId} onSaved={noop} />}
+        {activeTab === "subeventos" && <Step2Schedule eventId={eventId} onSaved={noop} />}
+        {activeTab === "plano" && <SeatingPlanSection eventId={eventId} />}
+        {activeTab === "tipos" && <Step4TicketTypes eventId={eventId} onSaved={noop} />}
+        {activeTab === "descuentos" && <DiscountCodesSection eventId={eventId} />}
       </section>
     </div>
   );

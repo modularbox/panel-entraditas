@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resetDb } from "@/mocks/state";
+import { db, resetDb } from "@/mocks/state";
 import { server } from "@/mocks/server";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { Step1BasicInfo, type Step1BasicInfoProps } from "./Step1BasicInfo";
@@ -17,6 +17,15 @@ function renderStep1(props: Step1BasicInfoProps) {
   return { ...utils, queryClient };
 }
 
+function fillRequiredFields() {
+  fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Concierto de prueba" } });
+  fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Una descripción válida" } });
+  fireEvent.change(screen.getByLabelText("Ciudad"), { target: { value: "Madrid" } });
+  fireEvent.change(screen.getByLabelText("Recinto"), { target: { value: "Sala Apolo" } });
+  fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-12-10" } });
+  fireEvent.change(screen.getByLabelText("Hora"), { target: { value: "21:00" } });
+}
+
 describe("Step1BasicInfo", () => {
   afterEach(() => {
     resetDb();
@@ -26,56 +35,71 @@ describe("Step1BasicInfo", () => {
   it("shows a validation error when the title is too short", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
     const onSaved = vi.fn();
-    const goNext = vi.fn();
-    renderStep1({ eventId: null, onSaved, goNext });
+    renderStep1({ eventId: null, onSaved });
 
+    fillRequiredFields();
     fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Hi" } });
-    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Una descripción" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("al menos 3 caracteres"));
     expect(onSaved).not.toHaveBeenCalled();
   });
 
-  it("creates a draft event on first submit and advances to the next step", async () => {
+  it("creates a draft event on first submit", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
     const onSaved = vi.fn();
-    const goNext = vi.fn();
-    renderStep1({ eventId: null, onSaved, goNext });
+    renderStep1({ eventId: null, onSaved });
 
-    fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Concierto de prueba" } });
-    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Una descripción válida" } });
+    fillRequiredFields();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.any(String)));
-    expect(goNext).toHaveBeenCalledOnce();
+  });
+
+  it("saves city, venue, date, time and the competition flag on the created event", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    const onSaved = vi.fn();
+    renderStep1({ eventId: null, onSaved });
+
+    fillRequiredFields();
+    fireEvent.click(screen.getByLabelText(/Es una competición/));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.any(String)));
+    const created = db.events.find((e) => e.id === onSaved.mock.calls[0]![0])!;
+    expect(created.venueId).toBe("venue-1"); // reutiliza "Sala Apolo" / Madrid ya sembrado
+    expect(created.isCompetition).toBe(true);
+    const firstSubEvent = db.subEvents.find((s) => s.eventId === created.id)!;
+    expect(firstSubEvent.startsAt).toBe("2026-12-10T21:00:00.000Z");
   });
 
   it("patches the existing draft when eventId is already set", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
     const onSaved = vi.fn();
-    const goNext = vi.fn();
-    renderStep1({ eventId: "event-5", onSaved, goNext });
+    renderStep1({ eventId: "event-5", onSaved });
 
     await waitFor(() => expect(screen.getByLabelText("Título")).toHaveValue("Evento sin configurar"));
-    fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Título editado" } });
-    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Descripción editada" } });
+    fillRequiredFields();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith("event-5"));
   });
 
-  it("pre-fills the form from the existing event when resuming a draft (e.g. after a page refresh)", async () => {
+  it("pre-fills the form from the existing event, its venue and its first sub-event", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
-    renderStep1({ eventId: "event-3", onSaved: vi.fn(), goNext: vi.fn() });
+    renderStep1({ eventId: "event-3", onSaved: vi.fn() });
 
     await waitFor(() => expect(screen.getByLabelText("Título")).toHaveValue("La Casa de Bernarda Alba"));
     expect(screen.getByLabelText("Descripción")).toHaveValue("Obra de teatro con funciones semanales.");
+    expect(screen.getByLabelText("Ciudad")).toHaveValue("Barcelona");
+    expect(screen.getByLabelText("Recinto")).toHaveValue("Teatro Circo");
+    expect(screen.getByLabelText("Fecha")).toHaveValue("2026-09-05");
+    expect(screen.getByLabelText("Hora")).toHaveValue("20:00");
   });
 
   it("keeps in-progress edits when the pre-fill fetch resolves after the user has started typing", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
-    const { queryClient } = renderStep1({ eventId: "event-3", onSaved: vi.fn(), goNext: vi.fn() });
+    const { queryClient } = renderStep1({ eventId: "event-3", onSaved: vi.fn() });
 
     fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Editado antes de que cargue" } });
 
@@ -86,7 +110,7 @@ describe("Step1BasicInfo", () => {
     expect(screen.getByLabelText("Título")).toHaveValue("Editado antes de que cargue");
   });
 
-  it("shows an alert and does not advance when saving fails", async () => {
+  it("shows an alert and does not call onSaved when saving fails", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
     server.use(
       http.post("http://localhost:4000/api/v1/events", () =>
@@ -97,15 +121,12 @@ describe("Step1BasicInfo", () => {
       )
     );
     const onSaved = vi.fn();
-    const goNext = vi.fn();
-    renderStep1({ eventId: null, onSaved, goNext });
+    renderStep1({ eventId: null, onSaved });
 
-    fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Concierto de prueba" } });
-    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Una descripción válida" } });
+    fillRequiredFields();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No se pudo guardar el evento"));
     expect(onSaved).not.toHaveBeenCalled();
-    expect(goNext).not.toHaveBeenCalled();
   });
 });

@@ -9,7 +9,7 @@ async function loginAs(email: string) {
 }
 
 const baseBody = {
-  name: "VIP", kind: "paid" as const, basePrice: 5000, currency: "EUR",
+  name: "VIP", kind: "pago" as const, basePrice: 5000, currency: "EUR",
   quantityTotal: 100, minPerOrder: 1, maxPerOrder: 4,
   visibility: "public" as const, isTransferable: true, isRefundable: true
 };
@@ -38,6 +38,16 @@ describe("ticket types handlers", () => {
     expect(created).toHaveLength(2);
     expect(created[0]!.groupId).toBe(created[1]!.groupId);
     expect(created.map((t) => t.subEventId).sort()).toEqual(["sub-event-3-0", "sub-event-3-1"]);
+  });
+
+  it("stores the color sent when creating an event-scoped ticket type", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    const created = await apiClient.post<TicketType[]>(
+      "/events/event-5/ticket-types",
+      { ...baseBody, color: "#3b82f6", scope: "event" },
+      { token }
+    );
+    expect(created[0]!.color).toBe("#3b82f6");
   });
 
   it("reorder updates sortOrder for every row sharing a groupId", async () => {

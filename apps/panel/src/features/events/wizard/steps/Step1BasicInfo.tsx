@@ -7,14 +7,15 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { step1Schema, type Step1FormValues } from "./step1Schema";
+import { useVenuesQuery } from "./useVenuesQuery";
+import { useSubEventsQuery } from "./useSubEventsQuery";
 
 export interface Step1BasicInfoProps {
   eventId: string | null;
   onSaved: (id: string) => void;
-  goNext: () => void;
 }
 
-export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps) {
+export function Step1BasicInfo({ eventId, onSaved }: Step1BasicInfoProps) {
   const token = useSessionStore((s) => s.token);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { data: existingEvent, isError: hasLoadError } = useQuery({
@@ -22,6 +23,8 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
     queryFn: () => apiClient.get<Event>(`/events/${eventId}`, { token: token! }),
     enabled: Boolean(eventId && token)
   });
+  const { data: venues = [] } = useVenuesQuery();
+  const { data: subEvents = [] } = useSubEventsQuery(eventId);
   const {
     register,
     handleSubmit,
@@ -29,7 +32,10 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
     formState: { errors, isSubmitting, isDirty }
   } = useForm<Step1FormValues>({
     resolver: zodResolver(step1Schema),
-    defaultValues: { title: "", category: "concierto", description: "", hasSubEvents: false }
+    defaultValues: {
+      title: "", category: "concierto", city: "", venueName: "", date: "", time: "",
+      description: "", isCompetition: false, hasSubEvents: false
+    }
   });
 
   // Resuming an existing draft (fresh wizard mount after a refresh, or the
@@ -39,14 +45,21 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
   // on submit, doesn't silently overwrite real server data with untouched defaults).
   useEffect(() => {
     if (existingEvent && !isDirty) {
+      const venue = venues.find((v) => v.id === existingEvent.venueId);
+      const firstSubEvent = [...subEvents].sort((a, b) => a.sortOrder - b.sortOrder)[0];
       reset({
         title: existingEvent.title,
         category: existingEvent.category,
+        city: venue?.city ?? "",
+        venueName: venue?.name ?? "",
+        date: firstSubEvent ? firstSubEvent.startsAt.slice(0, 10) : "",
+        time: firstSubEvent ? firstSubEvent.startsAt.slice(11, 16) : "",
         description: existingEvent.description,
+        isCompetition: existingEvent.isCompetition,
         hasSubEvents: existingEvent.hasSubEvents
       });
     }
-  }, [existingEvent, isDirty, reset]);
+  }, [existingEvent, venues, subEvents, isDirty, reset]);
 
   async function onSubmit(values: Step1FormValues) {
     setSaveError(null);
@@ -55,7 +68,6 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         ? await apiClient.patch<Event>(`/events/${eventId}`, values, { token: token! })
         : await apiClient.post<Event>("/events", values, { token: token! });
       onSaved(event.id);
-      goNext();
     } catch (error) {
       setSaveError(error instanceof AppError ? error.message : "No se pudo guardar el evento");
     }
@@ -76,11 +88,32 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         <option value="conferencia">Conferencia</option>
       </select>
 
+      <label htmlFor="city">Ciudad</label>
+      <input id="city" {...register("city")} />
+      {errors.city && <span role="alert">{errors.city.message}</span>}
+
+      <label htmlFor="venueName">Recinto</label>
+      <input id="venueName" {...register("venueName")} />
+      {errors.venueName && <span role="alert">{errors.venueName.message}</span>}
+
+      <label htmlFor="date">Fecha</label>
+      <input id="date" type="date" {...register("date")} />
+      {errors.date && <span role="alert">{errors.date.message}</span>}
+
+      <label htmlFor="time">Hora</label>
+      <input id="time" type="time" {...register("time")} />
+      {errors.time && <span role="alert">{errors.time.message}</span>}
+
       <label htmlFor="description">Descripción</label>
       <textarea id="description" {...register("description")} />
       {errors.description && <span role="alert">{errors.description.message}</span>}
 
       <label className="mt-4 flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" {...register("isCompetition")} />
+        ¿Es una competición? (partido o evento con equipos o participantes)
+      </label>
+
+      <label className="mt-2 flex items-center gap-2 text-sm font-medium">
         <input type="checkbox" {...register("hasSubEvents")} />
         Este evento tiene varias funciones o fechas
       </label>

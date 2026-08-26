@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import type { Event, User } from "@entraditas/types";
+import type { Event, SubEvent, User, Venue } from "@entraditas/types";
 import { hasPermission, resolveEffectivePermissions } from "@/shared/auth/permissions";
 import { db } from "../state";
 import { getSessionUserId } from "../authContext";
@@ -41,6 +41,42 @@ function slugify(title: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+function findOrCreateVenue(user: User, name: string, city: string): Venue {
+  const trimmedName = name.trim();
+  const trimmedCity = city.trim();
+  const existing = db.venues.find(
+    (v) =>
+      v.organizationId === user.organizationId &&
+      v.name.toLowerCase() === trimmedName.toLowerCase() &&
+      v.city.toLowerCase() === trimmedCity.toLowerCase()
+  );
+  if (existing) return existing;
+  const venue: Venue = {
+    id: `venue-created-${db.venues.length + 1}`,
+    organizationId: user.organizationId!,
+    name: trimmedName,
+    city: trimmedCity,
+    totalCapacity: 999999
+  };
+  db.venues.push(venue);
+  return venue;
+}
+
+function combineDateTime(date: string, time: string): string {
+  return `${date}T${time}:00.000Z`;
+}
+
+function addMinutesToIso(iso: string, minutes: number): string {
+  return new Date(new Date(iso).getTime() + minutes * 60_000).toISOString();
+}
+
+type EventFieldsBody = Partial<Event> & {
+  city?: string;
+  venueName?: string;
+  date?: string;
+  time?: string;
+};
+
 export const eventsHandlers = [
   http.get(`${BASE}/events`, ({ request }) => {
     const user = requireUser(request);
@@ -57,11 +93,13 @@ export const eventsHandlers = [
   http.post(`${BASE}/events`, async ({ request }) => {
     const user = requireUser(request);
     if (!user) return unauthenticated("req_events_create");
-    const body = (await request.json()) as Partial<Event> & { title: string };
+    const body = (await request.json()) as EventFieldsBody & { title: string };
+    const venueId =
+      body.venueName && body.city ? findOrCreateVenue(user, body.venueName, body.city).id : body.venueId ?? null;
     const event: Event = {
       id: `event-created-${db.events.length + 1}`,
       organizationId: user.organizationId ?? (body.organizationId as string),
-      venueId: body.venueId ?? null,
+      venueId,
       slug: slugify(body.title),
       title: body.title,
       description: body.description ?? "",
@@ -73,9 +111,26 @@ export const eventsHandlers = [
       salesStartAt: null,
       salesEndAt: null,
       hasSubEvents: body.hasSubEvents ?? false,
+      isCompetition: body.isCompetition ?? false,
       createdAt: new Date().toISOString()
     };
     db.events.push(event);
+
+    if (!event.hasSubEvents && body.date && body.time) {
+      const startsAt = combineDateTime(body.date, body.time);
+      const subEvent: SubEvent = {
+        id: `sub-event-${event.id}`,
+        eventId: event.id,
+        name: "Función única",
+        startsAt,
+        endsAt: addMinutesToIso(startsAt, 180),
+        doorsOpenAt: null,
+        status: "scheduled",
+        sortOrder: 0
+      };
+      db.subEvents.push(subEvent);
+    }
+
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_create" } }, { status: 201 });
   }),
 
@@ -92,7 +147,24 @@ export const eventsHandlers = [
     if (!user) return unauthenticated("req_events_patch");
     const event = db.events.find((e) => e.id === params.id);
     if (!event || !canAccessEvent(event, user)) return notFound("req_events_patch");
-    Object.assign(event, await request.json());
+    const body = (await request.json()) as EventFieldsBody;
+    const { city, venueName, date, time, ...eventFields } = body;
+    if (venueName && city) {
+      eventFields.venueId = findOrCreateVenue(user, venueName, city).id;
+    }
+    Object.assign(event, eventFields);
+
+    if (!event.hasSubEvents && date && time) {
+      const firstSubEvent = db.subEvents
+        .filter((s) => s.eventId === event.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+      if (firstSubEvent) {
+        const startsAt = combineDateTime(date, time);
+        firstSubEvent.startsAt = startsAt;
+        firstSubEvent.endsAt = addMinutesToIso(startsAt, 180);
+      }
+    }
+
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_patch" } });
   }),
 

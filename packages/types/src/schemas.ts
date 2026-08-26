@@ -45,7 +45,12 @@ export const ZoneSchema = z.object({
   id: z.string(),
   venueId: z.string(),
   name: z.string(),
-  capacity: z.number().int().positive()
+  kind: z.enum(["numbered", "standing", "stage", "accessible"]),
+  capacity: z.number().int().nonnegative(),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  width: z.number().min(1).max(100),
+  height: z.number().min(1).max(100)
 });
 export type Zone = z.infer<typeof ZoneSchema>;
 
@@ -64,6 +69,7 @@ export const EventSchema = z.object({
   salesStartAt: z.string().nullable(),
   salesEndAt: z.string().nullable(),
   hasSubEvents: z.boolean(),
+  isCompetition: z.boolean(),
   createdAt: z.string(),
   publishedAt: z.string().nullable().optional()
 });
@@ -99,7 +105,7 @@ export const TicketTypeSchema = z.object({
   subEventId: z.string().nullable(),
   capacityPoolId: z.string().nullable().optional(),
   name: z.string(),
-  kind: z.enum(["paid", "free", "courtesy", "promo", "pass"]),
+  kind: z.enum(["pago", "gratis", "cortesia", "promocional", "abono"]),
   basePrice: z.number().int().nonnegative(),
   currency: z.string().length(3),
   quantityTotal: z.number().int().nonnegative().nullable(),
@@ -109,9 +115,26 @@ export const TicketTypeSchema = z.object({
   visibility: z.enum(["public", "hidden", "code_only"]),
   isTransferable: z.boolean(),
   isRefundable: z.boolean(),
-  sortOrder: z.number().int()
+  sortOrder: z.number().int(),
+  color: z.string().nullable()
 });
 export type TicketType = z.infer<typeof TicketTypeSchema>;
+
+export const DiscountCodeSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  code: z.string(),
+  type: z.enum(["percent", "fixed"]),
+  value: z.number().int().nonnegative(),
+  maxUses: z.number().int().positive().nullable(),
+  usedCount: z.number().int().nonnegative(),
+  maxUsesPerCustomer: z.number().int().positive().nullable(),
+  appliesTo: z.array(z.string()).nullable(),
+  validFrom: z.string().nullable(),
+  validTo: z.string().nullable(),
+  status: z.enum(["active", "inactive"])
+});
+export type DiscountCode = z.infer<typeof DiscountCodeSchema>;
 
 export const TicketTypePriceSchema = z.object({
   id: z.string(),

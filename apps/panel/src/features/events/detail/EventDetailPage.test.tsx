@@ -41,6 +41,15 @@ describe("EventDetailPage", () => {
     await waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(4));
   });
 
+  it("switches to the Códigos de descuento tab and shows its create form", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    renderDetail("event-2"); // seeded with the EARLYBIRD discount code
+    fireEvent.click(await screen.findByRole("button", { name: "Códigos de descuento" }));
+
+    expect(await screen.findByText("EARLYBIRD")).toBeInTheDocument();
+    expect(screen.getByLabelText("Código")).toBeInTheDocument();
+  });
+
   it("disables out-of-scope sections with an explanatory tooltip", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
     renderDetail("event-3");
