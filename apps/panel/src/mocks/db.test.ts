@@ -6,7 +6,7 @@ import {
   DEMO_SUPERADMIN_ID,
   DEMO_USER_ID
 } from "./db";
-import { EventSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
+import { EventSchema, OrderItemSchema, OrderSchema, RefundSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
 import { resolveEffectivePermissions } from "@/shared/auth/permissions";
 
 describe("createSeedDatabase", () => {
@@ -73,5 +73,46 @@ describe("createSeedDatabase", () => {
     const subuserEffective = resolveEffectivePermissions(subuser.role, subuser.permissionOverrides);
     expect(subuserEffective.has("guestlist:manage")).toBe(true); // granted via an allow override in seed
     expect(subuserEffective.has("finance:read")).toBe(false);
+  });
+
+  it("seeds 10 schema-valid orders with schema-valid line items, and keeps sold counts consistent with paid quantities", () => {
+    const db = createSeedDatabase();
+    expect(db.orders).toHaveLength(10);
+    for (const order of db.orders) expect(() => OrderSchema.parse(order)).not.toThrow();
+    for (const item of db.orderItems) expect(() => OrderItemSchema.parse(item)).not.toThrow();
+
+    const tt1 = db.ticketTypes.find((tt) => tt.id === "tt-1")!;
+    expect(tt1.quantitySold).toBe(5);
+    const pool1 = db.capacityPools.find((p) => p.id === "pool-1")!;
+    expect(pool1.soldCount).toBe(5);
+
+    const ttPista = db.ticketTypes.find((tt) => tt.id === "tt-2-pista")!;
+    expect(ttPista.quantitySold).toBe(6);
+    const ttGrada = db.ticketTypes.find((tt) => tt.id === "tt-2-grada")!;
+    expect(ttGrada.quantitySold).toBe(2);
+
+    const ttPass = db.ticketTypes.find((tt) => tt.id === "tt-4-pass")!;
+    expect(ttPass.quantitySold).toBe(5);
+
+    const order5Items = db.orderItems.filter((item) => item.orderId === "order-5");
+    expect(order5Items).toHaveLength(2);
+    expect(order5Items.reduce((sum, item) => sum + item.subtotal, 0)).toBe(22000);
+  });
+
+  it("seeds 2 refunds consistent with the 2 orders that already carry a refundedAmount", () => {
+    const db = createSeedDatabase();
+    expect(db.refunds).toHaveLength(2);
+    for (const refund of db.refunds) expect(() => RefundSchema.parse(refund)).not.toThrow();
+
+    const order4 = db.orders.find((o) => o.id === "order-4")!;
+    expect(order4.refundedAmount).toBe(5000);
+    const refundsForOrder4 = db.refunds.filter((r) => r.orderId === "order-4");
+    expect(refundsForOrder4.reduce((sum, r) => sum + r.amount, 0)).toBe(order4.refundedAmount);
+
+    const order10 = db.orders.find((o) => o.id === "order-10")!;
+    expect(order10.refundedAmount).toBe(9000);
+
+    const order1 = db.orders.find((o) => o.id === "order-1")!;
+    expect(order1.refundedAmount).toBe(0);
   });
 });

@@ -40,4 +40,69 @@ describe("AppRoutes", () => {
     renderApp(["/eventos"]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Eventos" })).toBeInTheDocument());
   });
+
+  it("shows the team list to an authenticated admin", async () => {
+    useSessionStore.setState({
+      status: "authenticated",
+      token: "t",
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      effectivePermissions: new Set(["users:manage"]),
+      eventScopes: []
+    });
+    renderApp(["/equipo"]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Equipo" })).toBeInTheDocument());
+  });
+
+  it("shows the orders list under Ventas to an authenticated admin", async () => {
+    useSessionStore.setState({
+      status: "authenticated",
+      token: "t",
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      effectivePermissions: new Set(["orders:read"]),
+      eventScopes: []
+    });
+    renderApp(["/ventas"]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Pedidos" })).toBeInTheDocument());
+  });
+
+  it("shows the refunds list under Ventas to an authenticated admin", async () => {
+    useSessionStore.setState({
+      status: "authenticated",
+      token: "t",
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      effectivePermissions: new Set(["orders:read"]),
+      eventScopes: []
+    });
+    renderApp(["/ventas/reembolsos"]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Reembolsos" })).toBeInTheDocument());
+  });
+
+  it("shows the taquilla page under Ventas to an authenticated admin", async () => {
+    useSessionStore.setState({
+      status: "authenticated",
+      token: "t",
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      effectivePermissions: new Set(["orders:read"]),
+      eventScopes: []
+    });
+    renderApp(["/ventas/taquilla"]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Taquilla" })).toBeInTheDocument());
+  });
+
+  it("shows the attendees list under Ventas to an authenticated admin", async () => {
+    useSessionStore.setState({
+      status: "authenticated",
+      token: "t",
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      effectivePermissions: new Set(["orders:read"]),
+      eventScopes: []
+    });
+    renderApp(["/ventas/asistentes"]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Asistentes" })).toBeInTheDocument());
+  });
+
+  it("opens an invitation link without an authenticated session", async () => {
+    renderApp(["/invitacion/unknown"]);
+    await waitFor(() => expect(screen.getByText("Invitación no disponible")).toBeInTheDocument());
+  });
 });

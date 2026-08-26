@@ -28,6 +28,7 @@ interface SessionState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   restore: () => Promise<void>;
+  setSession: (session: SessionResponse) => void;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -37,16 +38,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   eventScopes: [],
   status: "idle",
 
+  setSession(session) {
+    localStorage.setItem(TOKEN_STORAGE_KEY, session.accessToken!);
+    set({ token: session.accessToken!, user: session.user, effectivePermissions: new Set(session.effectivePermissions), eventScopes: session.eventScopes, status: "authenticated" });
+  },
+
   async login(email, password) {
     const result = await apiClient.post<SessionResponse>("/auth/login", { email, password });
-    localStorage.setItem(TOKEN_STORAGE_KEY, result.accessToken!);
-    set({
-      token: result.accessToken!,
-      user: result.user,
-      effectivePermissions: new Set(result.effectivePermissions),
-      eventScopes: result.eventScopes,
-      status: "authenticated"
-    });
+    get().setSession(result);
   },
 
   async logout() {

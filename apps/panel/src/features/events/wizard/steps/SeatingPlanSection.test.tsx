@@ -61,13 +61,16 @@ describe("SeatingPlanSection", () => {
 
   it("deletes a zone without sales", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
-    renderSection("event-2");
-    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+    renderSection("event-1"); // venue-2 (Teatro Circo), zero zones seeded -> a freshly-added zone has no sales
+    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
+    await screen.findByRole("button", { name: "Nueva zona numerada" });
+    const zone = db.zones.find((z) => z.name === "Nueva zona numerada")!;
 
     fireEvent.click(screen.getByRole("button", { name: "Eliminar esta zona" }));
 
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Grada" })).not.toBeInTheDocument());
-    expect(db.zones.some((z) => z.id === "zone-grada")).toBe(false);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Nueva zona numerada" })).not.toBeInTheDocument());
+    expect(db.zones.some((z) => z.id === zone.id)).toBe(false);
   });
 
   it("assigns a ticket type to a zone", async () => {

@@ -25,7 +25,7 @@ export const authHandlers = [
   http.post("http://localhost:4000/api/v1/auth/login", async ({ request }) => {
     const body = (await request.json()) as { email: string; password: string };
     const user = db.users.find((u) => u.email === body.email);
-    if (!user || body.password !== DEMO_PASSWORD) {
+    if (!user || user.status === "disabled" || body.password !== DEMO_PASSWORD) {
       return HttpResponse.json(
         { error: { code: "UNAUTHENTICATED", message: "Credenciales inválidas", requestId: "req_login" } },
         { status: 401 }
