@@ -22,9 +22,20 @@ interface StepActions {
   goNext: () => void;
 }
 
-// Tasks 18-22 each add one `case N:` here, rendering their step component
-// with `eventId`, `actions.onSaved`, and `actions.goNext`.
+// Steps 2-5 all operate on an existing event (sub-events, capacity pools, ticket
+// types and the publish checklist are fetched/created by eventId). Reaching one
+// of them before step 1 has actually been saved — e.g. via the stepper tabs —
+// used to render a form that looked interactive but silently failed on submit
+// (no eventId to attach anything to). Guard those steps instead of rendering them.
 function renderStep(step: number, eventId: string | null, actions: StepActions): ReactElement {
+  if (step > 1 && !eventId) {
+    return (
+      <p role="alert">
+        Primero guarda los datos básicos del evento (paso 1) para poder continuar.
+      </p>
+    );
+  }
+
   switch (step) {
     case 1:
       return <Step1BasicInfo eventId={eventId} onSaved={actions.onSaved} goNext={actions.goNext} />;
@@ -99,7 +110,12 @@ export function EventWizardPage() {
         <Button type="button" variant="outline" onClick={back} disabled={currentStep === 1}>
           Anterior
         </Button>
-        <Button type="button" variant="outline" onClick={next} disabled={currentStep === 5}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={next}
+          disabled={currentStep === 5 || (currentStep === 1 && !eventId)}
+        >
           Siguiente
         </Button>
       </div>

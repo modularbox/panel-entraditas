@@ -5,7 +5,7 @@ export const PERMISSIONS = [
   "events:read", "events:create", "events:update", "events:delete", "events:publish",
   "subevents:read", "subevents:create", "subevents:update", "subevents:delete", "capacity:update",
   "tickettypes:read", "tickettypes:create", "tickettypes:update", "tickettypes:delete",
-  "orders:read", "orders:refund", "orders:export", "guestlist:read", "guestlist:manage",
+  "orders:read", "orders:create", "orders:refund", "orders:export", "guestlist:read", "guestlist:manage",
   "scan:validate", "scan:reverse", "reports:read", "reports:export", "finance:read", "finance:settle",
   "users:read", "users:manage", "roles:manage", "audit:read", "settings:manage"
 ] as const;
@@ -63,6 +63,7 @@ export const CAPABILITIES: Capability[] = [
   { key: "manage_pricing_capacity", label: "Poner precios y aforos", permissions: ["tickettypes:create", "tickettypes:update", "capacity:update"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },
   { key: "view_orders", label: "Ver pedidos y compradores", permissions: ["orders:read"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },
   { key: "refund_orders", label: "Devolver dinero", permissions: ["orders:refund"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "configurable", subuser: "fixed_no" } },
+  { key: "sell_tickets", label: "Vender entradas en taquilla", permissions: ["orders:create"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "configurable", subuser: "configurable" } },
   { key: "scan_tickets", label: "Escanear entradas en la puerta", permissions: ["scan:validate"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "fixed_yes" } },
   { key: "manage_guestlist", label: "Gestionar invitados y cortesías", permissions: ["guestlist:read", "guestlist:manage"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "fixed_yes" } },
   { key: "view_reports", label: "Ver informes y estadísticas", permissions: ["reports:read"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },

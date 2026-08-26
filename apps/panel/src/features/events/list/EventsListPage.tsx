@@ -6,6 +6,18 @@ import { Can } from "@/shared/auth/Can";
 import { Button } from "@/shared/ui/button";
 import { useEventsQuery } from "./useEventsQuery";
 
+const STATUS_LABEL: Record<Event["status"], string> = {
+  draft: "Borrador",
+  published: "Publicado",
+  on_sale: "A la venta",
+  sold_out: "Agotado",
+  paused: "Pausado",
+  finished: "Finalizado",
+  cancelled: "Cancelado"
+};
+
+const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
+
 const columnHelper = createColumnHelper<Event>();
 const columns = [
   columnHelper.accessor("title", {
@@ -16,8 +28,21 @@ const columns = [
       </Link>
     )
   }),
-  columnHelper.accessor("status", { header: "Estado" }),
-  columnHelper.accessor("startsAt", { header: "Fecha" })
+  columnHelper.accessor("status", {
+    header: "Estado",
+    cell: (info) => {
+      const status = info.getValue();
+      return (
+        <span className="inline-block rounded-pill border-2 border-foreground bg-surface-alt px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide">
+          {STATUS_LABEL[status]}
+        </span>
+      );
+    }
+  }),
+  columnHelper.accessor("startsAt", {
+    header: "Fecha",
+    cell: (info) => dateFormatter.format(new Date(info.getValue()))
+  })
 ];
 
 export function EventsListPage() {

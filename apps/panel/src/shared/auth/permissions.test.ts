@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPermission, resolveEffectivePermissions, ROLE_BASE_PERMISSIONS } from "./permissions";
+import { CAPABILITIES, hasPermission, resolveEffectivePermissions, ROLE_BASE_PERMISSIONS } from "./permissions";
 
 describe("resolveEffectivePermissions", () => {
   it("returns exactly the role's base permissions with no overrides", () => {
@@ -55,5 +55,21 @@ describe("hasPermission", () => {
     expect(
       hasPermission(effective, "events:read", { eventId: "evt-1", eventScopes: ["evt-1", "evt-2"] })
     ).toBe(true);
+  });
+});
+
+describe("sell_tickets capability", () => {
+  it("is fixed for admin/superadmin and configurable for user/subuser", () => {
+    const sellTickets = CAPABILITIES.find((c) => c.key === "sell_tickets")!;
+    expect(sellTickets.accessByRole.superadmin).toBe("fixed_yes");
+    expect(sellTickets.accessByRole.admin).toBe("fixed_yes");
+    expect(sellTickets.accessByRole.user).toBe("configurable");
+    expect(sellTickets.accessByRole.subuser).toBe("configurable");
+  });
+
+  it("admin and superadmin have orders:create in their base permissions, user does not", () => {
+    expect(ROLE_BASE_PERMISSIONS.admin.includes("orders:create")).toBe(true);
+    expect(ROLE_BASE_PERMISSIONS.superadmin.includes("orders:create")).toBe(true);
+    expect((ROLE_BASE_PERMISSIONS.user as readonly string[]).includes("orders:create")).toBe(false);
   });
 });

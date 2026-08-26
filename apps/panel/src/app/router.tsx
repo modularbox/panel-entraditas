@@ -6,6 +6,13 @@ import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { EventDetailPage } from "@/features/events/detail/EventDetailPage";
 import { EventsListPage } from "@/features/events/list/EventsListPage";
 import { EventWizardPage } from "@/features/events/wizard/EventWizardPage";
+import { AttendeeDetailPage } from "@/features/sales/attendees/detail/AttendeeDetailPage";
+import { AttendeesListPage } from "@/features/sales/attendees/list/AttendeesListPage";
+import { OrderDetailPage } from "@/features/sales/orders/detail/OrderDetailPage";
+import { OrdersListPage } from "@/features/sales/orders/list/OrdersListPage";
+import { RefundsListPage } from "@/features/sales/refunds/list/RefundsListPage";
+import { TaquillaPage } from "@/features/sales/taquilla/TaquillaPage";
+import { VentasLayout } from "@/features/sales/VentasLayout";
 import { TeamMemberFormPage } from "@/features/team/form/TeamMemberFormPage";
 import { TeamListPage } from "@/features/team/list/TeamListPage";
 import { PlaceholderPage } from "@/features/placeholder/PlaceholderPage";
@@ -15,7 +22,7 @@ import { AuthLayout } from "./layouts/AuthLayout";
 import { PanelLayout } from "./layouts/PanelLayout";
 import { NAV_ITEMS } from "./navItems";
 
-const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard"]);
+const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas"]);
 
 export function AppRoutes() {
   const status = useSessionStore((s) => s.status);
@@ -71,6 +78,17 @@ export function AppRoutes() {
           <Route path="/equipo" element={<TeamListPage />} />
           <Route path="/equipo/invitar" element={<TeamMemberFormPage />} />
           <Route path="/equipo/:id/editar" element={<TeamMemberFormPage />} />
+        </Route>
+        <Route element={<RequirePermission permission="orders:read" />}>
+          <Route path="/ventas" element={<VentasLayout />}>
+            <Route index element={<Navigate to="pedidos" replace />} />
+            <Route path="pedidos" element={<OrdersListPage />} />
+            <Route path="pedidos/:id" element={<OrderDetailPage />} />
+            <Route path="reembolsos" element={<RefundsListPage />} />
+            <Route path="taquilla" element={<TaquillaPage />} />
+            <Route path="asistentes" element={<AttendeesListPage />} />
+            <Route path="asistentes/:email" element={<AttendeeDetailPage />} />
+          </Route>
         </Route>
         <Route path="/sin-acceso" element={<div>No tienes acceso a esta sección.</div>} />
         <Route path="/" element={<Navigate to="/eventos" replace />} />

@@ -22,5 +22,19 @@ export interface DashboardOverview {
   channels: { label: string; value: number; color: string }[];
   geoHeat: { label: string; value: number }[];
   funnel: { label: string; value: number }[];
+  eventMetrics: {
+    id: string;
+    title: string;
+    status: string;
+    startsAt: string;
+    grossRevenue: number;
+    netRevenue: number;
+    ticketsSold: number;
+    averageTicket: number;
+    occupancy: number;
+    conversion: number;
+    attendance: number;
+    refunds: number;
+  }[];
   lastUpdated: string;
 }

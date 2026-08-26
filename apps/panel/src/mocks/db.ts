@@ -1,5 +1,5 @@
 import type {
-  CapacityPool, Event, Invitation, Organization, SubEvent, TicketType, TicketTypePrice, User, Venue, Zone
+  CapacityPool, Event, Invitation, Order, OrderItem, Organization, Refund, SubEvent, TicketType, TicketTypePrice, User, Venue, Zone
 } from "@entraditas/types";
 
 export interface Database {
@@ -13,6 +13,9 @@ export interface Database {
   ticketTypes: TicketType[];
   ticketTypePrices: TicketTypePrice[];
   invitations: Invitation[];
+  orders: Order[];
+  orderItems: OrderItem[];
+  refunds: Refund[];
 }
 
 export const DEMO_SUPERADMIN_ID = "user-superadmin";
@@ -45,11 +48,11 @@ export function createSeedDatabase(): Database {
   };
   const event1Pool: CapacityPool = {
     id: "pool-1", subEventId: event1SubEvent.id, zoneId: null, name: "Aforo general",
-    totalCapacity: 400, soldCount: 0, heldCount: 0
+    totalCapacity: 400, soldCount: 5, heldCount: 0
   };
   const event1TicketType: TicketType = {
     id: "tt-1", groupId: "tt-1", eventId: event1.id, subEventId: event1SubEvent.id, capacityPoolId: event1Pool.id,
-    name: "General", kind: "paid", basePrice: 2500, currency: "EUR", quantityTotal: 400, quantitySold: 0,
+    name: "General", kind: "paid", basePrice: 2500, currency: "EUR", quantityTotal: 400, quantitySold: 5,
     minPerOrder: 1, maxPerOrder: 6, visibility: "public", isTransferable: true, isRefundable: true, sortOrder: 0
   };
 
@@ -67,20 +70,20 @@ export function createSeedDatabase(): Database {
   };
   const event2PoolPista: CapacityPool = {
     id: "pool-2-pista", subEventId: event2SubEvent.id, zoneId: zonePista.id, name: "Pista",
-    totalCapacity: 800, soldCount: 0, heldCount: 0
+    totalCapacity: 800, soldCount: 6, heldCount: 0
   };
   const event2PoolGrada: CapacityPool = {
     id: "pool-2-grada", subEventId: event2SubEvent.id, zoneId: zoneGrada.id, name: "Grada",
-    totalCapacity: 400, soldCount: 0, heldCount: 0
+    totalCapacity: 400, soldCount: 2, heldCount: 0
   };
   const event2TicketTypePista: TicketType = {
     id: "tt-2-pista", groupId: "tt-2-pista", eventId: event2.id, subEventId: event2SubEvent.id, capacityPoolId: event2PoolPista.id,
-    name: "Pista", kind: "paid", basePrice: 3000, currency: "EUR", quantityTotal: 800, quantitySold: 0,
+    name: "Pista", kind: "paid", basePrice: 3000, currency: "EUR", quantityTotal: 800, quantitySold: 6,
     minPerOrder: 1, maxPerOrder: 6, visibility: "public", isTransferable: true, isRefundable: true, sortOrder: 0
   };
   const event2TicketTypeGrada: TicketType = {
     id: "tt-2-grada", groupId: "tt-2-grada", eventId: event2.id, subEventId: event2SubEvent.id, capacityPoolId: event2PoolGrada.id,
-    name: "Grada VIP", kind: "paid", basePrice: 5000, currency: "EUR", quantityTotal: 400, quantitySold: 0,
+    name: "Grada VIP", kind: "paid", basePrice: 5000, currency: "EUR", quantityTotal: 400, quantitySold: 2,
     minPerOrder: 1, maxPerOrder: 4, visibility: "public", isTransferable: true, isRefundable: true, sortOrder: 1
   };
 
@@ -132,7 +135,7 @@ export function createSeedDatabase(): Database {
   }));
   const event4PassTicketType: TicketType = {
     id: "tt-4-pass", groupId: "tt-4-pass", eventId: event4.id, subEventId: null, capacityPoolId: null,
-    name: "Abono 3 días", kind: "pass", basePrice: 9000, currency: "EUR", quantityTotal: 1500, quantitySold: 0,
+    name: "Abono 3 días", kind: "pass", basePrice: 9000, currency: "EUR", quantityTotal: 1500, quantitySold: 5,
     minPerOrder: 1, maxPerOrder: 4, visibility: "public", isTransferable: true, isRefundable: false, sortOrder: 0
   };
 
@@ -172,6 +175,38 @@ export function createSeedDatabase(): Database {
     }
   ];
 
+  const orders: Order[] = [
+    { id: "order-1", orderNumber: "PED-2026-0001", eventId: event1.id, organizationId: org1.id, customerName: "Marta Ruiz", customerEmail: "marta.ruiz@example.com", status: "paid", total: 5000, refundedAmount: 0, currency: "EUR", channel: "web", createdAt: "2026-08-05T10:00:00.000Z" },
+    { id: "order-2", orderNumber: "PED-2026-0002", eventId: event1.id, organizationId: org1.id, customerName: "Javier Soto", customerEmail: "javier.soto@example.com", status: "paid", total: 7500, refundedAmount: 0, currency: "EUR", channel: "panel", createdAt: "2026-08-07T11:30:00.000Z" },
+    { id: "order-3", orderNumber: "PED-2026-0003", eventId: event1.id, organizationId: org1.id, customerName: "Lucía Fernández", customerEmail: "lucia.fernandez@example.com", status: "pending", total: 2500, refundedAmount: 0, currency: "EUR", channel: "web", createdAt: "2026-08-10T09:15:00.000Z" },
+    { id: "order-4", orderNumber: "PED-2026-0004", eventId: event1.id, organizationId: org1.id, customerName: "Diego Molina", customerEmail: "diego.molina@example.com", status: "refunded", total: 5000, refundedAmount: 5000, currency: "EUR", channel: "web", createdAt: "2026-08-02T16:45:00.000Z" },
+    { id: "order-5", orderNumber: "PED-2026-0005", eventId: event2.id, organizationId: org1.id, customerName: "Sara Gómez", customerEmail: "sara.gomez@example.com", status: "paid", total: 22000, refundedAmount: 0, currency: "EUR", channel: "web", createdAt: "2026-08-11T18:20:00.000Z" },
+    { id: "order-6", orderNumber: "PED-2026-0006", eventId: event2.id, organizationId: org1.id, customerName: "Pablo Ibáñez", customerEmail: "pablo.ibanez@example.com", status: "paid", total: 6000, refundedAmount: 0, currency: "EUR", channel: "box_office", createdAt: "2026-08-12T20:05:00.000Z" },
+    { id: "order-7", orderNumber: "PED-2026-0007", eventId: event2.id, organizationId: org1.id, customerName: "Elena Castro", customerEmail: "elena.castro@example.com", status: "cancelled", total: 5000, refundedAmount: 0, currency: "EUR", channel: "web", createdAt: "2026-08-06T13:10:00.000Z" },
+    { id: "order-8", orderNumber: "PED-2026-0008", eventId: event4.id, organizationId: org2.id, customerName: "Nuria Vidal", customerEmail: "nuria.vidal@example.com", status: "paid", total: 18000, refundedAmount: 0, currency: "EUR", channel: "box_office", createdAt: "2026-07-10T12:00:00.000Z" },
+    { id: "order-9", orderNumber: "PED-2026-0009", eventId: event4.id, organizationId: org2.id, customerName: "Prensa Sur", customerEmail: "prensa@surlive.example", status: "paid", total: 0, refundedAmount: 0, currency: "EUR", channel: "courtesy", createdAt: "2026-07-08T09:00:00.000Z" },
+    { id: "order-10", orderNumber: "PED-2026-0010", eventId: event4.id, organizationId: org2.id, customerName: "Hugo Serrano", customerEmail: "hugo.serrano@example.com", status: "partially_refunded", total: 18000, refundedAmount: 9000, currency: "EUR", channel: "web", createdAt: "2026-07-05T17:30:00.000Z" }
+  ];
+
+  const orderItems: OrderItem[] = [
+    { id: "oi-1", orderId: "order-1", ticketTypeId: event1TicketType.id, ticketTypeName: event1TicketType.name, quantity: 2, unitPrice: 2500, subtotal: 5000 },
+    { id: "oi-2", orderId: "order-2", ticketTypeId: event1TicketType.id, ticketTypeName: event1TicketType.name, quantity: 3, unitPrice: 2500, subtotal: 7500 },
+    { id: "oi-3", orderId: "order-3", ticketTypeId: event1TicketType.id, ticketTypeName: event1TicketType.name, quantity: 1, unitPrice: 2500, subtotal: 2500 },
+    { id: "oi-4", orderId: "order-4", ticketTypeId: event1TicketType.id, ticketTypeName: event1TicketType.name, quantity: 2, unitPrice: 2500, subtotal: 5000 },
+    { id: "oi-5", orderId: "order-5", ticketTypeId: event2TicketTypePista.id, ticketTypeName: event2TicketTypePista.name, quantity: 4, unitPrice: 3000, subtotal: 12000 },
+    { id: "oi-6", orderId: "order-5", ticketTypeId: event2TicketTypeGrada.id, ticketTypeName: event2TicketTypeGrada.name, quantity: 2, unitPrice: 5000, subtotal: 10000 },
+    { id: "oi-7", orderId: "order-6", ticketTypeId: event2TicketTypePista.id, ticketTypeName: event2TicketTypePista.name, quantity: 2, unitPrice: 3000, subtotal: 6000 },
+    { id: "oi-8", orderId: "order-7", ticketTypeId: event2TicketTypeGrada.id, ticketTypeName: event2TicketTypeGrada.name, quantity: 1, unitPrice: 5000, subtotal: 5000 },
+    { id: "oi-9", orderId: "order-8", ticketTypeId: event4PassTicketType.id, ticketTypeName: event4PassTicketType.name, quantity: 2, unitPrice: 9000, subtotal: 18000 },
+    { id: "oi-10", orderId: "order-9", ticketTypeId: event4PassTicketType.id, ticketTypeName: event4PassTicketType.name, quantity: 1, unitPrice: 0, subtotal: 0 },
+    { id: "oi-11", orderId: "order-10", ticketTypeId: event4PassTicketType.id, ticketTypeName: event4PassTicketType.name, quantity: 2, unitPrice: 9000, subtotal: 18000 }
+  ];
+
+  const refunds: Refund[] = [
+    { id: "refund-1", orderId: "order-4", orderNumber: "PED-2026-0004", customerName: "Diego Molina", amount: 5000, reason: "Cliente no pudo asistir al evento.", status: "processed", createdAt: "2026-08-03T09:00:00.000Z" },
+    { id: "refund-2", orderId: "order-10", orderNumber: "PED-2026-0010", customerName: "Hugo Serrano", amount: 9000, reason: "Devolución parcial: 1 entrada no utilizada.", status: "processed", createdAt: "2026-07-06T10:00:00.000Z" }
+  ];
+
   return {
     organizations: [org1, org2],
     users,
@@ -182,6 +217,9 @@ export function createSeedDatabase(): Database {
     capacityPools: [event1Pool, event2PoolPista, event2PoolGrada],
     ticketTypes: [event1TicketType, event2TicketTypePista, event2TicketTypeGrada, event3TicketType, event4PassTicketType],
     ticketTypePrices: [],
-    invitations: []
+    invitations: [],
+    orders,
+    orderItems,
+    refunds
   };
 }

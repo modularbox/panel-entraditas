@@ -136,6 +136,34 @@ export const TicketTypePriceSchema = z.object({
 });
 export type TicketTypePrice = z.infer<typeof TicketTypePriceSchema>;
 
+export const OrderSchema = z.object({
+  id: z.string(), orderNumber: z.string(), eventId: z.string(), organizationId: z.string(), customerName: z.string(), customerEmail: z.string().email(),
+  status: z.enum(["pending", "reserved", "paid", "cancelled", "expired", "refunded", "partially_refunded"]),
+  total: z.number().int().nonnegative(), refundedAmount: z.number().int().nonnegative(), currency: z.string().length(3), channel: z.enum(["web", "panel", "box_office", "courtesy"]), createdAt: z.string()
+});
+export type Order = z.infer<typeof OrderSchema>;
+
+export const OrderItemSchema = z.object({
+  id: z.string(),
+  orderId: z.string(),
+  ticketTypeId: z.string(),
+  ticketTypeName: z.string(),
+  quantity: z.number().int().positive(),
+  unitPrice: z.number().int().nonnegative(),
+  subtotal: z.number().int().nonnegative()
+});
+export type OrderItem = z.infer<typeof OrderItemSchema>;
+
+export const RefundSchema = z.object({
+  id: z.string(), orderId: z.string(), orderNumber: z.string(), customerName: z.string(), amount: z.number().int().nonnegative(), reason: z.string(), status: z.enum(["requested", "processed", "rejected"]), createdAt: z.string()
+});
+export type Refund = z.infer<typeof RefundSchema>;
+
+export const CustomerSchema = z.object({
+  id: z.string(), name: z.string(), email: z.string().email(), ordersCount: z.number().int().nonnegative(), ticketsCount: z.number().int().nonnegative(), totalSpent: z.number().int().nonnegative(), lastPurchaseAt: z.string()
+});
+export type Customer = z.infer<typeof CustomerSchema>;
+
 export const ApiErrorSchema = z.object({
   error: z.object({
     code: z.string(),
