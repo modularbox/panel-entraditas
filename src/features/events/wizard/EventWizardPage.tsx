@@ -48,6 +48,7 @@ export function EventWizardPage() {
   const [tiposValid, setTiposValid] = useState(false);
 
   useEffect(() => {
+    // ":id/nuevo" route means "start a fresh draft"; any other id resumes an existing event
     if (params.id && params.id !== "nuevo") setEventId(params.id);
     else reset();
     setStepIndex(0);
@@ -56,10 +57,14 @@ export function EventWizardPage() {
   }, [params.id, setEventId, reset]);
 
   const steps = ALL_STEPS.filter((step) => {
+    // "subeventos" only applies to events flagged as having multiple functions
     if (step.key === "subeventos" && !event?.hasSubEvents) return false;
+    // steps after step 1 need a saved event id, so they're hidden until step 1 has been submitted
     if (step.needsEventId && !eventId) return false;
     return true;
   });
+  // steps can shrink (e.g. "subeventos" disappearing once hasSubEvents is known), so clamp
+  // stepIndex to avoid pointing past the end of the filtered list
   const activeIndex = Math.min(stepIndex, steps.length - 1);
   const activeStep = steps[activeIndex]!;
 
@@ -84,6 +89,8 @@ export function EventWizardPage() {
           </Button>
           <Button
             type="button"
+            // block advancing while the seating plan or ticket types step reports invalid data,
+            // so the wizard can't move on to steps that depend on them
             disabled={
               activeIndex >= steps.length - 1 ||
               (activeStep.key === "plano" && !planoValid) ||

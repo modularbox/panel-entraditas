@@ -22,7 +22,8 @@ const ZONE_KIND_NAMES: Record<Zone["kind"], string> = {
   numbered: "Nueva zona numerada",
   standing: "Nueva zona de pie",
   stage: "Escenario",
-  accessible: "Movilidad reducida"
+  accessible: "Movilidad reducida",
+  gate: "Puerta"
 };
 
 function useEventQuery(eventId: string | null) {
@@ -108,6 +109,8 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     setError(null);
     try {
       await apiClient.patch(`/zones/${id}`, patch, { token: token! });
+      // Zone capacity and its capacity pool's totalCapacity are two separate records
+      // that must be kept in lockstep whenever the zone's capacity changes.
       if (patch.capacity !== undefined) {
         const pool = pools.find((p) => p.zoneId === id);
         if (pool) {
@@ -143,6 +146,8 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         rows.map((t) => apiClient.patch(`/ticket-types/${t.id}`, { capacityPoolId: pool.id }, { token: token! }))
       );
       await queryClient.invalidateQueries({ queryKey: ["ticket-types", eventId] });
+      // Keep the zone capacity in sync with the sum of the linked ticket types' quantities,
+      // unless none of them have a defined quantity (sumDefinedQuantities returns null then).
       const matchingCapacity = sumDefinedQuantities(rows.map((t) => t.quantityTotal));
       if (matchingCapacity !== null) await updateZone(zoneId, { capacity: matchingCapacity });
     } catch (e) {

@@ -29,6 +29,7 @@ function useTicketTypesQuery(eventId: string | null) {
 }
 
 function formatValue(code: Pick<DiscountCode, "type" | "value">): string {
+  // Fixed amounts are stored in cents; percent values are stored as-is.
   return code.type === "percent" ? `${code.value}%` : `${(code.value / 100).toFixed(2)} €`;
 }
 
@@ -63,6 +64,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
           value: Number(valueInput),
           maxUses: maxUsesInput === "" ? null : Number(maxUsesInput),
           maxUsesPerCustomer: maxUsesPerCustomerInput === "" ? null : Number(maxUsesPerCustomerInput),
+          // appliesTo: null means the code applies to every ticket type group.
           appliesTo: appliesToMode === "all" ? null : selectedGroupIds,
           validFrom: validFrom === "" ? null : new Date(validFrom).toISOString(),
           validTo: validTo === "" ? null : new Date(validTo).toISOString()

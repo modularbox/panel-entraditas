@@ -23,6 +23,9 @@ export function ZoneCanvas({ zones, selectedZoneId, onSelectZone, onZoneCommitte
   const [liveLayouts, setLiveLayouts] = useState<Record<string, ZoneLayout>>({});
   const dragRef = useRef<DragState | null>(null);
 
+  // Zones are positioned in percent (of the container), matching the API's stored layout.
+  // While dragging/resizing we track an in-progress layout locally and only commit
+  // (persist) it on pointer up, falling back to the zone's saved layout otherwise.
   function layoutFor(zone: Zone): ZoneLayout {
     return liveLayouts[zone.id] ?? zone;
   }
@@ -39,6 +42,8 @@ export function ZoneCanvas({ zones, selectedZoneId, onSelectZone, onZoneCommitte
     if (!drag || !container) return;
     const rect = container.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
+    // Convert the pointer's raw pixel movement since drag start into a delta expressed
+    // as a percentage of the container size, since zone layout is stored in percent.
     const deltaXPercent = ((e.clientX - drag.startX) / rect.width) * 100;
     const deltaYPercent = ((e.clientY - drag.startY) / rect.height) * 100;
     const next: ZoneLayout =
@@ -87,6 +92,7 @@ export function ZoneCanvas({ zones, selectedZoneId, onSelectZone, onZoneCommitte
               zone.kind === "accessible" && "border-dashed border-success bg-success-bg text-success",
               zone.kind === "numbered" && "border-primary bg-primary text-primary-foreground",
               zone.kind === "standing" && "border-accent bg-accent text-accent-foreground",
+              zone.kind === "gate" && "border-foreground bg-foreground text-background",
               selected && "ring-2 ring-primary"
             )}
           >

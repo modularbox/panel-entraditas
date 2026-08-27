@@ -29,12 +29,14 @@ export function AppRoutes() {
   const restore = useSessionStore((s) => s.restore);
 
   useEffect(() => {
+    // Kick off session restoration once on mount; "idle" is the pre-restore state.
     if (status === "idle") void restore();
   }, [status, restore]);
 
   if (status === "idle") return <div>Cargando…</div>;
 
   if (status !== "authenticated") {
+    // Unauthenticated: only auth routes are reachable, everything else redirects to login.
     return (
       <Routes>
         <Route element={<AuthLayout />}>
@@ -49,10 +51,13 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AuthLayout />}>
+        {/* Already logged in: bounce away from login/invitation screens. */}
         <Route path="/login" element={<Navigate to="/eventos" replace />} />
         <Route path="/invitacion/:token" element={<Navigate to="/eventos" replace />} />
       </Route>
       <Route element={<PanelLayout />}>
+        {/* Nav items not yet implemented get an auto-generated placeholder route,
+            still gated by their declared permission. */}
         {NAV_ITEMS.filter((item) => !PLACEHOLDER_PATHS.has(item.path)).map((item) => (
           <Route key={item.path} element={<RequirePermission permission={item.permission} />}>
             <Route

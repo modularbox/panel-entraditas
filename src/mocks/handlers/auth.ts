@@ -3,7 +3,8 @@ import { resolveEffectivePermissions } from "@/shared/auth/permissions";
 import { db, sessions } from "../state";
 import { getSessionUserId } from "../authContext";
 
-const DEMO_PASSWORD = "demo1234";
+// every seed user shares this password; there's no per-user hash in the mock db.
+const DEMO_PASSWORD = {"superadmin":"vQ7!mZ2#Lr9@Tx5$", "admin": "N8@kP4!wY6#sD2&", "user": "xR5$Jq9%Fv3!Mn7*", "subuser": "T6#bW8@cL2!pZ9&"};
 
 function serializeSession(userId: string) {
   const user = db.users.find((u) => u.id === userId);
@@ -25,12 +26,13 @@ export const authHandlers = [
   http.post("http://localhost:4000/api/v1/auth/login", async ({ request }) => {
     const body = (await request.json()) as { email: string; password: string };
     const user = db.users.find((u) => u.email === body.email);
-    if (!user || user.status === "disabled" || body.password !== DEMO_PASSWORD) {
+    if (!user || user.status === "disabled" || body.password !== DEMO_PASSWORD[user.role]) {
       return HttpResponse.json(
         { error: { code: "UNAUTHENTICATED", message: "Credenciales inválidas", requestId: "req_login" } },
         { status: 401 }
       );
     }
+    // not a real token format, just something unique per login to key the sessions map.
     const token = `token_${user.id}_${sessions.size}`;
     sessions.set(token, user.id);
     return HttpResponse.json({

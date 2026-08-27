@@ -185,11 +185,13 @@ export function createSeedDatabase(): Database {
       permissionOverrides: [], eventScopes: []
     },
     {
+      // scoped to two events -> used to test that event-scoped users only see event1/event2, not event3-5.
       id: DEMO_USER_ID, organizationId: org1.id, parentUserId: DEMO_ADMIN_ID, role: "user",
       email: "usuario@entraditas.com", fullName: "Usuario con alcance limitado", status: "active",
       permissionOverrides: [], eventScopes: [event1.id, event2.id]
     },
     {
+      // door-staff role scoped to a single event, narrower than DEMO_USER_ID -> tests role+scope combined.
       id: DEMO_SUBUSER_ID, organizationId: org1.id, parentUserId: DEMO_ADMIN_ID, role: "subuser",
       email: "subusuario@entraditas.com", fullName: "Personal de puerta", status: "active",
       permissionOverrides: [],

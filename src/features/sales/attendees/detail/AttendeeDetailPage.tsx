@@ -34,7 +34,7 @@ export function AttendeeDetailPage() {
     queryKey: ["customer", email],
     queryFn: () => apiClient.get<AttendeeDetail>(`/customers/${encodeURIComponent(email!)}`, { token: token! }),
     enabled: Boolean(email && token),
-    retry: false
+    retry: false // a 404 here is a valid "not found" outcome, not a transient failure to retry
   });
 
   if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;

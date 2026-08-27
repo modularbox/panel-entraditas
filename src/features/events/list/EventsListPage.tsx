@@ -47,6 +47,7 @@ const columns = [
 
 export function EventsListPage() {
   const [status, setStatus] = useState("");
+  // "" means "Todos" — coerce to undefined so the query hook omits the status filter entirely.
   const { data: events = [], isLoading } = useEventsQuery(status || undefined);
   const table = useReactTable({ data: events, columns, getCoreRowModel: getCoreRowModel() });
 
@@ -71,6 +72,8 @@ export function EventsListPage() {
           onChange={(e) => setStatus(e.target.value)}
           className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm"
         >
+          {/* Only the most common statuses are filterable here; sold_out/paused/finished/cancelled
+              events still show up under "Todos". */}
           <option value="">Todos</option>
           <option value="draft">Borrador</option>
           <option value="published">Publicado</option>

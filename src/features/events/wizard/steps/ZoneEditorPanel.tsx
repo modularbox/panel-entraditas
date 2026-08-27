@@ -13,7 +13,8 @@ const ADD_BUTTONS: { kind: Zone["kind"]; label: string }[] = [
   { kind: "numbered", label: "+ Zona numerada" },
   { kind: "standing", label: "+ Zona de pie" },
   { kind: "stage", label: "+ Escenario/Pantalla" },
-  { kind: "accessible", label: "+ Zona accesible" }
+  { kind: "accessible", label: "+ Zona accesible" },
+  { kind: "gate", label: "+ Puerta" }
 ];
 
 export function ZoneEditorPanel({ zones, selectedZoneId, onAddZone, onUpdateZone, onDeleteZone }: ZoneEditorPanelProps) {
@@ -32,6 +33,9 @@ export function ZoneEditorPanel({ zones, selectedZoneId, onAddZone, onUpdateZone
 
       {selectedZone && (
         <fieldset
+          // Inputs below are uncontrolled (defaultValue + onBlur). Keying on the zone's
+          // values forces React to remount them when the selection or its data changes,
+          // so the fields reflect the newly selected zone instead of stale typed input.
           key={`${selectedZone.id}-${selectedZone.name}-${selectedZone.capacity}-${selectedZone.width}-${selectedZone.height}`}
           className="flex flex-col gap-2 border-t-2 border-border pt-3"
         >

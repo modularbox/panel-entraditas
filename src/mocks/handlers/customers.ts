@@ -6,6 +6,7 @@ import { db } from "../state";
 import { canAccessOrder } from "./orders";
 
 const BASE = "http://localhost:4000/api/v1";
+// Orders that count toward a customer's stats: only ones that actually resulted in a sale at some point.
 const QUALIFYING_STATUSES = new Set<Order["status"]>(["paid", "partially_refunded", "refunded"]);
 
 function unauthenticated(requestId: string) {
@@ -24,6 +25,8 @@ function requireUser(request: Request): User | null {
   return db.users.find((u) => u.id === userId) ?? null;
 }
 
+// There's no Customer table in the db — a "customer" is derived on the fly by grouping
+// this user's visible orders by email, so the email doubles as the customer's id.
 function buildCustomer(email: string, orders: Order[]): Customer {
   const qualifying = orders.filter((order) => QUALIFYING_STATUSES.has(order.status));
   if (qualifying.length === 0) {
@@ -35,6 +38,7 @@ function buildCustomer(email: string, orders: Order[]): Customer {
     (sum, order) => sum + db.orderItems.filter((item) => item.orderId === order.id).reduce((s, item) => s + item.quantity, 0),
     0
   );
+  // Net of refunds, not gross order totals.
   const totalSpent = qualifying.reduce((sum, order) => sum + (order.total - order.refundedAmount), 0);
   return {
     id: email,
@@ -62,6 +66,7 @@ export const customersHandlers = [
     const byEmail = new Map<string, Order[]>();
     for (const order of visibleOrders) byEmail.set(order.customerEmail, [...(byEmail.get(order.customerEmail) ?? []), order]);
 
+    // Drop emails whose orders were all non-qualifying (e.g. pending/cancelled only).
     let customers = [...byEmail.entries()]
       .map(([email, orders]) => buildCustomer(email, orders))
       .filter((customer) => customer.ordersCount > 0);

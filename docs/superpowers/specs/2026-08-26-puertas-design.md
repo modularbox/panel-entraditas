@@ -35,6 +35,8 @@ export const GateSchema = z.object({
   allowReentry: z.boolean(),
   maxScansPerTicket: z.number().int().positive(),
   allowedTicketTypeGroupIds: z.array(z.string()).nullable(),
+  opensAt: z.string().nullable(),
+  closesAt: z.string().nullable(),
   operatorUserIds: z.array(z.string()),
   isActive: z.boolean()
 });
@@ -44,12 +46,13 @@ export type Gate = z.infer<typeof GateSchema>;
 - `subEventId`: `null` = válida para todos los subeventos del evento (igual criterio que `TicketType.subEventId`).
 - `zoneId`: opcional; referencia a una `Zone` del recinto del evento (`Venue` → `Zone`, ya existente). `null` = sin zona asociada.
 - `allowedTicketTypeGroupIds`: array de `groupId` de tipos de entrada, o `null` = admite todos.
+- `opensAt` / `closesAt`: ventana horaria en la que la puerta admite escaneos (ISO datetime, mismo patrón que `salesStartAt`/`salesEndAt` de `Event` o `doorsOpenAt` de `SubEvent`). `null` en uno o ambos = sin restricción por ese lado. Como no hay subsistema de escaneo real (ver "No objetivos"), esta ventana es solo informativa/configurable en esta fase — no se valida contra nada en tiempo de ejecución.
 - `maxScansPerTicket`: entero positivo, por defecto `1` en el formulario de creación.
 - `operatorUserIds`: array de `id` de `User` con `role: "subuser"` de la misma organización que el evento; `[]` por defecto (nadie asignado todavía). A diferencia de `subEventId`/`allowedTicketTypeGroupIds`, aquí no hay un significado especial para "vacío" (no es "todos") — simplemente nadie asignado aún.
 
 ### `Database` (`apps/panel/src/mocks/db.ts`)
 
-Se añade `gates: Gate[]` a la interfaz `Database` y al seed: una puerta de ejemplo en `event-2` (Rock en Directo, venue con zonas `zone-pista`/`zone-grada` ya sembradas), p. ej. "Puerta Norte" con `zoneId: zonePista.id`, `direction: "in"`, `allowReentry: false`, `maxScansPerTicket: 1`, `allowedTicketTypeGroupIds: null`, `operatorUserIds: [DEMO_SUBUSER_ID]` (el único subusuario ya sembrado, `db.ts` — "Personal de puerta", organización `org1`, misma organización que `event-2`), `isActive: true`.
+Se añade `gates: Gate[]` a la interfaz `Database` y al seed: una puerta de ejemplo en `event-2` (Rock en Directo, venue con zonas `zone-pista`/`zone-grada` ya sembradas), p. ej. "Puerta Norte" con `zoneId: zonePista.id`, `direction: "in"`, `allowReentry: false`, `maxScansPerTicket: 1`, `allowedTicketTypeGroupIds: null`, `opensAt: null`, `closesAt: null`, `operatorUserIds: [DEMO_SUBUSER_ID]` (el único subusuario ya sembrado, `db.ts` — "Personal de puerta", organización `org1`, misma organización que `event-2`), `isActive: true`.
 
 ## Endpoints del mock (nuevo `apps/panel/src/mocks/handlers/gates.ts`)
 
@@ -64,8 +67,8 @@ Se registra en `apps/panel/src/mocks/handlers/index.ts` junto al resto (`...gate
 ## Componentes
 
 - **`GatesSection.tsx`** (nuevo, `apps/panel/src/features/events/wizard/steps/`, mismo directorio que `DiscountCodesSection`/`SeatingPlanSection` ya que se reutiliza también desde `EventDetailPage`): recibe `eventId: string | null`. Si `eventId` es `null`, placeholder "Guarda la información del evento...". Obtiene `venueId` del evento (para `useZonesQuery`), `subEvents` (vía `useSubEventsQuery`, ya existente), `ticketTypes`/`groupTicketTypes` (igual que `DiscountCodesSection`) y el equipo de subusuarios (vía `GET /events/:eventId/team`) para los selectores.
-  - Lista de puertas existentes: nombre + código, subevento ("Todos" o el nombre del subevento), zona ("Sin zona" o su nombre), dirección (Entrada/Salida/Ambas), reentrada (Sí/No), tipos admitidos ("Todos" o los nombres seleccionados), operadores asignados (nombres, o "Sin operadores asignados"), botón Activar/Desactivar según `isActive`, botón Eliminar.
-  - Formulario "Nueva puerta": Nombre (obligatorio), Código (obligatorio), Subevento aplicable (radio "Todos los subeventos" / "Subevento concreto" + `<select>` cuando hay subeventos; si el evento no tiene subeventos, se omite el selector y siempre es `null`), Zona (`<select>` con "Sin zona" + las zonas del recinto, opcional), Dirección (radio Entrada/Salida/Ambas, por defecto Entrada), Permite reentrada (checkbox), Escaneos máximos por ticket (número, por defecto `1`), Tipos de entrada admitidos (radio "Todos los tipos de entrada" / "Tipos concretos" + checkboxes por grupo, mismo patrón que `DiscountCodesSection`), Operadores (checkboxes con los subusuarios de la organización devueltos por `GET /events/:eventId/team`; si no hay ninguno, se muestra "No hay subusuarios en esta organización" en vez de la lista).
+  - Lista de puertas existentes: nombre + código, subevento ("Todos" o el nombre del subevento), zona ("Sin zona" o su nombre), dirección (Entrada/Salida/Ambas), reentrada (Sí/No), tipos admitidos ("Todos" o los nombres seleccionados), ventana horaria ("Sin restricción horaria", o "Desde hh:mm"/"Hasta hh:mm"/"hh:mm–hh:mm" según qué extremos tenga definidos, formateados con `Intl.DateTimeFormat`), operadores asignados (nombres, o "Sin operadores asignados"), botón Activar/Desactivar según `isActive`, botón Eliminar.
+  - Formulario "Nueva puerta": Nombre (obligatorio), Código (obligatorio), Subevento aplicable (radio "Todos los subeventos" / "Subevento concreto" + `<select>` cuando hay subeventos; si el evento no tiene subeventos, se omite el selector y siempre es `null`), Zona (`<select>` con "Sin zona" + las zonas del recinto, opcional), Dirección (radio Entrada/Salida/Ambas, por defecto Entrada), Permite reentrada (checkbox), Escaneos máximos por ticket (número, por defecto `1`), Tipos de entrada admitidos (radio "Todos los tipos de entrada" / "Tipos concretos" + checkboxes por grupo, mismo patrón que `DiscountCodesSection`), Ventana horaria de apertura (dos `<input type="datetime-local">` opcionales, "Abre" y "Cierra"; vacío = `null`, mismo patrón de conversión a ISO que `validFrom`/`validTo` de `DiscountCodesSection`), Operadores (checkboxes con los subusuarios de la organización devueltos por `GET /events/:eventId/team`; si no hay ninguno, se muestra "No hay subusuarios en esta organización" en vez de la lista).
   - Botón "Crear puerta" deshabilitado hasta que Nombre y Código estén rellenos.
   - Cada puerta de la lista también tiene su propio bloque de operadores editable in situ: checkboxes (mismo listado de subusuarios) que al cambiar llaman a `PATCH /gates/:id` con `{ operatorUserIds }` — no hace falta entrar en un modo "editar" aparte, igual que el botón Activar/Desactivar actúa directamente sobre la fila.
 
@@ -77,7 +80,7 @@ Se registra en `apps/panel/src/mocks/handlers/index.ts` junto al resto (`...gate
 
 ## Testing
 
-- `schemas.test.ts` — `GateSchema`: acepta una puerta válida, rechaza `direction` desconocida, acepta `subEventId`/`zoneId`/`allowedTicketTypeGroupIds` como `null`, acepta `operatorUserIds` como array vacío.
+- `schemas.test.ts` — `GateSchema`: acepta una puerta válida, rechaza `direction` desconocida, acepta `subEventId`/`zoneId`/`allowedTicketTypeGroupIds`/`opensAt`/`closesAt` como `null`, acepta `operatorUserIds` como array vacío.
 - `gates.test.ts` (handler) — crear, listar, rechazar código duplicado (case-insensitive) dentro del mismo evento, `PATCH` para cambiar `isActive`, `PATCH` para cambiar `operatorUserIds`, `DELETE`, `GET /events/:eventId/team` devuelve solo los `subuser` de la organización del evento.
 - `GatesSection.test.tsx` — placeholder sin `eventId`; lista puertas ya sembradas (incluido su operador ya asignado); crea una nueva con "Todos los subeventos"/"Todos los tipos de entrada" sin operadores; crea una con subevento y tipos de entrada concretos; botón deshabilitado con campos obligatorios vacíos; asigna un operador a una puerta existente desde la lista; activar/desactivar una puerta existente; eliminar una.
 - `EventDetailPage.test.tsx` — se añade un caso que cambia a la pestaña "Puertas" y comprueba que el formulario de creación se renderiza (ya no está en `DISABLED_TABS`). El test existente `"disables out-of-scope sections with an explanatory tooltip"` apunta hoy al botón `"Puertas"` para comprobar que está deshabilitado — como esta spec lo mueve a `ENABLED_TABS`, ese test se actualiza para apuntar a `"Invitados"` en su lugar (sigue deshabilitado).

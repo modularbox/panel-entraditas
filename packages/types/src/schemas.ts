@@ -15,20 +15,20 @@ export const OrganizationSchema = z.object({
   id: z.string(),
   name: z.string(),
   slug: z.string(),
-  commissionRate: z.number().min(0).max(1)
+  commissionRate: z.number().min(0).max(1) // fraction, not a percentage (0.08 = 8%)
 });
 export type Organization = z.infer<typeof OrganizationSchema>;
 
 export const UserSchema = z.object({
   id: z.string(),
-  organizationId: z.string().nullable(),
-  parentUserId: z.string().nullable(),
+  organizationId: z.string().nullable(), // null for superadmin, who isn't scoped to one organization
+  parentUserId: z.string().nullable(), // set for users/subusers created by an admin; null for top-level accounts
   role: RoleSlugSchema,
   email: z.string().email(),
   fullName: z.string(),
   status: z.enum(["active", "invited", "disabled"]),
   permissionOverrides: z.array(PermissionOverrideSchema),
-  eventScopes: z.array(z.string())
+  eventScopes: z.array(z.string()) // event ids this user is restricted to; empty means unrestricted (admin/superadmin)
 });
 export type User = z.infer<typeof UserSchema>;
 
@@ -57,7 +57,7 @@ export const ZoneSchema = z.object({
   id: z.string(),
   venueId: z.string(),
   name: z.string(),
-  kind: z.enum(["numbered", "standing", "stage", "accessible"]),
+  kind: z.enum(["numbered", "standing", "stage", "accessible", "gate"]),
   capacity: z.number().int().nonnegative(),
   x: z.number().min(0).max(100),
   y: z.number().min(0).max(100),
@@ -69,7 +69,7 @@ export type Zone = z.infer<typeof ZoneSchema>;
 export const EventSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
-  venueId: z.string().nullable(),
+  venueId: z.string().nullable(), // null until a venue is assigned (still draftable without one)
   slug: z.string(),
   title: z.string(),
   description: z.string(),
@@ -78,12 +78,12 @@ export const EventSchema = z.object({
   visibility: z.enum(["public", "unlisted", "private"]),
   startsAt: z.string(),
   endsAt: z.string(),
-  salesStartAt: z.string().nullable(),
-  salesEndAt: z.string().nullable(),
-  hasSubEvents: z.boolean(),
+  salesStartAt: z.string().nullable(), // null means no restriction on when sales open
+  salesEndAt: z.string().nullable(), // null means no restriction on when sales close
+  hasSubEvents: z.boolean(), // true for multi-date events (festivals, weekly runs) that use SubEvent
   isCompetition: z.boolean(),
   createdAt: z.string(),
-  publishedAt: z.string().nullable().optional()
+  publishedAt: z.string().nullable().optional() // set once the event leaves draft status
 });
 export type Event = z.infer<typeof EventSchema>;
 
@@ -93,7 +93,7 @@ export const SubEventSchema = z.object({
   name: z.string(),
   startsAt: z.string(),
   endsAt: z.string(),
-  doorsOpenAt: z.string().nullable(),
+  doorsOpenAt: z.string().nullable(), // null when a doors-open time hasn't been announced
   status: z.enum(["scheduled", "on_sale", "sold_out", "cancelled", "finished"]),
   sortOrder: z.number().int()
 });
@@ -102,7 +102,7 @@ export type SubEvent = z.infer<typeof SubEventSchema>;
 export const CapacityPoolSchema = z.object({
   id: z.string(),
   subEventId: z.string(),
-  zoneId: z.string().nullable(),
+  zoneId: z.string().nullable(), // null when the pool isn't tied to a seating zone (general admission)
   name: z.string(),
   totalCapacity: z.number().int().nonnegative(),
   soldCount: z.number().int().nonnegative(),
@@ -112,15 +112,18 @@ export type CapacityPool = z.infer<typeof CapacityPoolSchema>;
 
 export const TicketTypeSchema = z.object({
   id: z.string(),
+  // Shared by every row created for the same ticket "product". When a ticket type is scoped to
+  // specific sub-events, one row is created per sub-event, all sharing a groupId, so they can be
+  // edited/reordered together (see ticketTypes.ts reorder handler).
   groupId: z.string(),
   eventId: z.string(),
-  subEventId: z.string().nullable(),
-  capacityPoolId: z.string().nullable().optional(),
+  subEventId: z.string().nullable(), // null means the ticket type is valid for every sub-event of the event
+  capacityPoolId: z.string().nullable().optional(), // null when not tied to a shared capacity pool
   name: z.string(),
   kind: z.enum(["pago", "gratis", "cortesia", "promocional", "abono"]),
-  basePrice: z.number().int().nonnegative(),
+  basePrice: z.number().int().nonnegative(), // minor currency units (cents)
   currency: z.string().length(3),
-  quantityTotal: z.number().int().nonnegative().nullable(),
+  quantityTotal: z.number().int().nonnegative().nullable(), // null means unlimited
   quantitySold: z.number().int().nonnegative(),
   minPerOrder: z.number().int().positive(),
   maxPerOrder: z.number().int().positive(),
@@ -196,3 +199,21 @@ export const ApiErrorSchema = z.object({
   })
 });
 export type ApiError = z.infer<typeof ApiErrorSchema>;
+
+export const GateSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  subEventId: z.string().nullable(),
+  name: z.string(),
+  code: z.string(),
+  zoneId: z.string().nullable(),
+  direction: z.enum(["in", "out", "both"]),
+  allowReentry: z.boolean(),
+  maxScansPerTicket: z.number().int().positive(),
+  allowedTicketTypeGroupIds: z.array(z.string()).nullable(),
+  opensAt: z.string().nullable(),
+  closesAt: z.string().nullable(),
+  operatorUserIds: z.array(z.string()),
+  isActive: z.boolean()
+});
+export type Gate = z.infer<typeof GateSchema>;

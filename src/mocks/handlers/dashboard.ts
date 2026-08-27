@@ -95,6 +95,8 @@ export const dashboardHandlers = [
     if (!user) return HttpResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sesión no válida", requestId: "req_dashboard" } }, { status: 401 });
     if (!permissions.has("reports:read")) return HttpResponse.json({ error: { code: "FORBIDDEN", message: "No tienes permiso para consultar métricas", requestId: "req_dashboard" } }, { status: 403 });
     const events = db.events.filter((event) => (user.role === "superadmin" || event.organizationId === user.organizationId) && (user.eventScopes.length === 0 || user.eventScopes.includes(event.id)));
+    // All the numbers below are fake demo data scaled by this factor: a fixed ratio for
+    // event-scoped users, otherwise proportional to how many events the org/role can see.
     const factor = user.eventScopes.length > 0 ? 0.42 : events.length / 5;
     const sold = Math.round(842 * factor);
     const gross = Math.round(1284500 * factor);

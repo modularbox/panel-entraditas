@@ -14,6 +14,7 @@ function notFound(requestId: string) {
   return HttpResponse.json({ error: { code: "NOT_FOUND", message: "Recurso no encontrado", requestId } }, { status: 404 });
 }
 
+// Walks subEvent -> event so canAccessEvent can enforce org/scope permissions on a pool's parent event.
 function requireSubEvent(request: Request, subEventId: string) {
   const userId = getSessionUserId(request);
   if (!userId) return { error: unauthenticated("req_capacity") };
@@ -62,6 +63,7 @@ export const capacityPoolsHandlers = [
     const result = requirePool(request, params.id as string);
     if ("error" in result) return result.error;
     const body = (await request.json()) as { totalCapacity: number };
+    // Can't shrink capacity below what's already sold.
     if (body.totalCapacity < result.pool.soldCount) {
       return HttpResponse.json(
         {

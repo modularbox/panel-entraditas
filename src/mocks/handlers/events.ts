@@ -26,6 +26,7 @@ function requireUser(request: Request): User | null {
   return db.users.find((u) => u.id === userId) ?? null;
 }
 
+// org-scoped (superadmin bypasses), plus permission system's own event-scope check (e.g. subuser role).
 export function canAccessEvent(event: Event, user: User): boolean {
   if (user.role !== "superadmin" && event.organizationId !== user.organizationId) return false;
   const effective = resolveEffectivePermissions(user.role, user.permissionOverrides);
@@ -36,11 +37,12 @@ function slugify(title: string): string {
   return title
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[̀-ͯ]/g, "") // strips combining diacritics left behind by NFD normalization
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 }
 
+// dedupes by name+city within the same org so re-entering an existing venue's details doesn't create a duplicate.
 function findOrCreateVenue(user: User, name: string, city: string): Venue {
   const trimmedName = name.trim();
   const trimmedCity = city.trim();
@@ -56,7 +58,7 @@ function findOrCreateVenue(user: User, name: string, city: string): Venue {
     organizationId: user.organizationId!,
     name: trimmedName,
     city: trimmedCity,
-    totalCapacity: 999999
+    totalCapacity: 999999 // unknown until the venue is configured properly; a placeholder, not a real cap
   };
   db.venues.push(venue);
   return venue;
@@ -66,6 +68,7 @@ function combineDateTime(date: string, time: string): string {
   return `${date}T${time}:00.000Z`;
 }
 
+// used to default the single-function end time to 3h after start when the wizard only collects a start time.
 function addMinutesToIso(iso: string, minutes: number): string {
   return new Date(new Date(iso).getTime() + minutes * 60_000).toISOString();
 }

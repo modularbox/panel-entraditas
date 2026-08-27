@@ -26,6 +26,7 @@ export const ROLE_BASE_PERMISSIONS: Record<RoleSlug, readonly Permission[]> = {
 
 export function resolveEffectivePermissions(role: RoleSlug, overrides: PermissionOverride[]): Set<string> {
   const effective = new Set<string>(ROLE_BASE_PERMISSIONS[role]);
+  // Two separate passes, not one: deny always wins over allow regardless of the overrides' order.
   for (const override of overrides) if (override.effect === "allow") effective.add(override.permission);
   for (const override of overrides) if (override.effect === "deny") effective.delete(override.permission);
   return effective;
@@ -33,18 +34,25 @@ export function resolveEffectivePermissions(role: RoleSlug, overrides: Permissio
 
 export function hasPermission(effective: Set<string>, permission: string, opts?: { eventId?: string; eventScopes?: string[] }): boolean {
   if (!effective.has(permission)) return false;
+  // No eventScopes (or an empty list) means unrestricted access to all events; otherwise the
+  // target event must be explicitly in scope. Scoping is only enforced when an eventId is given.
   if (!opts?.eventScopes || opts.eventScopes.length === 0 || !opts.eventId) return true;
   return opts.eventScopes.includes(opts.eventId);
 }
 
+// Lower number = higher privilege (superadmin outranks admin outranks user outranks subuser).
 export const ROLE_LEVEL: Record<RoleSlug, number> = { superadmin: 0, admin: 1, user: 2, subuser: 3 };
 export function canAssignRole(actorRole: RoleSlug, targetRole: RoleSlug): boolean {
+  // An actor can only assign roles at or below their own privilege level, never a higher one.
   return ROLE_LEVEL[actorRole] <= ROLE_LEVEL[targetRole];
 }
 export function canGrantPermission(actorEffective: Set<string>, permission: string): boolean {
+  // Can't grant a permission you don't hold yourself.
   return actorEffective.has(permission);
 }
 export function canAssignEventScopes(actorScopes: string[], targetScopes: string[]): boolean {
+  // Empty actor scope = unrestricted, so anything can be assigned; otherwise the target's
+  // scopes must be a subset of the actor's own.
   return actorScopes.length === 0 || targetScopes.every((scope) => actorScopes.includes(scope));
 }
 

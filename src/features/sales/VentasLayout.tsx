@@ -7,6 +7,7 @@ const ENABLED_TABS = [
   { to: "/ventas/taquilla", label: "Taquilla (POS)" },
   { to: "/ventas/asistentes", label: "Asistentes (CRM)" }
 ] as const;
+// Placeholder for tabs not yet built; renders as a disabled button instead of a link.
 const DISABLED_TABS: string[] = [];
 
 export function VentasLayout() {

@@ -19,6 +19,7 @@ const ENABLED_TABS = [
   { key: "descuentos", label: "Códigos de descuento" }
 ] as const;
 
+// Sections not built yet; rendered as disabled buttons so the full nav is visible early.
 const DISABLED_TABS = ["Puertas", "Invitados", "Pedidos", "Métricas"];
 
 function noop() {
@@ -35,11 +36,12 @@ export function EventDetailPage() {
   const { data: event, isLoading, error } = useQuery({
     queryKey: ["event", eventId],
     queryFn: () => apiClient.get<Event>(`/events/${eventId}`, { token: token! }),
-    enabled: Boolean(token),
+    enabled: Boolean(token), // wait for the session token before firing the request
     retry: false
   });
 
   if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;
+  // Only a 404 gets a dedicated screen; other errors fall through to the "no event" null render below.
   if (error instanceof AppError && error.code === "NOT_FOUND") {
     return (
       <div className="rounded-lg border-2 border-dashed border-border bg-surface-alt p-10 text-center">
