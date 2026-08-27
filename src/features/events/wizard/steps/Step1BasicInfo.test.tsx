@@ -33,7 +33,7 @@ describe("Step1BasicInfo", () => {
   });
 
   it("shows a validation error when the title is too short", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     const onSaved = vi.fn();
     renderStep1({ eventId: null, onSaved });
 
@@ -46,7 +46,7 @@ describe("Step1BasicInfo", () => {
   });
 
   it("creates a draft event on first submit", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     const onSaved = vi.fn();
     renderStep1({ eventId: null, onSaved });
 
@@ -57,7 +57,7 @@ describe("Step1BasicInfo", () => {
   });
 
   it("saves city, venue, date, time and the competition flag on the created event", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     const onSaved = vi.fn();
     renderStep1({ eventId: null, onSaved });
 
@@ -74,7 +74,7 @@ describe("Step1BasicInfo", () => {
   });
 
   it("patches the existing draft when eventId is already set", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     const onSaved = vi.fn();
     renderStep1({ eventId: "event-5", onSaved });
 
@@ -86,7 +86,7 @@ describe("Step1BasicInfo", () => {
   });
 
   it("pre-fills the form from the existing event, its venue and its first sub-event", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderStep1({ eventId: "event-3", onSaved: vi.fn() });
 
     await waitFor(() => expect(screen.getByLabelText("Título")).toHaveValue("La Casa de Bernarda Alba"));
@@ -98,7 +98,7 @@ describe("Step1BasicInfo", () => {
   });
 
   it("keeps in-progress edits when the pre-fill fetch resolves after the user has started typing", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     const { queryClient } = renderStep1({ eventId: "event-3", onSaved: vi.fn() });
 
     fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Editado antes de que cargue" } });
@@ -111,7 +111,7 @@ describe("Step1BasicInfo", () => {
   });
 
   it("shows an alert and does not call onSaved when saving fails", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     server.use(
       http.post("http://localhost:4000/api/v1/events", () =>
         HttpResponse.json(

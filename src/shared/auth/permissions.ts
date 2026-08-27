@@ -12,9 +12,12 @@ export const PERMISSIONS = [
 
 export type Permission = (typeof PERMISSIONS)[number];
 const ALL_EXCEPT_ORG_MANAGE = PERMISSIONS.filter((permission) => permission !== "organizations:manage");
+// Superadmin handles organizations cross-tenant but never the day-to-day team of any
+// one org; its users are managed by each admin. Keeps the "Equipo" nav gated off.
+const ALL_EXCEPT_TEAM_MANAGE = PERMISSIONS.filter((permission) => permission !== "users:manage");
 
 export const ROLE_BASE_PERMISSIONS: Record<RoleSlug, readonly Permission[]> = {
-  superadmin: PERMISSIONS,
+  superadmin: ALL_EXCEPT_TEAM_MANAGE,
   admin: ALL_EXCEPT_ORG_MANAGE,
   user: [
     "events:read", "events:create", "events:update", "subevents:read", "subevents:create", "subevents:update",

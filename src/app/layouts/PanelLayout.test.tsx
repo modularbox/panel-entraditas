@@ -22,13 +22,24 @@ function setRole(role: keyof typeof ROLE_BASE_PERMISSIONS) {
 }
 
 describe("PanelLayout navigation", () => {
-  afterEach(() => useSessionStore.setState({ effectivePermissions: new Set(), eventScopes: [] }));
+  afterEach(() => useSessionStore.setState({ user: null, effectivePermissions: new Set(), eventScopes: [] }));
 
-  it("shows all 9 sections to a superadmin", () => {
+  it("shows the logged-in user's fullName below the logo", () => {
+    setRole("admin");
+    useSessionStore.setState({
+      user: { id: "user-admin", email: "admin@entraditas.com", fullName: "Admin de Producciones Norte", role: "admin", organizationId: "org-1" }
+    });
+    renderLayout();
+    expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument();
+    expect(screen.getByText("Entraditas")).toBeInTheDocument();
+  });
+
+  it("shows 8 sections to a superadmin (no Equipo)", () => {
     setRole("superadmin");
     renderLayout();
-    expect(screen.getAllByRole("link")).toHaveLength(9);
+    expect(screen.getAllByRole("link")).toHaveLength(8);
     expect(screen.getByRole("link", { name: "Organizaciones" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Equipo" })).not.toBeInTheDocument();
   });
 
   it("shows 8 sections to an admin (no Organizaciones)", () => {

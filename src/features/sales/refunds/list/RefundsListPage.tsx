@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
+import type { SortingState } from "@tanstack/react-table";
 import type { Refund } from "@entraditas/types";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { useRefundsQuery } from "./useRefundsQuery";
+import { SortableHeader } from "@/shared/ui/SortableHeader";
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const columnHelper = createColumnHelper<Refund>();
@@ -23,11 +25,20 @@ const columns = [
 ];
 
 export function RefundsListPage() {
+  const [sorting, setSorting] = useState<SortingState>([]);
   const [eventId, setEventId] = useState("");
   const [q, setQ] = useState("");
   const { data: events = [] } = useEventsQuery();
   const { data: refunds = [], isLoading } = useRefundsQuery({ eventId: eventId || undefined, q: q || undefined });
-  const table = useReactTable({ data: refunds, columns, getCoreRowModel: getCoreRowModel() });
+  const table = useReactTable({
+    data: refunds,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    sortDescFirst: false
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,8 +68,12 @@ export function RefundsListPage() {
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="px-4 py-3 font-medium text-muted-foreground">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    <th
+                      key={header.id}
+                      aria-sort={header.column.getIsSorted() !== false ? (header.column.getIsSorted() === "asc" ? "ascending" : "descending") : undefined}
+                      className="px-4 py-3 font-medium text-muted-foreground"
+                    >
+                      <SortableHeader header={header} />
                     </th>
                   ))}
                 </tr>

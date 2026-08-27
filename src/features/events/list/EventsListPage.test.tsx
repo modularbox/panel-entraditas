@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
@@ -24,16 +24,28 @@ describe("EventsListPage", () => {
   });
 
   it("shows all 5 events to a superadmin, with the create button visible", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(6)); // 1 header row + 5 data rows
     expect(screen.getByRole("button", { name: "Crear evento" })).toBeInTheDocument();
   });
 
   it("shows only the 1 scoped event to a subuser, with no create button", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("subusuario@entraditas.com", "T6#bW8@cL2!pZ9&");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(2)); // header row + 1 data row
     expect(screen.queryByRole("button", { name: "Crear evento" })).not.toBeInTheDocument();
+  });
+
+  it("sorts by Título ascending on the first header click and descending on the second", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(6));
+
+    fireEvent.click(screen.getByRole("button", { name: "Título" }));
+    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Evento sin configurar"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Título" }));
+    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Rock en Directo"));
   });
 });

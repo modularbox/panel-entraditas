@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { User } from "@entraditas/types";
 import { DEMO_SUBUSER_ID, DEMO_USER_ID } from "@/mocks/db";
 import { apiClient } from "@/shared/lib/apiClient";
-import { db, resetDb, sessions } from "@/mocks/state";
+import { db, resetDb, sessions, demoPasswordFor } from "@/mocks/state";
 
 async function login(email: string) {
-  const result = await apiClient.post<{ accessToken: string }>("/auth/login", { email, password: "demo1234" });
+  const result = await apiClient.post<{ accessToken: string }>("/auth/login", { email, password: demoPasswordFor(email) });
   return result.accessToken;
 }
 

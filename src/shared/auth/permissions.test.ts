@@ -32,6 +32,12 @@ describe("resolveEffectivePermissions", () => {
     expect(effective.has("finance:read")).toBe(false);
     expect(effective.has("events:publish")).toBe(false);
   });
+
+  it("superadmin does not manage the team", () => {
+    const effective = resolveEffectivePermissions("superadmin", []);
+    expect(effective.has("users:manage")).toBe(false);
+    expect(effective.has("users:read")).toBe(true);
+  });
 });
 
 describe("hasPermission", () => {

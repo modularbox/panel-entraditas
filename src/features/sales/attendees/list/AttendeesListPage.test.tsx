@@ -24,13 +24,13 @@ describe("AttendeesListPage", () => {
   });
 
   it("shows all 8 qualifying attendees to a superadmin", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(9)); // header + 8 data rows
   });
 
   it("links each row to its attendee detail", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
     renderPage();
     const link = await screen.findByRole("link", { name: "Marta Ruiz" });
     expect(link).toHaveAttribute("href", `/ventas/asistentes/${encodeURIComponent("marta.ruiz@example.com")}`);

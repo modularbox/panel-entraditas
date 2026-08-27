@@ -26,7 +26,7 @@ describe("OrderDetailPage", () => {
   });
 
   it("shows the order header, customer, and its line items with the total", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderDetail("order-5");
     expect(await screen.findByRole("heading", { name: "PED-2026-0005" })).toBeInTheDocument();
     expect(screen.getByText("Sara Gómez")).toBeInTheDocument();
@@ -36,26 +36,26 @@ describe("OrderDetailPage", () => {
   });
 
   it("shows a not-found message for a nonexistent order", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderDetail("order-999");
     expect(await screen.findByText("Pedido no encontrado.")).toBeInTheDocument();
   });
 
   it("shows the refund history for an already-refunded order", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderDetail("order-4");
     expect(await screen.findByText("Cliente no pudo asistir al evento.")).toBeInTheDocument();
   });
 
   it("hides the refund form for a user without orders:refund", async () => {
-    await useSessionStore.getState().login("usuario@entraditas.com", "demo1234"); // role "user", scoped to event-1/event-2
+    await useSessionStore.getState().login("usuario@entraditas.com", "xR5$Jq9%Fv3!Mn7*"); // role "user", scoped to event-1/event-2
     renderDetail("order-1");
     await screen.findByRole("heading", { name: "PED-2026-0001" });
     expect(screen.queryByLabelText("Importe a reembolsar (€)")).not.toBeInTheDocument();
   });
 
   it("submits a full refund and updates the order status shown on the page", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderDetail("order-6");
     const amountInput = await screen.findByLabelText("Importe a reembolsar (€)");
     fireEvent.change(amountInput, { target: { value: "60.00" } });

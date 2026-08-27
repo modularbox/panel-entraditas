@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
+import type { SortingState } from "@tanstack/react-table";
 import type { Order } from "@entraditas/types";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { useOrdersQuery } from "./useOrdersQuery";
+import { SortableHeader } from "@/shared/ui/SortableHeader";
 
 const STATUS_LABELS: Record<Order["status"], string> = {
   pending: "Pendiente",
@@ -41,6 +43,7 @@ const columns = [
 ];
 
 export function OrdersListPage() {
+  const [sorting, setSorting] = useState<SortingState>([]);
   const [eventId, setEventId] = useState("");
   const [status, setStatus] = useState("");
   const [channel, setChannel] = useState("");
@@ -52,7 +55,15 @@ export function OrdersListPage() {
     channel: channel || undefined,
     q: q || undefined
   });
-  const table = useReactTable({ data: orders, columns, getCoreRowModel: getCoreRowModel() });
+  const table = useReactTable({
+    data: orders,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    sortDescFirst: false
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -94,8 +105,12 @@ export function OrdersListPage() {
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="px-4 py-3 font-medium text-muted-foreground">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    <th
+                      key={header.id}
+                      aria-sort={header.column.getIsSorted() !== false ? (header.column.getIsSorted() === "asc" ? "ascending" : "descending") : undefined}
+                      className="px-4 py-3 font-medium text-muted-foreground"
+                    >
+                      <SortableHeader header={header} />
                     </th>
                   ))}
                 </tr>

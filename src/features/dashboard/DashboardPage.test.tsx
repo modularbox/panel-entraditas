@@ -18,7 +18,7 @@ describe("DashboardPage", () => {
   });
 
   it("renders KPIs and every specified visualization for an admin", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderPage();
     await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
     expect(screen.getByText("Ventas acumuladas")).toBeInTheDocument();
@@ -31,7 +31,7 @@ describe("DashboardPage", () => {
   });
 
   it("queues the selected report format", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderPage();
     await waitFor(() => expect(screen.getByRole("button", { name: "Exportar informe" })).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Formato de informe"), { target: { value: "pdf" } });
@@ -40,7 +40,7 @@ describe("DashboardPage", () => {
   });
 
   it("generates an openable PDF containing the test data", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     const result = await apiClient.post<{ content: string; mimeType: string; filename: string }>(
       "/reports/export", { report: "dashboard", format: "pdf" }, { token: useSessionStore.getState().token! }
     );

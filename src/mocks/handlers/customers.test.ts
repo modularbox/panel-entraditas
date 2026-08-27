@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { apiClient } from "@/shared/lib/apiClient";
-import { resetDb } from "@/mocks/state";
+import { resetDb, demoPasswordFor } from "@/mocks/state";
 import type { Customer, Order } from "@entraditas/types";
 
 async function loginAs(email: string) {
-  const result = await apiClient.post<{ accessToken: string }>("/auth/login", { email, password: "demo1234" });
+  const result = await apiClient.post<{ accessToken: string }>("/auth/login", { email, password: demoPasswordFor(email) });
   return result.accessToken;
 }
 

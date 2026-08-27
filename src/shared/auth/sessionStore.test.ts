@@ -12,7 +12,7 @@ describe("useSessionStore", () => {
   });
 
   it("login populates the session with effective permissions", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     const state = useSessionStore.getState();
     expect(state.status).toBe("authenticated");
     expect(state.effectivePermissions.has("finance:read")).toBe(true);
@@ -20,7 +20,7 @@ describe("useSessionStore", () => {
   });
 
   it("logout clears the session and the stored token", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     await useSessionStore.getState().logout();
     const state = useSessionStore.getState();
     expect(state.status).toBe("unauthenticated");
@@ -29,7 +29,7 @@ describe("useSessionStore", () => {
   });
 
   it("restore re-hydrates the session from a stored token", async () => {
-    await useSessionStore.getState().login("usuario@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("usuario@entraditas.com", "xR5$Jq9%Fv3!Mn7*");
     const token = useSessionStore.getState().token;
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
     localStorage.setItem(TOKEN_KEY, token!);

@@ -26,7 +26,7 @@ describe("AttendeeDetailPage", () => {
   });
 
   it("shows the attendee's metrics and order history", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderDetail("diego.molina@example.com");
     expect(await screen.findByRole("heading", { name: "Diego Molina" })).toBeInTheDocument();
     expect(screen.getByText("0,00 €")).toBeInTheDocument(); // fully refunded, net spend 0
@@ -34,7 +34,7 @@ describe("AttendeeDetailPage", () => {
   });
 
   it("shows a not-found message for an email with no qualifying orders", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderDetail("lucia.fernandez@example.com"); // only a pending order
     expect(await screen.findByText("Asistente no encontrado.")).toBeInTheDocument();
   });

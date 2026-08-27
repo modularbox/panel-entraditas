@@ -764,7 +764,7 @@ El backend devuelve en `/auth/me` el array de permisos efectivos y los `eventSco
    ├─ Organización · Marca · Pasarelas
    └─ Plantillas de email
 🛡️ Auditoría (superadmin / admin)
-🏢 Organizaciones (solo superadmin)
+🏢 Organizadores (solo superadmin)
 ```
 
 ### 4.4 Gestión de eventos — especificación funcional

@@ -29,13 +29,13 @@ describe("LoginPage", () => {
   });
 
   it.each([
-    ["superadmin@entraditas.com", "organizations:manage"],
-    ["admin@entraditas.com", "finance:read"],
-    ["usuario@entraditas.com", "orders:read"],
-    ["subusuario@entraditas.com", "scan:validate"]
-  ])("logs in %s and redirects to /eventos with the expected permission granted", async (email, expectedPermission) => {
+    ["superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$", "organizations:manage"],
+    ["admin@entraditas.com", "N8@kP4!wY6#sD2&", "finance:read"],
+    ["usuario@entraditas.com", "xR5$Jq9%Fv3!Mn7*", "orders:read"],
+    ["subusuario@entraditas.com", "T6#bW8@cL2!pZ9&", "scan:validate"]
+  ])("logs in %s and redirects to /eventos with the expected permission granted", async (email, password, expectedPermission) => {
     renderLoginPage();
-    await fillAndSubmit(email, "demo1234");
+    await fillAndSubmit(email, password);
     await waitFor(() => expect(screen.getByText("Listado de eventos")).toBeInTheDocument());
     expect(useSessionStore.getState().effectivePermissions.has(expectedPermission)).toBe(true);
   });

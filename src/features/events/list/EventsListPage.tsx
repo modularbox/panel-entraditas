@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
+import type { SortingState } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import type { Event } from "@entraditas/types";
 import { Can } from "@/shared/auth/Can";
 import { Button } from "@/shared/ui/button";
+import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { useEventsQuery } from "./useEventsQuery";
 
 const STATUS_LABEL: Record<Event["status"], string> = {
@@ -46,10 +48,19 @@ const columns = [
 ];
 
 export function EventsListPage() {
+  const [sorting, setSorting] = useState<SortingState>([]);
   const [status, setStatus] = useState("");
   // "" means "Todos" — coerce to undefined so the query hook omits the status filter entirely.
   const { data: events = [], isLoading } = useEventsQuery(status || undefined);
-  const table = useReactTable({ data: events, columns, getCoreRowModel: getCoreRowModel() });
+  const table = useReactTable({
+    data: events,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    sortDescFirst: false
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -90,8 +101,12 @@ export function EventsListPage() {
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="px-4 py-3 font-medium text-muted-foreground">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    <th
+                      key={header.id}
+                      aria-sort={header.column.getIsSorted() !== false ? (header.column.getIsSorted() === "asc" ? "ascending" : "descending") : undefined}
+                      className="px-4 py-3 font-medium text-muted-foreground"
+                    >
+                      <SortableHeader header={header} />
                     </th>
                   ))}
                 </tr>

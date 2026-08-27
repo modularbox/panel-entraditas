@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("admin logs in, creates a full event through the wizard, and publishes it", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Correo electrónico").fill("admin@entraditas.com");
-  await page.getByLabel("Contraseña").fill("demo1234");
+  await page.getByLabel("Contraseña").fill("N8@kP4!wY6#sD2&");
   await page.getByRole("button", { name: "Entrar" }).click();
 
   await expect(page.getByRole("heading", { name: "Eventos" })).toBeVisible();

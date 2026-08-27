@@ -11,7 +11,7 @@ describe("discountCodes handlers", () => {
   });
 
   async function login() {
-    await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     return useSessionStore.getState().token!;
   }
 

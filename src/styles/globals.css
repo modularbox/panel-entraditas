@@ -34,6 +34,29 @@
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Superadmin skin: light, blue-tinted palette (same lightness as the default brand
+   theme but swapping the warm cream/coral for cool blues). Activated by
+   <html data-theme="superadmin">, which ThemeManager sets while a superadmin
+   session is active (see src/app/theme.tsx). */
+:root[data-theme="superadmin"] {
+  --border: 214 32% 82%;
+  --background: 210 40% 96%;
+  --foreground: 222 47% 15%;
+  --primary: 221 83% 53%;
+  --primary-dark: 226 80% 46%;
+  --primary-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 214 32% 91%;
+  --muted-foreground: 218 17% 42%;
+  --surface: 0 0% 100%;
+  --surface-alt: 214 32% 91%;
+  --accent: 213 94% 68%;
+  --accent-foreground: 222 47% 15%;
+  --success: 153 69% 33%;
+  --success-bg: 148 48% 94%;
+}
+
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
