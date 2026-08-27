@@ -12,22 +12,17 @@ jobs:
       - name: Descargar código
         uses: actions/checkout@v4
 
-      - name: Instalar pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Instalar Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
+          cache: npm
 
       - name: Instalar dependencias
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Compilar el panel
-        run: pnpm --filter panel build
+        run: npm run build --workspace panel
 
       - name: Comprobar que la carpeta de destino está configurada
         run: |

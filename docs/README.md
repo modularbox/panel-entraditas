@@ -1242,7 +1242,7 @@ gantt
 
 **Objetivo:** que cualquier desarrollador pueda levantar el proyecto y desplegar en 10 minutos.
 
-- Monorepo (pnpm workspaces o Turborepo): `apps/web`, `apps/panel`, `apps/scan`, `apps/api`, `packages/ui`, `packages/types`, `packages/config`.
+- Monorepo (npm workspaces): `apps/web`, `apps/panel`, `apps/scan`, `apps/api`, `packages/ui`, `packages/types`, `packages/config`.
 - Docker Compose local (Postgres, Redis, MinIO, MailHog).
 - Esquema Prisma inicial + migraciones + seeds realistas (2 organizaciones, 5 eventos, roles y permisos).
 - CI en GitHub Actions: lint, typecheck, tests, build, migraciones en staging.
