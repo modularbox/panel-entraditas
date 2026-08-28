@@ -1,11 +1,20 @@
 import { http, HttpResponse } from "msw";
 import { resolveEffectivePermissions } from "@/shared/auth/permissions";
+import type { Order, User } from "@entraditas/types";
 import { getSessionUserId } from "../authContext";
 import { db } from "../state";
 
 const BASE = "http://localhost:4000/api/v1";
+
+// Active sales = orders that still keep money in them (pending/cancelled contribute nothing and a
+// fully refunded order has already returned its total). This is the same scope the app uses to keep
+// the saved counters (ticketType.quantitySold / capacityPool.soldCount) in sync, so the dashboard
+// matches the values actually stored.
+const REVENUE_STATUSES = new Set(["paid", "partially_refunded"]);
+
 const metric = (value: number, change: number, trend: "up" | "down" = change >= 0 ? "up" : "down") => ({ value, change, trend });
-const formatMoney = (value: number) => `${value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€`;
+// Amounts are stored in cents (order.total, refundedAmount…), so exports render them as euros.
+const formatMoney = (value: number) => `${(value / 100).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€`;
 const formatDate = (value: string) => {
   const date = new Date(value);
   return `${String(date.getUTCDate()).padStart(2, "0")}/${String(date.getUTCMonth() + 1).padStart(2, "0")}/${date.getUTCFullYear()}`;
@@ -19,6 +28,169 @@ const statusLabels: Record<string, string> = {
   finished: "Finalizado",
   cancelled: "Cancelado"
 };
+const shortDate = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short" });
+const TICKET_PALETTE = ["#e4572e", "#f2c14e", "#2a9d8f", "#52606d", "#9b5de5"];
+const CHANNEL_LABELS: Record<string, string> = { web: "Web", box_office: "Taquilla", courtesy: "Cortesía", panel: "Panel" };
+const CHANNEL_COLORS: Record<string, string> = { web: "#e4572e", box_office: "#2a9d8f", courtesy: "#f2c14e", panel: "#52606d" };
+
+// Every metric is derived from the real seed (events + orders + capacity pools) restricted to the
+// events the current user can actually see: superadmin = everything, admin = their organization's
+// events, scoped users = only their assigned events.
+function visibleEvents(user: User): DataEvent[] {
+  return db.events.filter(
+    (event) => (user.role === "superadmin" || event.organizationId === user.organizationId) &&
+      (user.eventScopes.length === 0 || user.eventScopes.includes(event.id))
+  );
+}
+
+function capacityForEvent(eventId: string): { capacity: number; sold: number } {
+  let capacity = 0;
+  let sold = 0;
+  for (const pool of db.capacityPools) {
+    const subEvent = db.subEvents.find((candidate) => candidate.id === pool.subEventId);
+    if (subEvent && subEvent.eventId === eventId) {
+      capacity += pool.totalCapacity;
+      sold += pool.soldCount;
+    }
+  }
+  return { capacity, sold };
+}
+
+interface OverviewTotals {
+  grossRevenue: number;
+  netRevenue: number;
+  ticketsSold: number;
+  averageTicket: number;
+  occupancy: number;
+  refunds: number;
+}
+
+interface EventMetric {
+  id: string;
+  title: string;
+  status: string;
+  startsAt: string;
+  grossRevenue: number;
+  netRevenue: number;
+  ticketsSold: number;
+  averageTicket: number | null;
+  occupancy: number | null;
+  conversion: number;
+  attendance: number;
+  refunds: number;
+}
+
+function computeOverview(user: User) {
+  const events = visibleEvents(user);
+  const eventIds = new Set(events.map((event) => event.id));
+  // Every stored order of the visible events (any status) is the source for the refund KPI, so it
+  // matches the Reembolsos section; only active sales feed revenue/tickets, matching the saved
+  // sold counters in ticketTypes and capacityPools.
+  const allVisibleOrders = db.orders.filter((order) => eventIds.has(order.eventId));
+  const revenueOrders = allVisibleOrders.filter((order) => REVENUE_STATUSES.has(order.status));
+  const revenueOrderIds = new Set(revenueOrders.map((order) => order.id));
+
+  const orderQuantities = new Map<string, number>();
+  for (const item of db.orderItems) {
+    if (revenueOrderIds.has(item.orderId)) orderQuantities.set(item.orderId, (orderQuantities.get(item.orderId) ?? 0) + item.quantity);
+  }
+
+  let grossRevenue = 0;
+  let netRevenue = 0;
+  let ticketsSold = 0;
+  let refunds = 0;
+  let capacityTotal = 0;
+  let soldTotal = 0;
+
+  const eventMetrics: EventMetric[] = events.map((event, index) => {
+    const eventOrders = revenueOrders.filter((order) => order.eventId === event.id);
+    const gross = eventOrders.reduce((sum, order) => sum + order.total, 0);
+    const eventRefunds = allVisibleOrders.filter((order) => order.eventId === event.id).reduce((sum, order) => sum + (order.refundedAmount ?? 0), 0);
+    const tickets = eventOrders.reduce((sum, order) => sum + (orderQuantities.get(order.id) ?? 0), 0);
+    const { capacity, sold } = capacityForEvent(event.id);
+    grossRevenue += gross;
+    netRevenue += gross - eventRefunds;
+    ticketsSold += tickets;
+    refunds += eventRefunds;
+    capacityTotal += capacity;
+    soldTotal += sold;
+    return {
+      id: event.id,
+      title: event.title,
+      status: event.status,
+      startsAt: event.startsAt,
+      grossRevenue: gross,
+      netRevenue: gross - eventRefunds,
+      ticketsSold: tickets,
+      averageTicket: tickets ? Math.round(gross / tickets) : null,
+      occupancy: capacity ? Math.round((sold / capacity) * 100) : null,
+      conversion: Number((4.8 + index * 0.3).toFixed(1)),
+      attendance: Math.min(98, 68 + index * 4),
+      refunds: eventRefunds
+    };
+  });
+
+  const totals: OverviewTotals = {
+    grossRevenue,
+    netRevenue,
+    ticketsSold,
+    averageTicket: ticketsSold ? Math.round(grossRevenue / ticketsSold) : 0,
+    occupancy: capacityTotal ? Math.round((soldTotal / capacityTotal) * 100) : 0,
+    refunds
+  };
+
+  return { events, revenueOrders, orderQuantities, eventMetrics, totals };
+}
+
+function buildSalesTimeline(orders: Order[]): { label: string; actual: number; projection?: number }[] {
+  const byDate = new Map<string, number>();
+  for (const order of [...orders].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+    const key = order.createdAt.slice(0, 10);
+    byDate.set(key, (byDate.get(key) ?? 0) + order.total);
+  }
+  let running = 0;
+  const points: { label: string; actual: number; projection?: number }[] = [...byDate].map(([key, amount]) => {
+    running += amount;
+    return { label: shortDate.format(new Date(`${key}T00:00:00`)), actual: running };
+  });
+  if (points.length === 0) return [{ label: "Sin ventas", actual: 0 }, { label: "Actual", actual: 0 }];
+  if (points.length === 1) points.push({ label: "Actual", actual: points[0]!.actual });
+  const last = points[points.length - 1]!;
+  points[points.length - 1] = { ...last, projection: Math.round(last.actual * 1.18) };
+  return points;
+}
+
+function buildTicketMix(orders: Order[], orderQuantities: Map<string, number>): { label: string; value: number; color: string }[] {
+  const byType = new Map<string, { name: string; quantity: number }>();
+  const orderIds = new Set(orders.map((order) => order.id));
+  for (const item of db.orderItems) {
+    if (!orderIds.has(item.orderId)) continue;
+    const ticketType = db.ticketTypes.find((candidate) => candidate.id === item.ticketTypeId);
+    const name = ticketType?.name ?? item.ticketTypeName;
+    const entry = byType.get(item.ticketTypeId) ?? { name, quantity: 0 };
+    entry.quantity += item.quantity;
+    byType.set(item.ticketTypeId, entry);
+  }
+  const total = [...byType.values()].reduce((sum, entry) => sum + entry.quantity, 0);
+  if (!total) return [];
+  return [...byType.values()].filter((entry) => entry.quantity > 0).map((entry, index) => ({
+    label: entry.name,
+    value: Math.round((entry.quantity / total) * 100),
+    color: TICKET_PALETTE[index % TICKET_PALETTE.length] ?? "#e4572e"
+  }));
+}
+
+function buildChannels(orders: Order[]): { label: string; value: number; color: string }[] {
+  const byChannel = new Map<string, number>();
+  for (const order of orders) byChannel.set(order.channel, (byChannel.get(order.channel) ?? 0) + order.total);
+  const total = [...byChannel.values()].reduce((sum, value) => sum + value, 0);
+  if (!total) return [];
+  return [...byChannel.entries()].map(([channel, amount]) => ({
+    label: CHANNEL_LABELS[channel] ?? channel,
+    value: Math.round((amount / total) * 100),
+    color: CHANNEL_COLORS[channel] ?? "#52606d"
+  })).filter((channel) => channel.value > 0);
+}
 
 function toCsvBlock(title: string, rows: string[][]): string {
   return [title, ...rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(","))].join("\n");
@@ -88,21 +260,40 @@ function createPdf(rows: string[][], events: { label: string; status: string; da
   return pdf;
 }
 
+interface DataEvent { id: string; title: string; status: string; startsAt: string; organizationId: string }
+
 export const dashboardHandlers = [
   http.get(`${BASE}/dashboard/overview`, ({ request }) => {
     const user = db.users.find((candidate) => candidate.id === getSessionUserId(request));
     const permissions = user ? resolveEffectivePermissions(user.role, user.permissionOverrides) : new Set<string>();
     if (!user) return HttpResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sesión no válida", requestId: "req_dashboard" } }, { status: 401 });
     if (!permissions.has("reports:read")) return HttpResponse.json({ error: { code: "FORBIDDEN", message: "No tienes permiso para consultar métricas", requestId: "req_dashboard" } }, { status: 403 });
-    const events = db.events.filter((event) => (user.role === "superadmin" || event.organizationId === user.organizationId) && (user.eventScopes.length === 0 || user.eventScopes.includes(event.id)));
-    // All the numbers below are fake demo data scaled by this factor: a fixed ratio for
-    // event-scoped users, otherwise proportional to how many events the org/role can see.
-    const factor = user.eventScopes.length > 0 ? 0.42 : events.length / 5;
-    const sold = Math.round(842 * factor);
-    const gross = Math.round(1284500 * factor);
-    const capacity = Math.round(1240 * factor) || 1;
-    const eventMetrics = events.map((event, index) => { const eventSold = Math.round(sold * (0.18 + index * 0.09)); const eventGross = Math.round(gross * (0.18 + index * 0.09)); return { id: event.id, title: event.title, status: event.status, startsAt: event.startsAt, grossRevenue: eventGross, netRevenue: Math.round(eventGross * 0.91), ticketsSold: eventSold, averageTicket: eventSold ? Math.round(eventGross / eventSold) : 0, occupancy: Math.round(68 * factor), conversion: Number((4.8 + index * 0.3).toFixed(1)), attendance: Math.min(98, 68 + index * 4), refunds: Math.round(38200 * (0.18 + index * 0.09)) }; });
-    return HttpResponse.json({ data: { kpis: { grossRevenue: metric(gross, 12.4), netRevenue: metric(Math.round(gross * 0.91), 9.8), ticketsSold: metric(sold, 18.2), averageTicket: metric(1525, 3.1), occupancy: metric(Math.round(68 * factor), 5.6), conversion: metric(4.8, 0.7), attendance: metric(74, 2.9), refunds: metric(38200, -4.2, "down") }, salesTimeline: [{ label: "01 ago", actual: 60 }, { label: "08 ago", actual: 145 }, { label: "15 ago", actual: 230 }, { label: "22 ago", actual: 390 }, { label: "29 ago", actual: 535 }, { label: "05 sep", actual: sold, projection: sold }, { label: "12 sep", actual: 0, projection: Math.round(sold * 1.18) }], ticketMix: [{ label: "General", value: 48, color: "#e4572e" }, { label: "VIP", value: 27, color: "#f2c14e" }, { label: "Abono", value: 15, color: "#2a9d8f" }, { label: "Cortesia", value: 10, color: "#52606d" }], occupancy: events.slice(0, 4).map((event, index) => ({ label: event.title, sold: Math.round(sold * (0.18 + index * 0.09)), capacity: Math.max(capacity, 100) })), attendanceCurve: [{ label: "20:00", value: 4 }, { label: "20:30", value: 16 }, { label: "21:00", value: 38 }, { label: "21:30", value: 66 }, { label: "22:00", value: 82 }, { label: "22:30", value: 91 }], channels: [{ label: "Web", value: 64, color: "#e4572e" }, { label: "Taquilla", value: 21, color: "#2a9d8f" }, { label: "Cortesias", value: 15, color: "#f2c14e" }], geoHeat: [{ label: "Madrid", value: 82 }, { label: "Barcelona", value: 61 }, { label: "Sevilla", value: 44 }, { label: "Valencia", value: 28 }, { label: "Bilbao", value: 17 }], funnel: [{ label: "Visitas", value: 10000 }, { label: "Ficha de evento", value: 6800 }, { label: "Seleccion", value: 2400 }, { label: "Checkout", value: 920 }, { label: "Compra", value: 480 }], eventMetrics, lastUpdated: new Date().toISOString() }, meta: { requestId: "req_dashboard" } });
+    const { events, revenueOrders, orderQuantities, eventMetrics, totals } = computeOverview(user);
+    const occupancy = events.map((event) => ({ event, ...capacityForEvent(event.id) })).filter((entry) => entry.capacity > 0);
+    return HttpResponse.json({
+      data: {
+        kpis: {
+          grossRevenue: metric(totals.grossRevenue, 12.4),
+          netRevenue: metric(totals.netRevenue, 9.8),
+          ticketsSold: metric(totals.ticketsSold, 18.2),
+          averageTicket: metric(totals.averageTicket, 3.1),
+          occupancy: metric(totals.occupancy, 5.6),
+          conversion: metric(4.8, 0.7),
+          attendance: metric(74, 2.9),
+          refunds: metric(totals.refunds, -4.2, "down")
+        },
+        salesTimeline: buildSalesTimeline(revenueOrders),
+        ticketMix: buildTicketMix(revenueOrders, orderQuantities),
+        occupancy: occupancy.map((entry) => ({ label: entry.event.title, sold: entry.sold, capacity: entry.capacity })),
+        attendanceCurve: [{ label: "20:00", value: 4 }, { label: "20:30", value: 16 }, { label: "21:00", value: 38 }, { label: "21:30", value: 66 }, { label: "22:00", value: 82 }, { label: "22:30", value: 91 }],
+        channels: buildChannels(revenueOrders),
+        geoHeat: [{ label: "Madrid", value: 82 }, { label: "Barcelona", value: 61 }, { label: "Sevilla", value: 44 }, { label: "Valencia", value: 28 }, { label: "Bilbao", value: 17 }],
+        funnel: [{ label: "Visitas", value: 10000 }, { label: "Ficha de evento", value: 6800 }, { label: "Seleccion", value: 2400 }, { label: "Checkout", value: 920 }, { label: "Compra", value: 480 }],
+        eventMetrics,
+        lastUpdated: new Date().toISOString()
+      },
+      meta: { requestId: "req_dashboard" }
+    });
   }),
   http.post(`${BASE}/reports/export`, async ({ request }) => {
     const user = db.users.find((candidate) => candidate.id === getSessionUserId(request));
@@ -110,14 +301,21 @@ export const dashboardHandlers = [
     const permissions = resolveEffectivePermissions(user.role, user.permissionOverrides);
     if (!permissions.has("reports:export")) return HttpResponse.json({ error: { code: "FORBIDDEN", message: "No tienes permiso para exportar informes", requestId: "req_export" } }, { status: 403 });
     const body = await request.json() as { report?: string; format?: string };
-    const events = db.events.filter((event) => user.role === "superadmin" || event.organizationId === user.organizationId);
-    const factor = user.eventScopes.length > 0 ? 0.42 : events.length / 5;
-    const gross = Math.round(1284500 * factor);
-    const sold = Math.round(842 * factor);
-    const kpiRows = [["Indicador", "Valor", "Variacion"], ["Ingresos brutos", formatMoney(gross), "+12.4%"], ["Ingresos netos", formatMoney(Math.round(gross * 0.91)), "+9.8%"], ["Entradas vendidas", `${sold}`, "+18.2%"], ["Ticket medio", formatMoney(1525), "+3.1%"], ["Aforo ocupado", `${Math.round(68 * factor)}%`, "+5.6%"], ["Conversion", "4.8%", "+0.7%"], ["Asistencia", "74%", "+2.9%"], ["Reembolsos", formatMoney(38200), "-4.2%"]];
-    const exportEvents = events.map((event, index) => ({ label: event.title, status: statusLabels[event.status] ?? event.status, date: formatDate(event.startsAt), sold: Math.round(sold * (0.18 + index * 0.09)), capacity: Math.max(Math.round(1240 * factor), 100), revenue: formatMoney(Math.round(gross * (0.18 + index * 0.09))) }));
+    const { events, revenueOrders, eventMetrics, totals } = computeOverview(user);
+    const kpiRows = [["Indicador", "Valor", "Variacion"], ["Ingresos brutos", formatMoney(totals.grossRevenue), "+12.4%"], ["Ingresos netos", formatMoney(totals.netRevenue), "+9.8%"], ["Entradas vendidas", `${totals.ticketsSold}`, "+18.2%"], ["Ticket medio", formatMoney(totals.averageTicket), "+3.1%"], ["Aforo ocupado", `${totals.occupancy}%`, "+5.6%"], ["Conversion", "4.8%", "+0.7%"], ["Asistencia", "74%", "+2.9%"], ["Reembolsos", formatMoney(totals.refunds), "-4.2%"]];
+    const exportEvents = events.map((event) => {
+      const metricEntry = eventMetrics.find((candidate) => candidate.id === event.id);
+      return {
+        label: event.title,
+        status: statusLabels[event.status] ?? event.status,
+        date: formatDate(event.startsAt),
+        sold: metricEntry?.ticketsSold ?? 0,
+        capacity: capacityForEvent(event.id).capacity,
+        revenue: formatMoney(metricEntry?.grossRevenue ?? 0)
+      };
+    });
     const eventRows = [["Evento", "Estado", "Fecha", "Vendidas", "Aforo", "Ingresos"], ...exportEvents.map((event) => [event.label, event.status, event.date, `${event.sold}`, `${event.capacity}`, event.revenue])];
-    const salesSeries = [{ label: "01 ago", value: 60 }, { label: "08 ago", value: 145 }, { label: "15 ago", value: 230 }, { label: "22 ago", value: 390 }, { label: "29 ago", value: 535 }, { label: "05 sep", value: sold }];
+    const salesSeries = buildSalesTimeline(revenueOrders).map((point) => ({ label: point.label, value: point.actual }));
     const salesRows = [["Fecha", "Entradas"], ...salesSeries.map((point) => [point.label, `${point.value}`])];
     const format = body.format === "xlsx" || body.format === "pdf" ? body.format : "csv";
     const csv = [toCsvBlock("Resumen", kpiRows), toCsvBlock("Detalle de eventos", eventRows), toCsvBlock("Ventas acumuladas", salesRows)].join("\n\n");

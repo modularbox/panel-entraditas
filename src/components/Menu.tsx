@@ -8,9 +8,10 @@ export interface MenuProps {
   items: NavItem[];
   user: SessionUser | null;
   onLogout: () => void;
+  onResetDemoData?: () => void;
 }
 
-export function Menu({ items, user, onLogout }: MenuProps) {
+export function Menu({ items, user, onLogout, onResetDemoData }: MenuProps) {
   const location = useLocation();
 
   return (
@@ -54,6 +55,11 @@ export function Menu({ items, user, onLogout }: MenuProps) {
           })}
         </ul>
 
+        {onResetDemoData ? (
+          <Button variant="outline" onClick={onResetDemoData}>
+            Restablecer datos
+          </Button>
+        ) : null}
         <Button variant="ghost" onClick={onLogout}>
           Cerrar sesión
         </Button>

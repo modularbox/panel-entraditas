@@ -24,6 +24,28 @@
   --success: 153 69% 33%;
   --success-bg: 148 48% 94%;
 
+  /* Refund rows in the sales section: light red tint + vivid red negative value. */
+  --refund: 0 78% 50%;
+  --refund-bg: 0 65% 93%;
+
+  /* Event status pills. Semantic colors, kept identical across themes so the
+     badge reads the same for every role; the tinted backgrounds stay light
+     against both the cream and the blue superadmin surfaces. */
+  --status-draft: 38 92% 38%;
+  --status-draft-bg: 42 80% 90%;
+  --status-published: 215 72% 42%;
+  --status-published-bg: 214 70% 93%;
+  --status-on-sale: 153 69% 33%;
+  --status-on-sale-bg: 148 48% 94%;
+  --status-sold-out: 0 68% 40%;
+  --status-sold-out-bg: 0 65% 93%;
+  --status-paused: 26 12% 39%;
+  --status-paused-bg: 39 12% 90%;
+  --status-finished: 265 58% 42%;
+  --status-finished-bg: 262 60% 93%;
+  --status-cancelled: 17 18% 8%;
+  --status-cancelled-bg: 39 12% 90%;
+
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;

@@ -19,7 +19,10 @@ const columns = [
     )
   }),
   columnHelper.accessor("customerName", { header: "Comprador" }),
-  columnHelper.accessor("amount", { header: "Importe", cell: (info) => euro.format(info.getValue() / 100) }),
+  columnHelper.accessor("amount", {
+    header: "Importe",
+    cell: (info) => <span className="text-refund">{euro.format(-info.getValue() / 100)}</span>
+  }),
   columnHelper.accessor("reason", { header: "Motivo" }),
   columnHelper.accessor("createdAt", { header: "Fecha", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") })
 ];
@@ -81,7 +84,7 @@ export function RefundsListPage() {
             </thead>
             <tbody>
               {table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-t border-border">
+                <tr key={row.id} aria-label="Reembolso" className="border-t border-border bg-refund-bg">
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                   ))}

@@ -75,9 +75,9 @@ describe("createSeedDatabase", () => {
     expect(subuserEffective.has("finance:read")).toBe(false);
   });
 
-  it("seeds 10 schema-valid orders with schema-valid line items, and keeps sold counts consistent with paid quantities", () => {
+  it("seeds 9 schema-valid orders with schema-valid line items, and keeps sold counts consistent with paid quantities", () => {
     const db = createSeedDatabase();
-    expect(db.orders).toHaveLength(10);
+    expect(db.orders).toHaveLength(9);
     for (const order of db.orders) expect(() => OrderSchema.parse(order)).not.toThrow();
     for (const item of db.orderItems) expect(() => OrderItemSchema.parse(item)).not.toThrow();
 

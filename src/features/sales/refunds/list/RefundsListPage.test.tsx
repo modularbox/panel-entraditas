@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
@@ -34,5 +34,21 @@ describe("RefundsListPage", () => {
     renderPage();
     const link = await screen.findByRole("link", { name: "PED-2026-0004" });
     expect(link).toHaveAttribute("href", "/ventas/pedidos/order-4");
+  });
+
+  it("shows refund rows with a light red background and the amount negative in bright red", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    renderPage();
+
+    const order4Link = await screen.findByRole("link", { name: "PED-2026-0004" });
+    const order4Row = order4Link.closest("tr")!;
+    expect(order4Row).toHaveClass("bg-refund-bg");
+    expect(order4Row).toHaveAttribute("aria-label", "Reembolso");
+    expect(within(order4Row).getByText("-50,00 €")).toHaveClass("text-refund");
+
+    const order10Link = await screen.findByRole("link", { name: "PED-2026-0010" });
+    const order10Row = order10Link.closest("tr")!;
+    expect(order10Row).toHaveClass("bg-refund-bg");
+    expect(within(order10Row).getByText("-90,00 €")).toHaveClass("text-refund");
   });
 });

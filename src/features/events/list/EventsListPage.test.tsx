@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
@@ -47,5 +47,20 @@ describe("EventsListPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Título" }));
     await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Rock en Directo"));
+  });
+
+  it("colors each event's status label with its state color", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(6));
+
+    const jazzRow = screen.getByRole("row", { name: /Noche de Jazz/ });
+    expect(within(jazzRow).getByText("Publicado")).toHaveClass("border-status-published");
+
+    const theatreRow = screen.getByRole("row", { name: /Bernarda Alba/ });
+    expect(within(theatreRow).getByText("Borrador")).toHaveClass("border-status-draft");
+
+    const festivalRow = screen.getByRole("row", { name: /Festival del Sur/ });
+    expect(within(festivalRow).getByText("A la venta")).toHaveClass("border-status-on-sale");
   });
 });

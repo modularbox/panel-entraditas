@@ -30,8 +30,8 @@ export interface DashboardOverview {
     grossRevenue: number;
     netRevenue: number;
     ticketsSold: number;
-    averageTicket: number;
-    occupancy: number;
+    averageTicket: number | null;
+    occupancy: number | null;
     conversion: number;
     attendance: number;
     refunds: number;

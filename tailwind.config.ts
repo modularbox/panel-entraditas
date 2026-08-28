@@ -20,7 +20,24 @@ export default {
           alt: "hsl(var(--surface-alt))"
         },
         accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
-        success: { DEFAULT: "hsl(var(--success))", bg: "hsl(var(--success-bg))" }
+        success: { DEFAULT: "hsl(var(--success))", bg: "hsl(var(--success-bg))" },
+        refund: { DEFAULT: "hsl(var(--refund))", bg: "hsl(var(--refund-bg))" },
+        status: {
+          draft: "hsl(var(--status-draft))",
+          "draft-bg": "hsl(var(--status-draft-bg))",
+          published: "hsl(var(--status-published))",
+          "published-bg": "hsl(var(--status-published-bg))",
+          "on-sale": "hsl(var(--status-on-sale))",
+          "on-sale-bg": "hsl(var(--status-on-sale-bg))",
+          "sold-out": "hsl(var(--status-sold-out))",
+          "sold-out-bg": "hsl(var(--status-sold-out-bg))",
+          paused: "hsl(var(--status-paused))",
+          "paused-bg": "hsl(var(--status-paused-bg))",
+          finished: "hsl(var(--status-finished))",
+          "finished-bg": "hsl(var(--status-finished-bg))",
+          cancelled: "hsl(var(--status-cancelled))",
+          "cancelled-bg": "hsl(var(--status-cancelled-bg))"
+        }
       },
       fontFamily: {
         sans: ["var(--font-sans)", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],

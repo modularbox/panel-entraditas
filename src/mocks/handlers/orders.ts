@@ -32,6 +32,10 @@ export function canAccessOrder(order: Order, user: User): boolean {
   return hasPermission(effective, "orders:read", { eventId: order.eventId, eventScopes: user.eventScopes });
 }
 
+// These statuses make an order disappear: refunds stop it being "a sale", and a cancelled order is
+// deleted outright (see POST /orders/:id/cancel) — it must never surface anywhere.
+const HIDDEN_STATUSES: Order["status"][] = ["refunded", "partially_refunded", "cancelled"];
+
 export const ordersHandlers = [
   http.get(`${BASE}/orders`, ({ request }) => {
     const user = requireUser(request);
@@ -45,7 +49,7 @@ export const ordersHandlers = [
     const channel = url.searchParams.get("channel");
     const q = url.searchParams.get("q")?.trim().toLowerCase();
 
-    let orders = db.orders.filter((order) => canAccessOrder(order, user));
+    let orders = db.orders.filter((order) => canAccessOrder(order, user) && !HIDDEN_STATUSES.includes(order.status));
     if (eventId) orders = orders.filter((order) => order.eventId === eventId);
     if (status) orders = orders.filter((order) => order.status === status);
     if (channel) orders = orders.filter((order) => order.channel === channel);
@@ -68,7 +72,7 @@ export const ordersHandlers = [
     if (!effective.has("orders:read")) return forbidden("req_orders_get");
 
     const order = db.orders.find((o) => o.id === params.id);
-    if (!order || !canAccessOrder(order, user)) return notFound("req_orders_get");
+    if (!order || order.status === "cancelled" || !canAccessOrder(order, user)) return notFound("req_orders_get");
 
     const items = db.orderItems.filter((item) => item.orderId === order.id);
     const refunds = db.refunds.filter((r) => r.orderId === order.id);
@@ -157,5 +161,35 @@ export const ordersHandlers = [
       { data: { ...order, items: newItems, refunds: [] }, meta: { requestId: "req_orders_create" } },
       { status: 201 }
     );
+  }),
+
+  // Cancelling = deleting: the order, its line items and any refunds are removed from the DB so it
+  // stops appearing in lists, detail, stats or customers. Stock sold on it is released again.
+  http.post(`${BASE}/orders/:id/cancel`, ({ request, params }) => {
+    const user = requireUser(request);
+    if (!user) return unauthenticated("req_orders_cancel");
+
+    const order = db.orders.find((o) => o.id === params.id);
+    if (!order || !canAccessOrder(order, user)) return notFound("req_orders_cancel");
+
+    const effective = resolveEffectivePermissions(user.role, user.permissionOverrides);
+    if (!effective.has("orders:refund")) return forbidden("req_orders_cancel", "No tienes permiso para anular pedidos");
+
+    const items = db.orderItems.filter((item) => item.orderId === order.id);
+    for (const item of items) {
+      const ticketType = db.ticketTypes.find((tt) => tt.id === item.ticketTypeId);
+      if (!ticketType) continue;
+      ticketType.quantitySold = Math.max(0, ticketType.quantitySold - item.quantity);
+      if (ticketType.capacityPoolId) {
+        const pool = db.capacityPools.find((p) => p.id === ticketType.capacityPoolId);
+        if (pool) pool.soldCount = Math.max(0, pool.soldCount - item.quantity);
+      }
+    }
+
+    db.orders = db.orders.filter((o) => o.id !== order.id);
+    db.orderItems = db.orderItems.filter((item) => item.orderId !== order.id);
+    db.refunds = db.refunds.filter((refund) => refund.orderId !== order.id);
+
+    return HttpResponse.json({ data: { id: order.id, status: "cancelled" }, meta: { requestId: "req_orders_cancel" } });
   })
 ];

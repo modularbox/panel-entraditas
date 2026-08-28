@@ -11,29 +11,31 @@ async function loginAs(email: string) {
 describe("orders handlers", () => {
   afterEach(() => resetDb());
 
-  it("superadmin sees all 10 seeded orders", async () => {
+  it("superadmin sees only the active sale orders (refunded and cancelled are hidden)", async () => {
     const token = await loginAs("superadmin@entraditas.com");
     const orders = await apiClient.get<Order[]>("/orders", { token });
-    expect(orders).toHaveLength(10);
+    expect(orders).toHaveLength(7);
+    expect(orders.some((o) => o.status === "refunded" || o.status === "partially_refunded" || o.status === "cancelled")).toBe(false);
   });
 
-  it("an org-1 admin only sees orders for their organization's events", async () => {
+  it("an org-1 admin only sees active orders for their organization's events", async () => {
     const token = await loginAs("admin@entraditas.com");
     const orders = await apiClient.get<Order[]>("/orders", { token });
-    expect(orders).toHaveLength(7);
+    expect(orders).toHaveLength(5);
     expect(orders.every((o) => o.organizationId === "org-1")).toBe(true);
+    expect(orders.some((o) => o.status === "refunded" || o.status === "partially_refunded" || o.status === "cancelled")).toBe(false);
   });
 
-  it("filters by eventId", async () => {
+  it("filters by eventId, excluding refunded orders", async () => {
     const token = await loginAs("admin@entraditas.com");
     const orders = await apiClient.get<Order[]>("/orders?eventId=event-1", { token });
-    expect(orders.map((o) => o.id).sort()).toEqual(["order-1", "order-2", "order-3", "order-4"]);
+    expect(orders.map((o) => o.id).sort()).toEqual(["order-1", "order-2", "order-3"]);
   });
 
-  it("filters by status", async () => {
+  it("returns an empty list for a status with no orders", async () => {
     const token = await loginAs("admin@entraditas.com");
     const orders = await apiClient.get<Order[]>("/orders?status=cancelled", { token });
-    expect(orders.map((o) => o.id)).toEqual(["order-7"]);
+    expect(orders).toEqual([]);
   });
 
   it("filters by channel", async () => {
@@ -165,5 +167,51 @@ describe("orders handlers - creating a box office sale", () => {
         { token }
       )
     ).rejects.toMatchObject({ code: "NOT_FOUND" }); // event-4 belongs to org-2
+  });
+});
+
+describe("orders handlers - cancelling a sale deletes it outright", () => {
+  afterEach(() => resetDb());
+
+  it("deletes the order and its line items, frees the stock, and it stops appearing anywhere", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    const gradaBefore = db.ticketTypes.find((tt) => tt.id === "tt-2-grada")!.quantitySold;
+    const poolBefore = db.capacityPools.find((p) => p.id === "pool-2-grada")!.soldCount;
+
+    const result = await apiClient.post<{ id: string; status: string }>("/orders/order-5/cancel", undefined, { token });
+    expect(result.status).toBe("cancelled");
+
+    expect(db.orders.some((o) => o.id === "order-5")).toBe(false);
+    expect(db.orderItems.some((item) => item.orderId === "order-5")).toBe(false);
+    await expect(apiClient.get("/orders/order-5", { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    const remaining = await apiClient.get<Order[]>("/orders", { token });
+    expect(remaining.some((o) => o.id === "order-5")).toBe(false);
+
+    // order-5 sold 4 pista + 2 grada → stock is released again
+    expect(db.ticketTypes.find((tt) => tt.id === "tt-2-grada")!.quantitySold).toBe(gradaBefore - 2);
+    expect(db.capacityPools.find((p) => p.id === "pool-2-grada")!.soldCount).toBe(poolBefore - 2);
+  });
+
+  it("also removes any refunds attached to the cancelled order", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    expect(db.refunds.some((r) => r.orderId === "order-4")).toBe(true);
+    await apiClient.post("/orders/order-4/cancel", undefined, { token });
+    expect(db.orders.some((o) => o.id === "order-4")).toBe(false);
+    expect(db.refunds.some((r) => r.orderId === "order-4")).toBe(false);
+  });
+
+  it("returns NOT_FOUND for an order outside the actor's organization", async () => {
+    const token = await loginAs("admin@entraditas.com"); // org-1
+    await expect(apiClient.post("/orders/order-8/cancel", undefined, { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("returns FORBIDDEN for a user without orders:refund", async () => {
+    const token = await loginAs("usuario@entraditas.com");
+    await expect(apiClient.post("/orders/order-5/cancel", undefined, { token })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("returns UNAUTHENTICATED without a session", async () => {
+    await expect(apiClient.post("/orders/order-5/cancel", undefined)).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
   });
 });

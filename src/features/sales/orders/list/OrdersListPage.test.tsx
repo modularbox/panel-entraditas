@@ -23,18 +23,20 @@ describe("OrdersListPage", () => {
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
-  it("shows all 10 orders to a superadmin", async () => {
+  it("shows only sales to a superadmin, hiding refunded orders", async () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
     renderPage();
-    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(11)); // 1 header row + 10 data rows
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(8)); // 1 header row + 7 active orders
+    expect(screen.queryByRole("link", { name: "PED-2026-0004" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "PED-2026-0010" })).toBeNull();
   });
 
-  it("filters by status", async () => {
+  it("shows the empty state when filtering by cancelled, since cancelled orders are deleted", async () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
     renderPage();
-    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(11));
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(8));
     fireEvent.change(screen.getByLabelText("Estado"), { target: { value: "cancelled" } });
-    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(2)); // header + order-7
+    expect(await screen.findByText("No hay pedidos que coincidan con los filtros.")).toBeInTheDocument();
   });
 
   it("links each row to its order detail", async () => {
@@ -47,7 +49,7 @@ describe("OrdersListPage", () => {
   it("sorts by Total ascending on the first header click and descending on the second", async () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
     renderPage();
-    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(11));
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(8));
 
     fireEvent.click(screen.getByRole("button", { name: "Total" }));
     await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("PED-2026-0009"));

@@ -6,17 +6,8 @@ import type { Event } from "@entraditas/types";
 import { Can } from "@/shared/auth/Can";
 import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
+import { EventStatusBadge, EVENT_STATUS_LABEL } from "@/shared/ui/EventStatusBadge";
 import { useEventsQuery } from "./useEventsQuery";
-
-const STATUS_LABEL: Record<Event["status"], string> = {
-  draft: "Borrador",
-  published: "Publicado",
-  on_sale: "A la venta",
-  sold_out: "Agotado",
-  paused: "Pausado",
-  finished: "Finalizado",
-  cancelled: "Cancelado"
-};
 
 const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
 
@@ -32,14 +23,7 @@ const columns = [
   }),
   columnHelper.accessor("status", {
     header: "Estado",
-    cell: (info) => {
-      const status = info.getValue();
-      return (
-        <span className="inline-block rounded-pill border-2 border-foreground bg-surface-alt px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide">
-          {STATUS_LABEL[status]}
-        </span>
-      );
-    }
+    cell: (info) => <EventStatusBadge status={info.getValue()} />
   }),
   columnHelper.accessor("startsAt", {
     header: "Fecha",
@@ -86,9 +70,9 @@ export function EventsListPage() {
           {/* Only the most common statuses are filterable here; sold_out/paused/finished/cancelled
               events still show up under "Todos". */}
           <option value="">Todos</option>
-          <option value="draft">Borrador</option>
-          <option value="published">Publicado</option>
-          <option value="on_sale">A la venta</option>
+          {(["draft", "published", "on_sale"] as const).map((value) => (
+            <option key={value} value={value}>{EVENT_STATUS_LABEL[value]}</option>
+          ))}
         </select>
       </div>
 
