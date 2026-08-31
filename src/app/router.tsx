@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { InvitationAcceptPage } from "@/features/auth/InvitationAcceptPage";
+import { TermsPage } from "@/features/legal/TermsPage";
 import { AccesosLayout } from "@/features/access/AccesosLayout";
 import { GatesOverviewPage } from "@/features/access/gates/GatesOverviewPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
@@ -45,6 +46,7 @@ export function AppRoutes() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/invitacion/:token" element={<InvitationAcceptPage />} />
+          <Route path="/terminos" element={<TermsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
@@ -107,6 +109,7 @@ export function AppRoutes() {
             <Route path="puertas" element={<GatesOverviewPage />} />
           </Route>
         </Route>
+        <Route path="/terminos" element={<TermsPage />} />
         <Route path="/sin-acceso" element={<div>No tienes acceso a esta sección.</div>} />
         <Route path="/" element={<Navigate to="/eventos" replace />} />
       </Route>

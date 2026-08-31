@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { Button } from "@/shared/ui/button";
 import { loginSchema, type LoginFormValues } from "./loginSchema";
@@ -76,6 +76,33 @@ export function LoginPage() {
             {errors.password && (
               <span role="alert" className="text-sm text-destructive">
                 {errors.password.message}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="notRobot" className="flex items-center gap-2 text-sm font-medium">
+              <input id="notRobot" type="checkbox" {...register("notRobot")} />
+              No soy un robot
+            </label>
+            {errors.notRobot && (
+              <span role="alert" className="text-sm text-destructive">
+                {errors.notRobot.message}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="acceptsTerms" className="flex items-center gap-2 text-sm font-medium">
+              <input id="acceptsTerms" type="checkbox" {...register("acceptsTerms")} />
+              Acepto los{" "}
+              <Link to="/terminos" className="underline">
+                términos y condiciones
+              </Link>
+            </label>
+            {errors.acceptsTerms && (
+              <span role="alert" className="text-sm text-destructive">
+                {errors.acceptsTerms.message}
               </span>
             )}
           </div>

@@ -129,4 +129,9 @@ describe("AppRoutes", () => {
     renderApp(["/invitacion/unknown"]);
     await waitFor(() => expect(screen.getByText("Invitación no disponible")).toBeInTheDocument());
   });
+
+  it("opens the terms and conditions page without an authenticated session", async () => {
+    renderApp(["/terminos"]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Términos y condiciones" })).toBeInTheDocument());
+  });
 });

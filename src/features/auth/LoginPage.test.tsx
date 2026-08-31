@@ -19,6 +19,8 @@ function renderLoginPage() {
 async function fillAndSubmit(email: string, password: string) {
   fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: email } });
   fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: password } });
+  fireEvent.click(screen.getByLabelText("No soy un robot"));
+  fireEvent.click(screen.getByLabelText(/Acepto los/));
   fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
 }
 
@@ -44,6 +46,28 @@ describe("LoginPage", () => {
     renderLoginPage();
     await fillAndSubmit("admin@entraditas.com", "wrong-password");
     await waitFor(() => expect(screen.getByText("Credenciales inválidas")).toBeInTheDocument());
+    expect(screen.queryByText("Listado de eventos")).not.toBeInTheDocument();
+  });
+
+  it("blocks submission with valid credentials until 'No soy un robot' is checked", async () => {
+    renderLoginPage();
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@entraditas.com" } });
+    fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "N8@kP4!wY6#sD2&" } });
+    fireEvent.click(screen.getByLabelText(/Acepto los/));
+    fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(await screen.findByText("Confirma que no eres un robot")).toBeInTheDocument();
+    expect(screen.queryByText("Listado de eventos")).not.toBeInTheDocument();
+  });
+
+  it("blocks submission with valid credentials until the terms and conditions are accepted", async () => {
+    renderLoginPage();
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@entraditas.com" } });
+    fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "N8@kP4!wY6#sD2&" } });
+    fireEvent.click(screen.getByLabelText("No soy un robot"));
+    fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(await screen.findByText("Debes aceptar los términos y condiciones")).toBeInTheDocument();
     expect(screen.queryByText("Listado de eventos")).not.toBeInTheDocument();
   });
 });
