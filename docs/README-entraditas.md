@@ -330,7 +330,7 @@ users:read       users:manage    roles:manage    audit:read      settings:manage
 | `sub_event_id` | `uuid` FK NULL | **NULL ⇒ tipo a nivel de evento** (válido para todos los subeventos, p. ej. abono de festival) |
 | `capacity_pool_id` | `uuid` FK NULL | Cupo del que descuenta |
 | `name`, `description` | | |
-| `kind` | `enum(paid, free, courtesy, promo, pass)` | |
+| `kind` | `enum(pago, gratis, cortesia, promocional, abono)` | |
 | `base_price` | `numeric(10,2)` | |
 | `currency` | `char(3)` | |
 | `quantity_total` | `int` NULL | Cupo propio del tipo (`NULL` = ilimitado dentro del pool) |
@@ -342,7 +342,7 @@ users:read       users:manage    roles:manage    audit:read      settings:manage
 | `is_transferable`, `is_refundable` | `boolean` | |
 | `sort_order`, `color` | | UI |
 
-> **Regla de negocio clave:** un `ticket_type` con `sub_event_id = NULL` y `kind = 'pass'` (abono) emite un ticket con validez en **todos** los subeventos del evento; el control de reentradas se lleva en `scans` por `sub_event_id`.
+> **Regla de negocio clave:** un `ticket_type` con `sub_event_id = NULL` y `kind = 'abono'` emite un ticket con validez en **todos** los subeventos del evento; el control de reentradas se lleva en `scans` por `sub_event_id`.
 
 **`ticket_type_prices`** — Tramos temporales (Early Bird → Regular → Last Minute): `ticket_type_id`, `name`, `price`, `starts_at`, `ends_at`, `quantity_limit`, `is_active`.
 
@@ -1242,7 +1242,7 @@ gantt
 
 **Objetivo:** que cualquier desarrollador pueda levantar el proyecto y desplegar en 10 minutos.
 
-- Monorepo (pnpm workspaces o Turborepo): `apps/web`, `apps/panel`, `apps/scan`, `apps/api`, `packages/ui`, `packages/types`, `packages/config`.
+- Monorepo (npm workspaces): `apps/web`, `apps/panel`, `apps/scan`, `apps/api`, `packages/ui`, `packages/types`, `packages/config`.
 - Docker Compose local (Postgres, Redis, MinIO, MailHog).
 - Esquema Prisma inicial + migraciones + seeds realistas (2 organizaciones, 5 eventos, roles y permisos).
 - CI en GitHub Actions: lint, typecheck, tests, build, migraciones en staging.

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { EventSchema, TicketTypeSchema, UserSchema } from "./schemas";
+import {
+  DiscountCodeSchema, EventSchema, InvitationSchema, OrderItemSchema, OrderSchema, TicketTypeSchema, UserSchema, ZoneSchema
+} from "./schemas";
 
 const validEvent = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -16,6 +18,7 @@ const validEvent = {
   salesStartAt: null,
   salesEndAt: null,
   hasSubEvents: false,
+  isCompetition: false,
   createdAt: "2026-08-01T00:00:00.000Z"
 };
 
@@ -37,7 +40,7 @@ describe("TicketTypeSchema", () => {
       eventId: "11111111-1111-1111-1111-111111111111",
       subEventId: null,
       name: "Abono festival",
-      kind: "pass",
+      kind: "abono",
       basePrice: 4500,
       currency: "EUR",
       quantityTotal: 200,
@@ -47,9 +50,61 @@ describe("TicketTypeSchema", () => {
       visibility: "public",
       isTransferable: true,
       isRefundable: true,
-      sortOrder: 0
+      sortOrder: 0,
+      color: null
     });
     expect(result.subEventId).toBeNull();
+  });
+
+  it("accepts a ticket type with a color and one without", () => {
+    const base = {
+      id: "tt-1",
+      groupId: "tt-1",
+      eventId: "11111111-1111-1111-1111-111111111111",
+      subEventId: null,
+      name: "Abono festival",
+      kind: "abono" as const,
+      basePrice: 4500,
+      currency: "EUR",
+      quantityTotal: 200,
+      quantitySold: 0,
+      minPerOrder: 1,
+      maxPerOrder: 4,
+      visibility: "public" as const,
+      isTransferable: true,
+      isRefundable: true,
+      sortOrder: 0
+    };
+    expect(() => TicketTypeSchema.parse({ ...base, color: "#3b82f6" })).not.toThrow();
+    expect(() => TicketTypeSchema.parse({ ...base, color: null })).not.toThrow();
+  });
+});
+
+describe("ZoneSchema", () => {
+  it("accepts a sellable zone with position and capacity", () => {
+    const zone = ZoneSchema.parse({
+      id: "zone-1", venueId: "venue-1", name: "Pista", kind: "standing",
+      capacity: 500, x: 5, y: 20, width: 40, height: 30
+    });
+    expect(zone.kind).toBe("standing");
+  });
+
+  it("accepts a stage marker with zero capacity", () => {
+    expect(() =>
+      ZoneSchema.parse({
+        id: "zone-2", venueId: "venue-1", name: "Escenario", kind: "stage",
+        capacity: 0, x: 20, y: 2, width: 60, height: 12
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects an unknown zone kind", () => {
+    expect(() =>
+      ZoneSchema.parse({
+        id: "zone-3", venueId: "venue-1", name: "X", kind: "bogus",
+        capacity: 0, x: 0, y: 0, width: 10, height: 10
+      })
+    ).toThrow();
   });
 });
 
@@ -68,5 +123,111 @@ describe("UserSchema", () => {
         eventScopes: []
       })
     ).toThrow();
+  });
+});
+
+describe("DiscountCodeSchema", () => {
+  it("accepts a valid discount code", () => {
+    const result = DiscountCodeSchema.parse({
+      id: "dc-1",
+      eventId: "event-1",
+      code: "VERANO10",
+      type: "percent",
+      value: 10,
+      maxUses: 100,
+      usedCount: 0,
+      maxUsesPerCustomer: 1,
+      appliesTo: null,
+      validFrom: null,
+      validTo: null,
+      status: "active"
+    });
+    expect(result.code).toBe("VERANO10");
+  });
+
+  it("accepts appliesTo as a list of ticket-type group ids", () => {
+    const result = DiscountCodeSchema.parse({
+      id: "dc-2",
+      eventId: "event-1",
+      code: "VIPONLY",
+      type: "fixed",
+      value: 500,
+      maxUses: null,
+      usedCount: 0,
+      maxUsesPerCustomer: null,
+      appliesTo: ["tt-1", "tt-2"],
+      validFrom: "2026-01-01T00:00:00.000Z",
+      validTo: "2026-02-01T00:00:00.000Z",
+      status: "inactive"
+    });
+    expect(result.appliesTo).toEqual(["tt-1", "tt-2"]);
+  });
+
+  it("rejects an unknown type", () => {
+    expect(() =>
+      DiscountCodeSchema.parse({
+        id: "dc-3",
+        eventId: "event-1",
+        code: "BAD",
+        type: "bogus",
+        value: 10,
+        maxUses: null,
+        usedCount: 0,
+        maxUsesPerCustomer: null,
+        appliesTo: null,
+        validFrom: null,
+        validTo: null,
+        status: "active"
+      })
+    ).toThrow();
+  });
+});
+
+describe("OrderItemSchema", () => {
+  it("accepts a valid order item", () => {
+    expect(() => OrderItemSchema.parse({
+      id: "oi-1", orderId: "order-1", ticketTypeId: "tt-1", ticketTypeName: "General",
+      quantity: 2, unitPrice: 2500, subtotal: 5000
+    })).not.toThrow();
+  });
+
+  it("rejects a zero quantity", () => {
+    expect(() => OrderItemSchema.parse({
+      id: "oi-1", orderId: "order-1", ticketTypeId: "tt-1", ticketTypeName: "General",
+      quantity: 0, unitPrice: 2500, subtotal: 0
+    })).toThrow();
+  });
+});
+
+describe("OrderSchema", () => {
+  const validOrder = {
+    id: "order-1", orderNumber: "PED-2026-0001", eventId: "event-1", organizationId: "org-1",
+    customerName: "Marta Ruiz", customerEmail: "marta.ruiz@example.com", status: "paid",
+    total: 5000, refundedAmount: 0, currency: "EUR", channel: "web", createdAt: "2026-08-05T10:00:00.000Z"
+  };
+
+  it("accepts a valid paid order with refundedAmount", () => {
+    expect(() => OrderSchema.parse(validOrder)).not.toThrow();
+  });
+
+  it("rejects an order missing refundedAmount", () => {
+    const { refundedAmount, ...withoutField } = validOrder;
+    expect(() => OrderSchema.parse(withoutField)).toThrow();
+  });
+});
+
+describe("InvitationSchema", () => {
+  it("accepts a valid pending invitation", () => {
+    expect(() => InvitationSchema.parse({
+      id: "inv-1", token: "tok-abc123", userId: "user-1", email: "nueva@example.com",
+      organizationId: "org-1", invitedByUserId: "user-admin", status: "pending", createdAt: "2026-08-25T00:00:00.000Z"
+    })).not.toThrow();
+  });
+
+  it("rejects an invalid status", () => {
+    expect(() => InvitationSchema.parse({
+      id: "inv-1", token: "tok-abc123", userId: "user-1", email: "nueva@example.com",
+      organizationId: "org-1", invitedByUserId: "user-admin", status: "expired", createdAt: "2026-08-25T00:00:00.000Z"
+    })).toThrow();
   });
 });

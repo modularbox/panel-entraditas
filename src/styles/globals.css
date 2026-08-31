@@ -1,0 +1,210 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Palette lifted from entraditas.com's own brand tokens (--color-*) so the
+     panel reads as the same product, not a generic admin skin. */
+  --border: 40 21% 80%;
+  --background: 40 7% 94%;
+  --foreground: 17 18% 8%;
+  --primary: 8 80% 51%;
+  --primary-dark: 9 83% 42%;
+  --primary-foreground: 0 0% 100%;
+  --destructive: 9 83% 42%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 39 12% 89%;
+  --muted-foreground: 26 12% 39%;
+  --surface: 0 0% 100%;
+  --surface-alt: 39 12% 89%;
+  --accent: 45 100% 48%;
+  --accent-foreground: 17 18% 8%;
+  --success: 153 69% 33%;
+  --success-bg: 148 48% 94%;
+
+  /* Refund rows in the sales section: light red tint + vivid red negative value. */
+  --refund: 0 78% 50%;
+  --refund-bg: 0 65% 93%;
+
+  /* Event status pills. Semantic colors, kept identical across themes so the
+     badge reads the same for every role; the tinted backgrounds stay light
+     against both the cream and the blue superadmin surfaces. */
+  --status-draft: 38 92% 38%;
+  --status-draft-bg: 42 80% 90%;
+  --status-published: 215 72% 42%;
+  --status-published-bg: 214 70% 93%;
+  --status-on-sale: 153 69% 33%;
+  --status-on-sale-bg: 148 48% 94%;
+  --status-sold-out: 0 68% 40%;
+  --status-sold-out-bg: 0 65% 93%;
+  --status-paused: 26 12% 39%;
+  --status-paused-bg: 39 12% 90%;
+  --status-finished: 265 58% 42%;
+  --status-finished-bg: 262 60% 93%;
+  --status-cancelled: 17 18% 8%;
+  --status-cancelled-bg: 39 12% 90%;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
+  --radius-pill: 999px;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Superadmin skin: light, blue-tinted palette (same lightness as the default brand
+   theme but swapping the warm cream/coral for cool blues). Activated by
+   <html data-theme="superadmin">, which ThemeManager sets while a superadmin
+   session is active (see src/app/theme.tsx). */
+:root[data-theme="superadmin"] {
+  --border: 214 32% 82%;
+  --background: 210 40% 96%;
+  --foreground: 222 47% 15%;
+  --primary: 221 83% 53%;
+  --primary-dark: 226 80% 46%;
+  --primary-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 214 32% 91%;
+  --muted-foreground: 218 17% 42%;
+  --surface: 0 0% 100%;
+  --surface-alt: 214 32% 91%;
+  --accent: 213 94% 68%;
+  --accent-foreground: 222 47% 15%;
+  --success: 153 69% 33%;
+  --success-bg: 148 48% 94%;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+}
+
+/* Baseline look for the wizard/detail screens' plain HTML form elements,
+   matching entraditas.com's bold-black-border, hard-edged brand language.
+   Scoped so it never fights a component that brings its own classes (e.g.
+   <Button>, PanelLayout's nav) — those always render with a class attribute
+   and are excluded by the `:not([class])` guards below. */
+@layer base {
+  h1 {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  label:not([class]) {
+    display: block;
+    margin-top: 0.75rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  input:not([class]):not([type="checkbox"]):not([type="radio"]),
+  select:not([class]),
+  textarea:not([class]) {
+    display: block;
+    width: 100%;
+    max-width: 28rem;
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    border-radius: var(--radius-md);
+    border: 2px solid hsl(var(--foreground));
+    background-color: hsl(var(--surface));
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    color: hsl(var(--foreground));
+  }
+  textarea:not([class]) {
+    height: auto;
+    min-height: 5rem;
+    padding: 0.5rem 0.75rem;
+  }
+  input:not([class])[type="checkbox"],
+  input:not([class])[type="radio"] {
+    width: auto;
+    height: auto;
+    margin-right: 0.4rem;
+    accent-color: hsl(var(--primary));
+  }
+  input:not([class]):focus-visible,
+  select:not([class]):focus-visible,
+  textarea:not([class]):focus-visible {
+    outline: 2px solid hsl(var(--accent));
+    outline-offset: 1px;
+  }
+
+  fieldset:not([class]) {
+    border: 2px solid hsl(var(--border));
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem 1.25rem;
+    margin-top: 1.25rem;
+  }
+  legend:not([class]) {
+    font-family: var(--font-display);
+    font-weight: 600;
+    padding: 0 0.5rem;
+  }
+
+  p[role="alert"]:not([class]),
+  span[role="alert"]:not([class]) {
+    display: block;
+    margin-top: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: hsl(var(--destructive));
+  }
+
+  ul:not([class]),
+  ol:not([class]) {
+    list-style: none;
+    margin: 0.75rem 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  ul:not([class]) li:not([class]),
+  ol:not([class]) li:not([class]) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 2px solid hsl(var(--border));
+    border-radius: var(--radius-md);
+    background-color: hsl(var(--surface));
+  }
+
+  button:not([class]) {
+    border: 2px solid hsl(var(--foreground));
+    border-radius: var(--radius-md);
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    background-color: hsl(var(--surface));
+    color: hsl(var(--foreground));
+    cursor: pointer;
+  }
+  button:not([class]):hover:not(:disabled) {
+    background-color: hsl(var(--muted));
+  }
+  button:not([class])[aria-pressed="true"] {
+    background-color: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+  button:not([class]):disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
