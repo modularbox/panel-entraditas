@@ -6,7 +6,7 @@ import {
   DEMO_SUPERADMIN_ID,
   DEMO_USER_ID
 } from "./db";
-import { EventSchema, OrderItemSchema, OrderSchema, RefundSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
+import { EventSchema, GateSchema, GuestListEntrySchema, GuestListSchema, OrderItemSchema, OrderSchema, RefundSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
 import { resolveEffectivePermissions } from "@/shared/auth/permissions";
 
 describe("createSeedDatabase", () => {
@@ -75,6 +75,29 @@ describe("createSeedDatabase", () => {
     expect(subuserEffective.has("finance:read")).toBe(false);
   });
 
+  it("seeds two schema-valid gates across different organizations", () => {
+    const db = createSeedDatabase();
+    expect(db.gates).toHaveLength(2);
+    for (const gate of db.gates) expect(() => GateSchema.parse(gate)).not.toThrow();
+
+    const norte = db.gates.find((g) => g.id === "gate-2-norte")!;
+    expect(norte.eventId).toBe("event-2");
+    expect(norte.operatorUserIds).toContain(DEMO_SUBUSER_ID);
+
+    const entrada = db.gates.find((g) => g.id === "gate-4-entrada")!;
+    expect(entrada.eventId).toBe("event-4");
+    expect(entrada.zoneId).toBeNull();
+    expect(entrada.operatorUserIds).toEqual([]);
+  });
+
+  it("seeds an active admin account for every organization", () => {
+    const db = createSeedDatabase();
+    for (const organization of db.organizations) {
+      const admin = db.users.find((u) => u.organizationId === organization.id && u.role === "admin" && u.status === "active");
+      expect(admin).toBeDefined();
+    }
+  });
+
   it("seeds 9 schema-valid orders with schema-valid line items, and keeps sold counts consistent with paid quantities", () => {
     const db = createSeedDatabase();
     expect(db.orders).toHaveLength(9);
@@ -114,5 +137,20 @@ describe("createSeedDatabase", () => {
 
     const order1 = db.orders.find((o) => o.id === "order-1")!;
     expect(order1.refundedAmount).toBe(0);
+  });
+
+  it("seeds one guest list on event-2 with 2 schema-valid entries", () => {
+    const db = createSeedDatabase();
+    expect(db.guestLists).toHaveLength(1);
+    const guestList = db.guestLists[0]!;
+    expect(() => GuestListSchema.parse(guestList)).not.toThrow();
+    expect(guestList.eventId).toBe("event-2");
+    expect(guestList.quota).toBe(5);
+
+    const entries = db.guestListEntries.filter((e) => e.guestListId === guestList.id);
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) expect(() => GuestListEntrySchema.parse(entry)).not.toThrow();
+    expect(entries.some((e) => e.status === "pending")).toBe(true);
+    expect(entries.some((e) => e.status === "checked_in")).toBe(true);
   });
 });

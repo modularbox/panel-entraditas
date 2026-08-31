@@ -50,12 +50,29 @@ describe("EventDetailPage", () => {
     expect(screen.getByLabelText("Código")).toBeInTheDocument();
   });
 
+  it("switches to the Puertas tab and shows its already-created gate", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    renderDetail("event-2"); // seeded with the Puerta Norte gate
+    fireEvent.click(await screen.findByRole("button", { name: "Puertas" }));
+
+    expect(await screen.findByText("Puerta Norte — NORTE")).toBeInTheDocument();
+    expect(screen.getByLabelText("Código")).toBeInTheDocument();
+  });
+
+  it("switches to the Invitados tab and shows its already-created guest list", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    renderDetail("event-2"); // seeded with the "Prensa" guest list
+    fireEvent.click(await screen.findByRole("button", { name: "Invitados" }));
+
+    expect(await screen.findByRole("listitem", { name: "Prensa" })).toBeInTheDocument();
+  });
+
   it("disables out-of-scope sections with an explanatory tooltip", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderDetail("event-3");
-    const gatesButton = await screen.findByRole("button", { name: "Puertas" });
-    expect(gatesButton).toBeDisabled();
-    expect(gatesButton).toHaveAttribute("title", "Disponible en una fase posterior");
+    const pedidosButton = await screen.findByRole("button", { name: "Pedidos" });
+    expect(pedidosButton).toBeDisabled();
+    expect(pedidosButton).toHaveAttribute("title", "Disponible en una fase posterior");
   });
 
   it("shows a not-found message for an out-of-scope event", async () => {

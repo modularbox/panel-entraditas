@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { InvitationAcceptPage } from "@/features/auth/InvitationAcceptPage";
+import { AccesosLayout } from "@/features/access/AccesosLayout";
+import { GatesOverviewPage } from "@/features/access/gates/GatesOverviewPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { EventDetailPage } from "@/features/events/detail/EventDetailPage";
 import { EventsListPage } from "@/features/events/list/EventsListPage";
@@ -15,6 +17,7 @@ import { TaquillaPage } from "@/features/sales/taquilla/TaquillaPage";
 import { VentasLayout } from "@/features/sales/VentasLayout";
 import { TeamMemberFormPage } from "@/features/team/form/TeamMemberFormPage";
 import { TeamListPage } from "@/features/team/list/TeamListPage";
+import { OrganizationsListPage } from "@/features/organizations/list/OrganizationsListPage";
 import { PlaceholderPage } from "@/features/placeholder/PlaceholderPage";
 import { RequirePermission } from "@/shared/auth/RequirePermission";
 import { useSessionStore } from "@/shared/auth/sessionStore";
@@ -22,7 +25,7 @@ import { AuthLayout } from "./layouts/AuthLayout";
 import { PanelLayout } from "./layouts/PanelLayout";
 import { NAV_ITEMS } from "./navItems";
 
-const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas"]);
+const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/organizaciones", "/accesos"]);
 
 export function AppRoutes() {
   const status = useSessionStore((s) => s.status);
@@ -84,6 +87,9 @@ export function AppRoutes() {
           <Route path="/equipo/invitar" element={<TeamMemberFormPage />} />
           <Route path="/equipo/:id/editar" element={<TeamMemberFormPage />} />
         </Route>
+        <Route element={<RequirePermission permission="organizations:manage" />}>
+          <Route path="/organizaciones" element={<OrganizationsListPage />} />
+        </Route>
         <Route element={<RequirePermission permission="orders:read" />}>
           <Route path="/ventas" element={<VentasLayout />}>
             <Route index element={<Navigate to="pedidos" replace />} />
@@ -93,6 +99,12 @@ export function AppRoutes() {
             <Route path="taquilla" element={<TaquillaPage />} />
             <Route path="asistentes" element={<AttendeesListPage />} />
             <Route path="asistentes/:email" element={<AttendeeDetailPage />} />
+          </Route>
+        </Route>
+        <Route element={<RequirePermission permission="scan:validate" />}>
+          <Route path="/accesos" element={<AccesosLayout />}>
+            <Route index element={<Navigate to="puertas" replace />} />
+            <Route path="puertas" element={<GatesOverviewPage />} />
           </Route>
         </Route>
         <Route path="/sin-acceso" element={<div>No tienes acceso a esta sección.</div>} />

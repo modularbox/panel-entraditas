@@ -10,17 +10,21 @@ import { Step2Schedule } from "../wizard/steps/Step2Schedule";
 import { Step4TicketTypes } from "../wizard/steps/Step4TicketTypes";
 import { SeatingPlanSection } from "../wizard/steps/SeatingPlanSection";
 import { DiscountCodesSection } from "../wizard/steps/DiscountCodesSection";
+import { GatesSection } from "../wizard/steps/GatesSection";
+import { GuestlistSection } from "../wizard/steps/GuestlistSection";
 
 const ENABLED_TABS = [
   { key: "general", label: "Información general" },
   { key: "subeventos", label: "Subeventos" },
   { key: "plano", label: "Plano de asientos" },
   { key: "tipos", label: "Tipos de entrada" },
-  { key: "descuentos", label: "Códigos de descuento" }
+  { key: "descuentos", label: "Códigos de descuento" },
+  { key: "puertas", label: "Puertas" },
+  { key: "invitados", label: "Invitados" }
 ] as const;
 
 // Sections not built yet; rendered as disabled buttons so the full nav is visible early.
-const DISABLED_TABS = ["Puertas", "Invitados", "Pedidos", "Métricas"];
+const DISABLED_TABS = ["Pedidos", "Métricas"];
 
 function noop() {
   // Reused wizard step components call onSaved/goNext; there is no "next
@@ -97,6 +101,8 @@ export function EventDetailPage() {
         {activeTab === "plano" && <SeatingPlanSection eventId={eventId} />}
         {activeTab === "tipos" && <Step4TicketTypes eventId={eventId} onSaved={noop} />}
         {activeTab === "descuentos" && <DiscountCodesSection eventId={eventId} />}
+        {activeTab === "puertas" && <GatesSection eventId={eventId} />}
+        {activeTab === "invitados" && <GuestlistSection eventId={eventId} />}
       </section>
     </div>
   );

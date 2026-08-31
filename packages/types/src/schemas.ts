@@ -190,6 +190,20 @@ export const CustomerSchema = z.object({
 });
 export type Customer = z.infer<typeof CustomerSchema>;
 
+// An organization as shown in the superadmin's cross-tenant listing, carrying the
+// admin account that "Conectar" switches the current session to.
+export const OrganizationAdminSchema = z.object({
+  id: z.string(),
+  fullName: z.string(),
+  email: z.string().email()
+});
+export type OrganizationAdmin = z.infer<typeof OrganizationAdminSchema>;
+
+export const OrganizationListItemSchema = OrganizationSchema.extend({
+  admin: OrganizationAdminSchema.nullable() // null when the organization has no admin account yet
+});
+export type OrganizationListItem = z.infer<typeof OrganizationListItemSchema>;
+
 export const ApiErrorSchema = z.object({
   error: z.object({
     code: z.string(),
@@ -217,3 +231,24 @@ export const GateSchema = z.object({
   isActive: z.boolean()
 });
 export type Gate = z.infer<typeof GateSchema>;
+
+export const GuestListSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  subEventId: z.string().nullable(),
+  name: z.string(),
+  quota: z.number().int().positive().nullable()
+});
+export type GuestList = z.infer<typeof GuestListSchema>;
+
+export const GuestListEntrySchema = z.object({
+  id: z.string(),
+  guestListId: z.string(),
+  fullName: z.string(),
+  email: z.string().email().nullable(),
+  phone: z.string().nullable(),
+  companions: z.number().int().nonnegative(),
+  status: z.enum(["pending", "checked_in"]),
+  notes: z.string().nullable()
+});
+export type GuestListEntry = z.infer<typeof GuestListEntrySchema>;

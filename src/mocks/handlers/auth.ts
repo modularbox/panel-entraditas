@@ -3,7 +3,7 @@ import { resolveEffectivePermissions } from "@/shared/auth/permissions";
 import { db, sessions, demoPasswordFor } from "../state";
 import { getSessionUserId } from "../authContext";
 
-function serializeSession(userId: string) {
+export function serializeSession(userId: string) {
   const user = db.users.find((u) => u.id === userId);
   if (!user) return null;
   return {

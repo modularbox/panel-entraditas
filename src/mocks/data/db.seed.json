@@ -47,6 +47,17 @@
       "status": "active",
       "permissionOverrides": [],
       "eventScopes": ["event-1"]
+    },
+    {
+      "id": "user-admin-2",
+      "organizationId": "org-2",
+      "parentUserId": null,
+      "role": "admin",
+      "email": "admin.surlive@entraditas.com",
+      "fullName": "Admin de Sur Live",
+      "status": "active",
+      "permissionOverrides": [],
+      "eventScopes": []
     }
   ],
   "venues": [
@@ -421,6 +432,65 @@
       "validFrom": null,
       "validTo": null,
       "status": "active"
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-2-norte",
+      "eventId": "event-2",
+      "subEventId": null,
+      "name": "Puerta Norte",
+      "code": "NORTE",
+      "zoneId": "zone-pista",
+      "direction": "in",
+      "allowReentry": false,
+      "maxScansPerTicket": 1,
+      "allowedTicketTypeGroupIds": null,
+      "opensAt": null,
+      "closesAt": null,
+      "operatorUserIds": ["user-subuser"],
+      "isActive": true
+    },
+    {
+      "id": "gate-4-entrada",
+      "eventId": "event-4",
+      "subEventId": null,
+      "name": "Entrada Principal",
+      "code": "ENTRADA",
+      "zoneId": null,
+      "direction": "in",
+      "allowReentry": false,
+      "maxScansPerTicket": 1,
+      "allowedTicketTypeGroupIds": null,
+      "opensAt": null,
+      "closesAt": null,
+      "operatorUserIds": [],
+      "isActive": true
+    }
+  ],
+  "guestLists": [
+    { "id": "gl-2-prensa", "eventId": "event-2", "subEventId": null, "name": "Prensa", "quota": 5 }
+  ],
+  "guestListEntries": [
+    {
+      "id": "gle-1",
+      "guestListId": "gl-2-prensa",
+      "fullName": "Marta López",
+      "email": "marta.lopez@example.com",
+      "phone": null,
+      "companions": 0,
+      "status": "pending",
+      "notes": null
+    },
+    {
+      "id": "gle-2",
+      "guestListId": "gl-2-prensa",
+      "fullName": "Carlos Ruiz",
+      "email": null,
+      "phone": "600111222",
+      "companions": 1,
+      "status": "checked_in",
+      "notes": "Fotógrafo acreditado"
     }
   ],
   "invitations": [],
