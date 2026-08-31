@@ -25,11 +25,11 @@ describe("EventDetailPage", () => {
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
-  it("shows the event title and the pre-filled Información general tab by default", async () => {
+  it("shows the event title and the pre-filled Informacion general tab by default", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
     renderDetail("event-3");
     expect(await screen.findByRole("heading", { name: "La Casa de Bernarda Alba" })).toBeInTheDocument();
-    expect(await screen.findByLabelText("Título")).toHaveValue("La Casa de Bernarda Alba");
+    expect(await screen.findByDisplayValue("La Casa de Bernarda Alba")).toBeInTheDocument();
   });
 
   it("switches to the Subeventos tab and shows its 4 functions", async () => {
@@ -41,16 +41,19 @@ describe("EventDetailPage", () => {
     await waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(4));
   });
 
-  it("disables out-of-scope sections with an explanatory tooltip", async () => {
+  it("shows discount codes as an editable section and keeps the later modules visible", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
     renderDetail("event-3");
-    const gatesButton = await screen.findByRole("button", { name: "Puertas" });
-    expect(gatesButton).toBeDisabled();
-    expect(gatesButton).toHaveAttribute("title", "Disponible en una fase posterior");
+    fireEvent.click(await screen.findByRole("button", { name: "Codigos de descuento" }));
+    expect(await screen.findByRole("heading", { name: "Nuevo descuento" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Puertas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Invitados" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pedidos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Metricas" })).toBeInTheDocument();
   });
 
   it("shows a not-found message for an out-of-scope event", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "demo1234"); // scoped to event-1 only
+    await useSessionStore.getState().login("subusuario@entraditas.com", "demo1234");
     renderDetail("event-3");
     expect(await screen.findByText("Evento no encontrado.")).toBeInTheDocument();
   });

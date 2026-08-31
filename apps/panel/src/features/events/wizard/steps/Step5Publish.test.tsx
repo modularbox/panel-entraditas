@@ -16,7 +16,7 @@ function renderStep(eventId: string) {
             path="/eventos/:id/editar"
             element={<Step5Publish eventId={eventId} onSaved={() => {}} goNext={() => {}} />}
           />
-          <Route path="/eventos/:id" element={<div>Detalle del evento</div>} />
+          <Route path="/eventos" element={<div>Panel de eventos</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -29,21 +29,21 @@ describe("Step5Publish", () => {
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
-  it("disables Publicar and shows a failing checklist item with zero ticket types", async () => {
+  it("disables review submission and shows a failing checklist item with zero ticket types", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
     renderStep("event-5");
-    await waitFor(() => expect(screen.getByText(/Al menos un tipo de entrada/)).toHaveTextContent("❌"));
-    expect(screen.getByRole("button", { name: "Publicar evento" })).toBeDisabled();
+    await waitFor(() => expect(screen.getByText(/Al menos un tipo de entrada/)).toHaveTextContent("Pendiente"));
+    expect(screen.getByRole("button", { name: "Enviar a revision" })).toBeDisabled();
   });
 
-  it("publishes an event that already has a ticket type, then navigates to its detail page", async () => {
+  it("sends an event that already has a ticket type to review, then navigates to the events panel", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "demo1234");
-    renderStep("event-3"); // seeded with tt-3
-    await waitFor(() => expect(screen.getByText(/Al menos un tipo de entrada/)).toHaveTextContent("✅"));
+    renderStep("event-3");
+    await waitFor(() => expect(screen.getByText(/Al menos un tipo de entrada/)).toHaveTextContent("OK"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Publicar evento" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar a revision" }));
 
-    await waitFor(() => expect(screen.getByText("Detalle del evento")).toBeInTheDocument());
-    expect(db.events.find((e) => e.id === "event-3")!.status).toBe("published");
+    await waitFor(() => expect(screen.getByText("Panel de eventos")).toBeInTheDocument());
+    expect(db.events.find((e) => e.id === "event-3")!.status).toBe("pending_review");
   });
 });

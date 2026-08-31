@@ -5,9 +5,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { useWizardStore } from "./wizardStore";
 import { EventWizardPage } from "./EventWizardPage";
 
-// Wrapped in QueryClientProvider from the start: step components added in
-// Tasks 18-22 (rendered here as soon as their `case N:` lands in renderStep)
-// use TanStack Query and would throw "No QueryClient set" without it.
 function renderAt(path: string) {
   const queryClient = new QueryClient();
   return render(
@@ -35,14 +32,14 @@ describe("EventWizardPage", () => {
     expect(screen.getByTestId("wizard-event-id")).toHaveTextContent("event-5");
   });
 
-  it("navigates between steps via the stepper and the Next/Previous buttons", () => {
+  it("navigates with the new ticket-types-before-plan order", () => {
     renderAt("/eventos/nuevo/editar");
     expect(screen.getByRole("button", { name: "Anterior" })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "3. Aforo y zonas" }));
-    expect(screen.getByRole("region", { name: "Aforo y zonas" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "3. Tipos de entrada" }));
+    expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
-    expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Plano y zonas" })).toBeInTheDocument();
   });
 });

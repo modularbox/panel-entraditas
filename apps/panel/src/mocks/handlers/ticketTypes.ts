@@ -14,6 +14,10 @@ function notFound(requestId: string) {
   return HttpResponse.json({ error: { code: "NOT_FOUND", message: "Recurso no encontrado", requestId } }, { status: 404 });
 }
 
+function validation(message: string, requestId: string) {
+  return HttpResponse.json({ error: { code: "VALIDATION_ERROR", message, requestId } }, { status: 422 });
+}
+
 function requireEvent(request: Request, eventId: string) {
   const userId = getSessionUserId(request);
   if (!userId) return { error: unauthenticated("req_tt") };
@@ -44,6 +48,7 @@ interface CreateTicketTypeBody {
   visibility: TicketType["visibility"];
   isTransferable: boolean;
   isRefundable: boolean;
+  color?: string;
   scope: "event" | { subEventIds: string[] };
 }
 
@@ -59,6 +64,9 @@ export const ticketTypesHandlers = [
     const result = requireEvent(request, params.eventId as string);
     if ("error" in result) return result.error;
     const body = (await request.json()) as CreateTicketTypeBody;
+    if (!Number.isInteger(body.quantityTotal) || Number(body.quantityTotal) <= 0) {
+      return validation("Indica cuantas entradas se pueden vender para este tipo", "req_tt_create");
+    }
     const groupId = `ttgroup-${db.ticketTypes.length + 1}`;
     const sortOrder = db.ticketTypes.filter((t) => t.eventId === result.event.id).length;
     const shared = {
@@ -76,6 +84,7 @@ export const ticketTypesHandlers = [
       visibility: body.visibility,
       isTransferable: body.isTransferable,
       isRefundable: body.isRefundable,
+      color: body.color,
       sortOrder
     };
     const created: TicketType[] =
@@ -89,7 +98,11 @@ export const ticketTypesHandlers = [
   http.patch(`${BASE}/ticket-types/:id`, async ({ request, params }) => {
     const result = requireTicketType(request, params.id as string);
     if ("error" in result) return result.error;
-    Object.assign(result.ticketType, await request.json());
+    const body = (await request.json()) as Partial<TicketType>;
+    if (typeof body.quantityTotal === "number" && body.quantityTotal < result.ticketType.quantitySold) {
+      return validation(`No se puede bajar la cantidad por debajo de las ${result.ticketType.quantitySold} entradas ya vendidas`, "req_tt_patch");
+    }
+    Object.assign(result.ticketType, body);
     return HttpResponse.json({ data: result.ticketType, meta: { requestId: "req_tt_patch" } });
   }),
 

@@ -8,13 +8,26 @@ import { useEventsQuery } from "./useEventsQuery";
 
 const STATUS_LABEL: Record<Event["status"], string> = {
   draft: "Borrador",
+  pending_review: "Pendiente de revision",
+  in_review: "En revision",
   published: "Publicado",
+  rejected: "Rechazado",
   on_sale: "A la venta",
   sold_out: "Agotado",
   paused: "Pausado",
   finished: "Finalizado",
   cancelled: "Cancelado"
 };
+
+const STATUS_FILTERS: Array<{ value: "" | Event["status"]; label: string }> = [
+  { value: "", label: "Todos" },
+  { value: "draft", label: "Borrador" },
+  { value: "pending_review", label: "Pendiente" },
+  { value: "in_review", label: "En revision" },
+  { value: "published", label: "Publicado" },
+  { value: "rejected", label: "Rechazado" },
+  { value: "on_sale", label: "A la venta" }
+];
 
 const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
 
@@ -41,7 +54,7 @@ const columns = [
   }),
   columnHelper.accessor("startsAt", {
     header: "Fecha",
-    cell: (info) => dateFormatter.format(new Date(info.getValue()))
+    cell: (info) => (info.getValue() ? dateFormatter.format(new Date(info.getValue()!)) : "Fecha por confirmar")
   })
 ];
 
@@ -61,21 +74,24 @@ export function EventsListPage() {
         </Can>
       </header>
 
-      <div className="flex items-center gap-2">
-        <label htmlFor="status-filter" className="text-sm font-medium">
-          Estado
-        </label>
-        <select
-          id="status-filter"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm"
-        >
-          <option value="">Todos</option>
-          <option value="draft">Borrador</option>
-          <option value="published">Publicado</option>
-          <option value="on_sale">A la venta</option>
-        </select>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-sm font-bold">Estado</span>
+        {STATUS_FILTERS.map((filter) => {
+          const active = status === filter.value;
+          return (
+            <button
+              key={filter.value || "all"}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setStatus(filter.value)}
+              className={`rounded-md border-2 px-3 py-2 text-xs font-extrabold uppercase ${
+                active ? "border-foreground bg-primary text-primary-foreground shadow-flat" : "border-border bg-surface text-foreground"
+              }`}
+            >
+              {filter.label}
+            </button>
+          );
+        })}
       </div>
 
       {isLoading ? (

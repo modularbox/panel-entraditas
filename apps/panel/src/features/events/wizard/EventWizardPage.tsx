@@ -1,5 +1,5 @@
 import { useEffect, type ReactElement } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/shared/lib/cn";
 import { Button } from "@/shared/ui/button";
 import { useWizardStore } from "./wizardStore";
@@ -12,8 +12,8 @@ import { Step5Publish } from "./steps/Step5Publish";
 export const WIZARD_STEP_TITLES = [
   "Datos básicos",
   "Fechas y subeventos",
-  "Aforo y zonas",
   "Tipos de entrada",
+  "Plano y zonas",
   "Publicación"
 ];
 
@@ -22,18 +22,9 @@ interface StepActions {
   goNext: () => void;
 }
 
-// Steps 2-5 all operate on an existing event (sub-events, capacity pools, ticket
-// types and the publish checklist are fetched/created by eventId). Reaching one
-// of them before step 1 has actually been saved — e.g. via the stepper tabs —
-// used to render a form that looked interactive but silently failed on submit
-// (no eventId to attach anything to). Guard those steps instead of rendering them.
 function renderStep(step: number, eventId: string | null, actions: StepActions): ReactElement {
   if (step > 1 && !eventId) {
-    return (
-      <p role="alert">
-        Primero guarda los datos básicos del evento (paso 1) para poder continuar.
-      </p>
-    );
+    return <p role="alert">Primero guarda los datos básicos del evento para poder continuar.</p>;
   }
 
   switch (step) {
@@ -42,17 +33,13 @@ function renderStep(step: number, eventId: string | null, actions: StepActions):
     case 2:
       return <Step2Schedule eventId={eventId} onSaved={actions.onSaved} goNext={actions.goNext} />;
     case 3:
-      return <Step3Capacity eventId={eventId} onSaved={actions.onSaved} goNext={actions.goNext} />;
-    case 4:
       return <Step4TicketTypes eventId={eventId} onSaved={actions.onSaved} goNext={actions.goNext} />;
+    case 4:
+      return <Step3Capacity eventId={eventId} onSaved={actions.onSaved} goNext={actions.goNext} />;
     case 5:
       return <Step5Publish eventId={eventId} onSaved={actions.onSaved} goNext={actions.goNext} />;
     default:
-      return (
-        <p>
-          Paso {step} pendiente de implementar (eventId: {eventId ?? "sin-id"}).
-        </p>
-      );
+      return <p>Paso {step} pendiente de implementar.</p>;
   }
 }
 
@@ -65,6 +52,7 @@ export function EventWizardPage() {
   const next = useWizardStore((s) => s.next);
   const back = useWizardStore((s) => s.back);
   const reset = useWizardStore((s) => s.reset);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (params.id && params.id !== "nuevo") setEventId(params.id);
@@ -86,7 +74,7 @@ export function EventWizardPage() {
                 aria-pressed={isActive}
                 onClick={() => goToStep(index + 1)}
                 className={cn(
-                  "rounded-md border-2 px-3 py-1.5 text-sm font-bold uppercase tracking-wide transition-colors",
+                  "rounded-md border-2 px-3 py-1.5 text-sm font-bold uppercase transition-colors",
                   isActive
                     ? "border-foreground bg-foreground text-background"
                     : "border-foreground bg-surface text-foreground hover:bg-muted"
@@ -103,7 +91,13 @@ export function EventWizardPage() {
         aria-label={WIZARD_STEP_TITLES[currentStep - 1]}
         className="rounded-lg border-2 border-foreground bg-surface p-6 shadow-flat"
       >
-        {renderStep(currentStep, eventId, { onSaved: setEventId, goNext: next })}
+        {renderStep(currentStep, eventId, {
+          onSaved: (id) => {
+            setEventId(id);
+            if (params.id === "nuevo") navigate(`/eventos/${id}/editar`, { replace: true });
+          },
+          goNext: currentStep === 1 ? () => goToStep(2) : next
+        })}
       </section>
 
       <div className="flex justify-between">

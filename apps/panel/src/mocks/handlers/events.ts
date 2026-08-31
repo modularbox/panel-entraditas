@@ -58,24 +58,45 @@ export const eventsHandlers = [
     const user = requireUser(request);
     if (!user) return unauthenticated("req_events_create");
     const body = (await request.json()) as Partial<Event> & { title: string };
+    const startsAt = body.startsAt ?? null;
     const event: Event = {
       id: `event-created-${db.events.length + 1}`,
       organizationId: user.organizationId ?? (body.organizationId as string),
       venueId: body.venueId ?? null,
       slug: slugify(body.title),
+      coverImageUrl: body.coverImageUrl ?? null,
+      gallery: body.gallery ?? [],
       title: body.title,
       description: body.description ?? "",
       category: body.category ?? "otros",
       status: "draft",
       visibility: body.visibility ?? "private",
-      startsAt: body.startsAt ?? new Date().toISOString(),
-      endsAt: body.endsAt ?? new Date().toISOString(),
+      location: body.location,
+      locality: body.locality,
+      startsAt,
+      endsAt: body.endsAt ?? null,
       salesStartAt: null,
       salesEndAt: null,
       hasSubEvents: body.hasSubEvents ?? false,
+      datePending: body.datePending ?? !startsAt,
+      notifyWhenDateConfirmed: body.notifyWhenDateConfirmed ?? !startsAt,
+      serviceFeeType: body.serviceFeeType ?? "none",
+      serviceFeeValue: body.serviceFeeValue ?? 0,
       createdAt: new Date().toISOString()
     };
     db.events.push(event);
+    if (startsAt) {
+      db.subEvents.push({
+        id: `sub-event-created-${db.subEvents.length + 1}`,
+        eventId: event.id,
+        name: "Sesión única",
+        startsAt,
+        endsAt: body.endsAt ?? new Date(new Date(startsAt).getTime() + 2 * 60 * 60 * 1000).toISOString(),
+        doorsOpenAt: null,
+        status: "scheduled",
+        sortOrder: 0
+      });
+    }
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_create" } }, { status: 201 });
   }),
 
@@ -116,6 +137,7 @@ export const eventsHandlers = [
     db.events = db.events.filter((e) => e.id !== event.id);
     db.subEvents = db.subEvents.filter((s) => s.eventId !== event.id);
     db.ticketTypes = db.ticketTypes.filter((t) => t.eventId !== event.id);
+    db.discountCodes = db.discountCodes.filter((d) => d.eventId !== event.id);
     return HttpResponse.json({ data: {}, meta: { requestId: "req_events_delete" } });
   }),
 
@@ -137,8 +159,8 @@ export const eventsHandlers = [
         { status: 422 }
       );
     }
-    event.status = "published";
-    event.publishedAt = new Date().toISOString();
+    event.status = "pending_review";
+    event.publishedAt = null;
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_publish" } });
   }),
 

@@ -49,21 +49,43 @@ export const ZoneSchema = z.object({
 });
 export type Zone = z.infer<typeof ZoneSchema>;
 
+export const EventStatusSchema = z.enum([
+  "draft",
+  "pending_review",
+  "in_review",
+  "published",
+  "rejected",
+  "on_sale",
+  "sold_out",
+  "paused",
+  "finished",
+  "cancelled"
+]);
+export type EventStatus = z.infer<typeof EventStatusSchema>;
+
 export const EventSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
   venueId: z.string().nullable(),
   slug: z.string(),
+  coverImageUrl: z.string().nullable().optional(),
+  gallery: z.array(z.string()).optional(),
   title: z.string(),
   description: z.string(),
   category: z.string(),
-  status: z.enum(["draft", "published", "on_sale", "sold_out", "paused", "finished", "cancelled"]),
+  status: EventStatusSchema,
   visibility: z.enum(["public", "unlisted", "private"]),
-  startsAt: z.string(),
-  endsAt: z.string(),
+  location: z.string().optional(),
+  locality: z.string().optional(),
+  startsAt: z.string().nullable(),
+  endsAt: z.string().nullable(),
   salesStartAt: z.string().nullable(),
   salesEndAt: z.string().nullable(),
   hasSubEvents: z.boolean(),
+  datePending: z.boolean().optional(),
+  notifyWhenDateConfirmed: z.boolean().optional(),
+  serviceFeeType: z.enum(["none", "percent", "fixed"]).optional(),
+  serviceFeeValue: z.number().nonnegative().optional(),
   createdAt: z.string(),
   publishedAt: z.string().nullable().optional()
 });
@@ -73,8 +95,8 @@ export const SubEventSchema = z.object({
   id: z.string(),
   eventId: z.string(),
   name: z.string(),
-  startsAt: z.string(),
-  endsAt: z.string(),
+  startsAt: z.string().nullable(),
+  endsAt: z.string().nullable(),
   doorsOpenAt: z.string().nullable(),
   status: z.enum(["scheduled", "on_sale", "sold_out", "cancelled", "finished"]),
   sortOrder: z.number().int()
@@ -88,7 +110,8 @@ export const CapacityPoolSchema = z.object({
   name: z.string(),
   totalCapacity: z.number().int().nonnegative(),
   soldCount: z.number().int().nonnegative(),
-  heldCount: z.number().int().nonnegative()
+  heldCount: z.number().int().nonnegative(),
+  ticketTypeGroupId: z.string().nullable().optional()
 });
 export type CapacityPool = z.infer<typeof CapacityPoolSchema>;
 
@@ -109,7 +132,8 @@ export const TicketTypeSchema = z.object({
   visibility: z.enum(["public", "hidden", "code_only"]),
   isTransferable: z.boolean(),
   isRefundable: z.boolean(),
-  sortOrder: z.number().int()
+  sortOrder: z.number().int(),
+  color: z.string().optional()
 });
 export type TicketType = z.infer<typeof TicketTypeSchema>;
 
@@ -123,6 +147,46 @@ export const TicketTypePriceSchema = z.object({
   isActive: z.boolean()
 });
 export type TicketTypePrice = z.infer<typeof TicketTypePriceSchema>;
+
+export const DiscountCodeSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  code: z.string(),
+  type: z.enum(["percent", "fixed"]),
+  value: z.number().nonnegative(),
+  maxUses: z.number().int().positive().nullable(),
+  usedCount: z.number().int().nonnegative(),
+  maxUsesPerCustomer: z.number().int().positive().nullable(),
+  appliesTo: z.array(z.string()),
+  validFrom: z.string().nullable(),
+  validTo: z.string().nullable(),
+  status: z.enum(["active", "paused", "expired"])
+});
+export type DiscountCode = z.infer<typeof DiscountCodeSchema>;
+
+export const VenuePlanElementSchema = z.object({
+  id: z.string(),
+  type: z.enum(["zone", "stage", "accessible"]),
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  name: z.string().optional(),
+  capacity: z.number().int().nonnegative().optional(),
+  ticketTypeGroupId: z.string().nullable().optional(),
+  color: z.string().optional(),
+  label: z.string().optional(),
+  accessibleSeats: z.number().int().nonnegative().optional()
+});
+export type VenuePlanElement = z.infer<typeof VenuePlanElementSchema>;
+
+export const VenuePlanTemplateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  elements: z.array(VenuePlanElementSchema),
+  updatedAt: z.string()
+});
+export type VenuePlanTemplate = z.infer<typeof VenuePlanTemplateSchema>;
 
 export const ApiErrorSchema = z.object({
   error: z.object({

@@ -1,5 +1,5 @@
 import type {
-  CapacityPool, Event, Organization, SubEvent, TicketType, TicketTypePrice, User, Venue, Zone
+  CapacityPool, DiscountCode, Event, Organization, SubEvent, TicketType, TicketTypePrice, User, Venue, Zone
 } from "@entraditas/types";
 
 export interface Database {
@@ -12,6 +12,7 @@ export interface Database {
   capacityPools: CapacityPool[];
   ticketTypes: TicketType[];
   ticketTypePrices: TicketTypePrice[];
+  discountCodes: DiscountCode[];
 }
 
 export const DEMO_SUPERADMIN_ID = "user-superadmin";
@@ -39,7 +40,7 @@ export function createSeedDatabase(): Database {
     hasSubEvents: false, createdAt: "2026-07-01T00:00:00.000Z", publishedAt: "2026-07-05T00:00:00.000Z"
   };
   const event1SubEvent: SubEvent = {
-    id: "sub-event-1", eventId: event1.id, name: "Función única", startsAt: event1.startsAt, endsAt: event1.endsAt,
+    id: "sub-event-1", eventId: event1.id, name: "Función única", startsAt: event1.startsAt!, endsAt: event1.endsAt!,
     doorsOpenAt: "2026-10-10T20:30:00.000Z", status: "on_sale", sortOrder: 0
   };
   const event1Pool: CapacityPool = {
@@ -61,7 +62,7 @@ export function createSeedDatabase(): Database {
     hasSubEvents: false, createdAt: "2026-07-02T00:00:00.000Z", publishedAt: "2026-07-06T00:00:00.000Z"
   };
   const event2SubEvent: SubEvent = {
-    id: "sub-event-2", eventId: event2.id, name: "Función única", startsAt: event2.startsAt, endsAt: event2.endsAt,
+    id: "sub-event-2", eventId: event2.id, name: "Función única", startsAt: event2.startsAt!, endsAt: event2.endsAt!,
     doorsOpenAt: "2026-11-05T20:00:00.000Z", status: "on_sale", sortOrder: 0
   };
   const event2PoolPista: CapacityPool = {
@@ -143,7 +144,7 @@ export function createSeedDatabase(): Database {
     salesStartAt: null, salesEndAt: null, hasSubEvents: false, createdAt: "2026-08-01T00:00:00.000Z"
   };
   const event5SubEvent: SubEvent = {
-    id: "sub-event-5", eventId: event5.id, name: "Función única", startsAt: event5.startsAt, endsAt: event5.endsAt,
+    id: "sub-event-5", eventId: event5.id, name: "Función única", startsAt: event5.startsAt!, endsAt: event5.endsAt!,
     doorsOpenAt: null, status: "scheduled", sortOrder: 0
   };
 
@@ -180,6 +181,22 @@ export function createSeedDatabase(): Database {
     subEvents: [event1SubEvent, event2SubEvent, ...event3SubEvents, ...event4SubEvents, event5SubEvent],
     capacityPools: [event1Pool, event2PoolPista, event2PoolGrada],
     ticketTypes: [event1TicketType, event2TicketTypePista, event2TicketTypeGrada, event3TicketType, event4PassTicketType],
-    ticketTypePrices: []
+    ticketTypePrices: [],
+    discountCodes: [
+      {
+        id: "discount-1",
+        eventId: event2.id,
+        code: "ROCK10",
+        type: "percent",
+        value: 10,
+        maxUses: 100,
+        usedCount: 12,
+        maxUsesPerCustomer: 1,
+        appliesTo: [event2TicketTypePista.groupId],
+        validFrom: "2026-08-01T00:00:00.000Z",
+        validTo: "2026-11-05T20:00:00.000Z",
+        status: "active"
+      }
+    ]
   };
 }

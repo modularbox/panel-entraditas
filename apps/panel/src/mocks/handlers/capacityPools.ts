@@ -14,6 +14,10 @@ function notFound(requestId: string) {
   return HttpResponse.json({ error: { code: "NOT_FOUND", message: "Recurso no encontrado", requestId } }, { status: 404 });
 }
 
+function validation(message: string, requestId: string) {
+  return HttpResponse.json({ error: { code: "VALIDATION_ERROR", message, requestId } }, { status: 422 });
+}
+
 function requireSubEvent(request: Request, subEventId: string) {
   const userId = getSessionUserId(request);
   if (!userId) return { error: unauthenticated("req_capacity") };
@@ -35,6 +39,25 @@ function requirePool(request: Request, poolId: string) {
   return { pool };
 }
 
+function ticketGroupLimit(groupId?: string | null): number | null {
+  if (!groupId) return null;
+  return db.ticketTypes.find((ticketType) => ticketType.groupId === groupId)?.quantityTotal ?? null;
+}
+
+function assignedCapacity(groupId: string, subEventId: string, nextPool?: { id?: string; totalCapacity: number }) {
+  const existing = db.capacityPools
+    .filter((pool) => pool.subEventId === subEventId && pool.ticketTypeGroupId === groupId)
+    .reduce((sum, pool) => sum + (pool.id === nextPool?.id ? nextPool.totalCapacity : pool.totalCapacity), 0);
+  return nextPool && !nextPool.id ? existing + nextPool.totalCapacity : existing;
+}
+
+function validateTicketTypeAllocation(ticketTypeGroupId: string | null | undefined, subEventId: string, totalCapacity: number, poolId?: string) {
+  const limit = ticketGroupLimit(ticketTypeGroupId);
+  if (!ticketTypeGroupId || limit === null) return null;
+  const nextAssigned = assignedCapacity(ticketTypeGroupId, subEventId, { id: poolId, totalCapacity });
+  return nextAssigned > limit ? validation(`Este tipo de entrada tiene ${limit} entradas y ya hay ${nextAssigned}/${limit} asignadas`, "req_capacity") : null;
+}
+
 export const capacityPoolsHandlers = [
   http.get(`${BASE}/sub-events/:id/capacity`, ({ request, params }) => {
     const result = requireSubEvent(request, params.id as string);
@@ -46,7 +69,9 @@ export const capacityPoolsHandlers = [
   http.post(`${BASE}/sub-events/:id/capacity-pools`, async ({ request, params }) => {
     const result = requireSubEvent(request, params.id as string);
     if ("error" in result) return result.error;
-    const body = (await request.json()) as Pick<CapacityPool, "name" | "zoneId" | "totalCapacity">;
+    const body = (await request.json()) as Pick<CapacityPool, "name" | "zoneId" | "totalCapacity" | "ticketTypeGroupId">;
+    const allocationError = validateTicketTypeAllocation(body.ticketTypeGroupId, result.subEvent.id, body.totalCapacity);
+    if (allocationError) return allocationError;
     const pool: CapacityPool = {
       id: `pool-${db.capacityPools.length + 1}`,
       subEventId: result.subEvent.id,
@@ -61,7 +86,7 @@ export const capacityPoolsHandlers = [
   http.patch(`${BASE}/capacity-pools/:id`, async ({ request, params }) => {
     const result = requirePool(request, params.id as string);
     if ("error" in result) return result.error;
-    const body = (await request.json()) as { totalCapacity: number };
+    const body = (await request.json()) as { totalCapacity: number; ticketTypeGroupId?: string | null };
     if (body.totalCapacity < result.pool.soldCount) {
       return HttpResponse.json(
         {
@@ -74,7 +99,10 @@ export const capacityPoolsHandlers = [
         { status: 422 }
       );
     }
+    const allocationError = validateTicketTypeAllocation(body.ticketTypeGroupId ?? result.pool.ticketTypeGroupId, result.pool.subEventId, body.totalCapacity, result.pool.id);
+    if (allocationError) return allocationError;
     result.pool.totalCapacity = body.totalCapacity;
+    if ("ticketTypeGroupId" in body) result.pool.ticketTypeGroupId = body.ticketTypeGroupId;
     return HttpResponse.json({ data: result.pool, meta: { requestId: "req_capacity" } });
   })
 ];

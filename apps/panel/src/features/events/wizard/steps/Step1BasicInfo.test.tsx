@@ -17,6 +17,17 @@ function renderStep1(props: Step1BasicInfoProps) {
   return { ...utils, queryClient };
 }
 
+function fillRequiredLocation() {
+  fireEvent.change(screen.getByLabelText("Ubicación"), { target: { value: "Teatro Principal" } });
+  fireEvent.change(screen.getByLabelText("Localidad"), { target: { value: "Alicante" } });
+}
+
+function fillDescription(value: string) {
+  const editor = screen.getByRole("textbox", { name: "Descripción" });
+  editor.innerHTML = `<p>${value}</p>`;
+  fireEvent.input(editor);
+}
+
 describe("Step1BasicInfo", () => {
   afterEach(() => {
     resetDb();
@@ -30,10 +41,11 @@ describe("Step1BasicInfo", () => {
     renderStep1({ eventId: null, onSaved, goNext });
 
     fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Hi" } });
-    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Una descripción" } });
+    fillDescription("Una descripción");
+    fillRequiredLocation();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("al menos 3 caracteres"));
+    await waitFor(() => expect(screen.getByText("El título debe tener al menos 3 caracteres")).toBeInTheDocument());
     expect(onSaved).not.toHaveBeenCalled();
   });
 
@@ -44,7 +56,8 @@ describe("Step1BasicInfo", () => {
     renderStep1({ eventId: null, onSaved, goNext });
 
     fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Concierto de prueba" } });
-    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Una descripción válida" } });
+    fillDescription("Una descripción válida");
+    fillRequiredLocation();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.any(String)));
@@ -59,7 +72,8 @@ describe("Step1BasicInfo", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Título")).toHaveValue("Evento sin configurar"));
     fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Título editado" } });
-    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Descripción editada" } });
+    fillDescription("Descripción editada");
+    fillRequiredLocation();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith("event-5"));
@@ -70,7 +84,7 @@ describe("Step1BasicInfo", () => {
     renderStep1({ eventId: "event-3", onSaved: vi.fn(), goNext: vi.fn() });
 
     await waitFor(() => expect(screen.getByLabelText("Título")).toHaveValue("La Casa de Bernarda Alba"));
-    expect(screen.getByLabelText("Descripción")).toHaveValue("Obra de teatro con funciones semanales.");
+    expect(screen.getByRole("textbox", { name: "Descripción" })).toHaveTextContent("Obra de teatro con funciones semanales.");
   });
 
   it("keeps in-progress edits when the pre-fill fetch resolves after the user has started typing", async () => {
@@ -101,7 +115,8 @@ describe("Step1BasicInfo", () => {
     renderStep1({ eventId: null, onSaved, goNext });
 
     fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Concierto de prueba" } });
-    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Una descripción válida" } });
+    fillDescription("Una descripción válida");
+    fillRequiredLocation();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No se pudo guardar el evento"));

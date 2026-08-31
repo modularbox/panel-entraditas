@@ -70,8 +70,8 @@ describe("events handlers", () => {
       minPerOrder: 1, maxPerOrder: 4, visibility: "public", isTransferable: true, isRefundable: true, sortOrder: 0
     });
 
-    const published = await apiClient.post<Event>("/events/event-5/publish", undefined, { token });
-    expect(published.status).toBe("published");
+    const submitted = await apiClient.post<Event>("/events/event-5/publish", undefined, { token });
+    expect(submitted.status).toBe("pending_review");
   });
 
   it("summary reports the total capacity across an event's pools", async () => {

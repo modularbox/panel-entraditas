@@ -9,19 +9,22 @@ import { Step1BasicInfo } from "../wizard/steps/Step1BasicInfo";
 import { Step2Schedule } from "../wizard/steps/Step2Schedule";
 import { Step3Capacity } from "../wizard/steps/Step3Capacity";
 import { Step4TicketTypes } from "../wizard/steps/Step4TicketTypes";
+import { EventDiscountCodes } from "./EventDiscountCodes";
 
 const ENABLED_TABS = [
-  { key: "general", label: "Información general" },
+  { key: "general", label: "Informacion general" },
   { key: "subeventos", label: "Subeventos" },
   { key: "aforos", label: "Aforos y zonas" },
-  { key: "tipos", label: "Tipos de entrada" }
+  { key: "tipos", label: "Tipos de entrada" },
+  { key: "descuentos", label: "Codigos de descuento" },
+  { key: "puertas", label: "Puertas" },
+  { key: "invitados", label: "Invitados" },
+  { key: "pedidos", label: "Pedidos" },
+  { key: "metricas", label: "Metricas" }
 ] as const;
 
-const DISABLED_TABS = ["Códigos de descuento", "Puertas", "Invitados", "Pedidos", "Métricas"];
-
 function noop() {
-  // Reused wizard step components call onSaved/goNext; there is no "next
-  // step" on a detail page, so both are intentionally no-ops here.
+  // Reused wizard step components call onSaved/goNext; there is no next step on a detail page.
 }
 
 export function EventDetailPage() {
@@ -37,7 +40,7 @@ export function EventDetailPage() {
     retry: false
   });
 
-  if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;
+  if (isLoading) return <p className="text-muted-foreground">Cargando...</p>;
   if (error instanceof AppError && error.code === "NOT_FOUND") {
     return (
       <div className="rounded-lg border-2 border-dashed border-border bg-surface-alt p-10 text-center">
@@ -69,18 +72,6 @@ export function EventDetailPage() {
               </button>
             </li>
           ))}
-          {DISABLED_TABS.map((label) => (
-            <li key={label}>
-              <button
-                type="button"
-                disabled
-                title="Disponible en una fase posterior"
-                className="rounded-md border-2 border-border px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-muted-foreground opacity-60"
-              >
-                {label}
-              </button>
-            </li>
-          ))}
         </ul>
       </nav>
 
@@ -92,7 +83,22 @@ export function EventDetailPage() {
         {activeTab === "subeventos" && <Step2Schedule eventId={eventId} onSaved={noop} goNext={noop} />}
         {activeTab === "aforos" && <Step3Capacity eventId={eventId} onSaved={noop} goNext={noop} />}
         {activeTab === "tipos" && <Step4TicketTypes eventId={eventId} onSaved={noop} goNext={noop} />}
+        {activeTab === "descuentos" && <EventDiscountCodes eventId={eventId} />}
+        {activeTab === "puertas" && <EventModulePlaceholder title="Puertas" copy="Configura accesos, operadores y tipos de entrada admitidos por puerta." />}
+        {activeTab === "invitados" && <EventModulePlaceholder title="Invitados" copy="Gestiona listas de invitados, cortesias e importaciones cuando conectemos esta fase." />}
+        {activeTab === "pedidos" && <EventModulePlaceholder title="Pedidos" copy="Aqui ira el seguimiento de ventas, reservas, pagos, reembolsos y exportaciones." />}
+        {activeTab === "metricas" && <EventModulePlaceholder title="Metricas" copy="Aqui se veran ventas, aforo, asistencia y conversion en tiempo real." />}
       </section>
+    </div>
+  );
+}
+
+function EventModulePlaceholder({ title, copy }: { title: string; copy: string }) {
+  return (
+    <div className="rounded-lg border-2 border-dashed border-border bg-surface-alt p-8">
+      <p className="m-0 text-xs font-extrabold uppercase tracking-wide text-primary">Modulo preparado</p>
+      <h2 className="mt-2">{title}</h2>
+      <p className="m-0 max-w-2xl text-sm font-semibold text-muted-foreground">{copy}</p>
     </div>
   );
 }
