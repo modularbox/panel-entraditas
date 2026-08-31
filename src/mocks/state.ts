@@ -60,6 +60,9 @@ function isDatabase(value: unknown): value is Database {
     Array.isArray(candidate.ticketTypes) &&
     Array.isArray(candidate.ticketTypePrices) &&
     Array.isArray(candidate.discountCodes) &&
+    Array.isArray(candidate.gates) &&
+    Array.isArray(candidate.guestLists) &&
+    Array.isArray(candidate.guestListEntries) &&
     Array.isArray(candidate.invitations) &&
     Array.isArray(candidate.orders) &&
     Array.isArray(candidate.orderItems) &&
@@ -87,7 +90,7 @@ export function writeSnapshot(): void {
 }
 
 function loadDatabase(): Database {
-  return reactive(purgeCancelledOrders(parseStoredDatabase() ?? createSeedDatabase()), writeSnapshot);
+  return reactive(migrateSnapshot(parseStoredDatabase() ?? createSeedDatabase()), writeSnapshot);
 }
 
 // Cancelled orders are deleted outright (see POST /orders/:id/cancel): a stale localStorage snapshot
@@ -101,6 +104,21 @@ function purgeCancelledOrders(database: Database): Database {
   return database;
 }
 
+// Older stored snapshots predate seed accounts added later (e.g. the org-2 admin). Merge back every
+// seed user the snapshot lacks, matched by id and without ever overwriting an existing row, so
+// per-organization admins keep working even before the user resets the demo data.
+function ensureSeedAccounts(database: Database): Database {
+  const storedIds = new Set(database.users.map((user) => user.id));
+  const missing = createSeedDatabase().users.filter((user) => !storedIds.has(user.id));
+  if (missing.length === 0) return database;
+  database.users = [...database.users, ...missing];
+  return database;
+}
+
+function migrateSnapshot(database: Database): Database {
+  return ensureSeedAccounts(purgeCancelledOrders(database));
+}
+
 // mutable (not const) so resetDb/restoreFromStorage can swap in a fresh instance.
 export let db: Database = loadDatabase();
 // in-memory session store: token -> userId, lost on reload/reset (no persistence, mocks only).
@@ -111,7 +129,8 @@ export const DEMO_PASSWORD_BY_EMAIL: Record<string, string> = {
   "superadmin@entraditas.com": "vQ7!mZ2#Lr9@Tx5$",
   "admin@entraditas.com": "N8@kP4!wY6#sD2&",
   "usuario@entraditas.com": "xR5$Jq9%Fv3!Mn7*",
-  "subusuario@entraditas.com": "T6#bW8@cL2!pZ9&"
+  "subusuario@entraditas.com": "T6#bW8@cL2!pZ9&",
+  "admin.surlive@entraditas.com": "A9#sL2!kR4@qT7&"
 };
 
 export function demoPasswordFor(email: string): string {
@@ -125,7 +144,7 @@ export function demoPasswordFor(email: string): string {
 // When the seed has already been saved (or a previous session left a snapshot), restore it.
 export function restoreFromStorage(): void {
   const stored = parseStoredDatabase();
-  if (stored) db = reactive(purgeCancelledOrders(stored), writeSnapshot);
+  if (stored) db = reactive(migrateSnapshot(stored), writeSnapshot);
 }
 
 export function resetDb(): void {

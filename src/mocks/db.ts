@@ -1,5 +1,5 @@
 import type {
-  CapacityPool, DiscountCode, Event, Invitation, Order, OrderItem, Organization, Refund, SubEvent, TicketType, TicketTypePrice, User, Venue, Zone
+  CapacityPool, DiscountCode, Event, Gate, GuestList, GuestListEntry, Invitation, Order, OrderItem, Organization, Refund, SubEvent, TicketType, TicketTypePrice, User, Venue, Zone
 } from "@entraditas/types";
 import seedData from "./data/db.seed.json";
 
@@ -14,6 +14,9 @@ export interface Database {
   ticketTypes: TicketType[];
   ticketTypePrices: TicketTypePrice[];
   discountCodes: DiscountCode[];
+  gates: Gate[];
+  guestLists: GuestList[];
+  guestListEntries: GuestListEntry[];
   invitations: Invitation[];
   orders: Order[];
   orderItems: OrderItem[];

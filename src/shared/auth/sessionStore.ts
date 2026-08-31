@@ -12,7 +12,7 @@ export interface SessionUser {
   organizationId: string | null;
 }
 
-interface SessionResponse {
+export interface SessionResponse {
   accessToken?: string;
   user: SessionUser;
   effectivePermissions: string[];

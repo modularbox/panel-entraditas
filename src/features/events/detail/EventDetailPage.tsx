@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import type { Event } from "@entraditas/types";
@@ -10,21 +10,25 @@ import { Step2Schedule } from "../wizard/steps/Step2Schedule";
 import { Step4TicketTypes } from "../wizard/steps/Step4TicketTypes";
 import { SeatingPlanSection } from "../wizard/steps/SeatingPlanSection";
 import { DiscountCodesSection } from "../wizard/steps/DiscountCodesSection";
+import { GatesSection } from "../wizard/steps/GatesSection";
+import { GuestlistSection } from "../wizard/steps/GuestlistSection";
 
 const ENABLED_TABS = [
-  { key: "general", label: "Informacion general" },
+  { key: "general", label: "Información general" },
   { key: "subeventos", label: "Subeventos" },
   { key: "aforos", label: "Aforos y zonas" },
   { key: "tipos", label: "Tipos de entrada" },
-  { key: "descuentos", label: "Codigos de descuento" },
+  { key: "descuentos", label: "Códigos de descuento" },
   { key: "puertas", label: "Puertas" },
-  { key: "invitados", label: "Invitados" },
-  { key: "pedidos", label: "Pedidos" },
-  { key: "metricas", label: "Metricas" }
+  { key: "invitados", label: "Invitados" }
 ] as const;
 
+// Sections not built yet; rendered as disabled buttons so the full nav is visible early.
+const DISABLED_TABS = ["Pedidos", "Métricas"];
+
 function noop() {
-  // Reused wizard step components can call callbacks; there is no next step on a detail page.
+  // Reused wizard step components call onSaved/goNext; there is no "next
+  // step" on a detail page, so both are intentionally no-ops here.
 }
 
 export function EventDetailPage() {
@@ -36,11 +40,12 @@ export function EventDetailPage() {
   const { data: event, isLoading, error } = useQuery({
     queryKey: ["event", eventId],
     queryFn: () => apiClient.get<Event>(`/events/${eventId}`, { token: token! }),
-    enabled: Boolean(token),
+    enabled: Boolean(token), // wait for the session token before firing the request
     retry: false
   });
 
-  if (isLoading) return <p className="text-muted-foreground">Cargando...</p>;
+  if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;
+  // Only a 404 gets a dedicated screen; other errors fall through to the "no event" null render below.
   if (error instanceof AppError && error.code === "NOT_FOUND") {
     return (
       <div className="rounded-lg border-2 border-dashed border-border bg-surface-alt p-10 text-center">
@@ -72,6 +77,18 @@ export function EventDetailPage() {
               </button>
             </li>
           ))}
+          {DISABLED_TABS.map((label) => (
+            <li key={label}>
+              <button
+                type="button"
+                disabled
+                title="Disponible en una fase posterior"
+                className="rounded-md border-2 border-border px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-muted-foreground opacity-60"
+              >
+                {label}
+              </button>
+            </li>
+          ))}
         </ul>
       </nav>
 
@@ -84,21 +101,9 @@ export function EventDetailPage() {
         {activeTab === "aforos" && <SeatingPlanSection eventId={eventId} />}
         {activeTab === "tipos" && <Step4TicketTypes eventId={eventId} onSaved={noop} />}
         {activeTab === "descuentos" && <DiscountCodesSection eventId={eventId} />}
-        {activeTab === "puertas" && <EventModulePlaceholder title="Puertas" copy="Configura accesos, operadores y tipos de entrada admitidos por puerta." />}
-        {activeTab === "invitados" && <EventModulePlaceholder title="Invitados" copy="Gestiona listas de invitados, cortesias e importaciones cuando conectemos esta fase." />}
-        {activeTab === "pedidos" && <EventModulePlaceholder title="Pedidos" copy="Aqui ira el seguimiento de ventas, reservas, pagos, reembolsos y exportaciones." />}
-        {activeTab === "metricas" && <EventModulePlaceholder title="Metricas" copy="Aqui se veran ventas, aforo, asistencia y conversion en tiempo real." />}
+        {activeTab === "puertas" && <GatesSection eventId={eventId} />}
+        {activeTab === "invitados" && <GuestlistSection eventId={eventId} />}
       </section>
-    </div>
-  );
-}
-
-function EventModulePlaceholder({ title, copy }: { title: string; copy: string }) {
-  return (
-    <div className="rounded-lg border-2 border-dashed border-border bg-surface-alt p-8">
-      <p className="m-0 text-xs font-extrabold uppercase tracking-wide text-primary">Modulo preparado</p>
-      <h2 className="mt-2">{title}</h2>
-      <p className="m-0 max-w-2xl text-sm font-semibold text-muted-foreground">{copy}</p>
     </div>
   );
 }

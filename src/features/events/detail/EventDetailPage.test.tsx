@@ -1,17 +1,16 @@
-﻿import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
-import { demoPasswordFor, resetDb } from "@/mocks/state";
+import { resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { EventDetailPage } from "./EventDetailPage";
 
-async function renderDetail(id = "event-1") {
-  await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderDetail(eventId: string) {
+  const queryClient = new QueryClient();
   return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[`/eventos/${id}`]}>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[`/eventos/${eventId}`]}>
         <Routes>
           <Route path="/eventos/:id" element={<EventDetailPage />} />
         </Routes>
@@ -26,11 +25,59 @@ describe("EventDetailPage", () => {
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
-  it("renders the event tabs", async () => {
-    await renderDetail();
-    expect(await screen.findByRole("heading", { name: /noche de jazz/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /informacion general/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /codigos de descuento/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /puertas/i })).toBeInTheDocument();
+  it("shows the event title and the pre-filled Información general tab by default", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    renderDetail("event-3");
+    expect(await screen.findByRole("heading", { name: "La Casa de Bernarda Alba" })).toBeInTheDocument();
+    expect(await screen.findByLabelText("Título")).toHaveValue("La Casa de Bernarda Alba");
+  });
+
+  it("switches to the Subeventos tab and shows its 4 functions", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    renderDetail("event-3");
+    fireEvent.click(await screen.findByRole("button", { name: "Subeventos" }));
+
+    const list = await screen.findByRole("list", { name: "Funciones" });
+    await waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(4));
+  });
+
+  it("switches to the Códigos de descuento tab and shows its create form", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    renderDetail("event-2"); // seeded with the EARLYBIRD discount code
+    fireEvent.click(await screen.findByRole("button", { name: "Códigos de descuento" }));
+
+    expect(await screen.findByText("EARLYBIRD")).toBeInTheDocument();
+    expect(screen.getByLabelText("Código")).toBeInTheDocument();
+  });
+
+  it("switches to the Puertas tab and shows its already-created gate", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    renderDetail("event-2"); // seeded with the Puerta Norte gate
+    fireEvent.click(await screen.findByRole("button", { name: "Puertas" }));
+
+    expect(await screen.findByText("Puerta Norte — NORTE")).toBeInTheDocument();
+    expect(screen.getByLabelText("Código")).toBeInTheDocument();
+  });
+
+  it("switches to the Invitados tab and shows its already-created guest list", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    renderDetail("event-2"); // seeded with the "Prensa" guest list
+    fireEvent.click(await screen.findByRole("button", { name: "Invitados" }));
+
+    expect(await screen.findByRole("listitem", { name: "Prensa" })).toBeInTheDocument();
+  });
+
+  it("disables out-of-scope sections with an explanatory tooltip", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    renderDetail("event-3");
+    const pedidosButton = await screen.findByRole("button", { name: "Pedidos" });
+    expect(pedidosButton).toBeDisabled();
+    expect(pedidosButton).toHaveAttribute("title", "Disponible en una fase posterior");
+  });
+
+  it("shows a not-found message for an out-of-scope event", async () => {
+    await useSessionStore.getState().login("subusuario@entraditas.com", "T6#bW8@cL2!pZ9&"); // scoped to event-1 only
+    renderDetail("event-3");
+    expect(await screen.findByText("Evento no encontrado.")).toBeInTheDocument();
   });
 });

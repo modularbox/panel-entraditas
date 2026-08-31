@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+ï»¿import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -18,12 +18,12 @@ function renderStep1(props: Step1BasicInfoProps) {
 }
 
 function fillRequiredLocation() {
-  fireEvent.change(screen.getByLabelText("Ubicación"), { target: { value: "Teatro Principal" } });
+  fireEvent.change(screen.getByLabelText(/Ubicaci.n/), { target: { value: "Teatro Principal" } });
   fireEvent.change(screen.getByLabelText("Localidad"), { target: { value: "Alicante" } });
 }
 
 function fillDescription(value: string) {
-  const editor = screen.getByRole("textbox", { name: "Descripción" });
+  const editor = screen.getByRole("textbox", { name: /Descripci.n/ });
   editor.innerHTML = `<p>${value}</p>`;
   fireEvent.input(editor);
 }
@@ -40,12 +40,12 @@ describe("Step1BasicInfo", () => {
     const goNext = vi.fn();
     renderStep1({ eventId: null, onSaved, goNext });
 
-    fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Hi" } });
-    fillDescription("Una descripción");
+    fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Hi" } });
+    fillDescription("Una descripcion");
     fillRequiredLocation();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
-    await waitFor(() => expect(screen.getByText("El título debe tener al menos 3 caracteres")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/El t.tulo debe tener al menos 3 caracteres/)).toBeInTheDocument());
     expect(onSaved).not.toHaveBeenCalled();
   });
 
@@ -55,8 +55,8 @@ describe("Step1BasicInfo", () => {
     const goNext = vi.fn();
     renderStep1({ eventId: null, onSaved, goNext });
 
-    fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Concierto de prueba" } });
-    fillDescription("Una descripción válida");
+    fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Concierto de prueba" } });
+    fillDescription("Una descripcion valida");
     fillRequiredLocation();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
@@ -70,9 +70,9 @@ describe("Step1BasicInfo", () => {
     const goNext = vi.fn();
     renderStep1({ eventId: "event-5", onSaved, goNext });
 
-    await waitFor(() => expect(screen.getByLabelText("Título")).toHaveValue("Evento sin configurar"));
-    fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Título editado" } });
-    fillDescription("Descripción editada");
+    await waitFor(() => expect(screen.getByLabelText(/T.tulo/)).toHaveValue("Evento sin configurar"));
+    fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Titulo editado" } });
+    fillDescription("Descripcion editada");
     fillRequiredLocation();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 
@@ -83,21 +83,21 @@ describe("Step1BasicInfo", () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     renderStep1({ eventId: "event-3", onSaved: vi.fn(), goNext: vi.fn() });
 
-    await waitFor(() => expect(screen.getByLabelText("Título")).toHaveValue("La Casa de Bernarda Alba"));
-    expect(screen.getByRole("textbox", { name: "Descripción" })).toHaveTextContent("Obra de teatro con funciones semanales.");
+    await waitFor(() => expect(screen.getByLabelText(/T.tulo/)).toHaveValue("La Casa de Bernarda Alba"));
+    expect(screen.getByRole("textbox", { name: /Descripci.n/ })).toHaveTextContent("Obra de teatro con funciones semanales.");
   });
 
   it("keeps in-progress edits when the pre-fill fetch resolves after the user has started typing", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     const { queryClient } = renderStep1({ eventId: "event-3", onSaved: vi.fn(), goNext: vi.fn() });
 
-    fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Editado antes de que cargue" } });
+    fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Editado antes de que cargue" } });
 
     await waitFor(() => {
       expect(queryClient.getQueryState(["event", "event-3"])?.status).toBe("success");
     });
 
-    expect(screen.getByLabelText("Título")).toHaveValue("Editado antes de que cargue");
+    expect(screen.getByLabelText(/T.tulo/)).toHaveValue("Editado antes de que cargue");
   });
 
   it("shows an alert and does not advance when saving fails", async () => {
@@ -114,8 +114,8 @@ describe("Step1BasicInfo", () => {
     const goNext = vi.fn();
     renderStep1({ eventId: null, onSaved, goNext });
 
-    fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Concierto de prueba" } });
-    fillDescription("Una descripción válida");
+    fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Concierto de prueba" } });
+    fillDescription("Una descripcion valida");
     fillRequiredLocation();
     fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
 

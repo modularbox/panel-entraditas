@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DiscountCodeSchema, EventSchema, InvitationSchema, OrderItemSchema, OrderSchema, TicketTypeSchema, UserSchema, ZoneSchema
+  DiscountCodeSchema, EventSchema, GateSchema, GuestListEntrySchema, GuestListSchema, InvitationSchema, OrderItemSchema, OrderSchema, TicketTypeSchema, UserSchema, ZoneSchema
 } from "./schemas";
 
 const validEvent = {
@@ -213,6 +213,111 @@ describe("OrderSchema", () => {
   it("rejects an order missing refundedAmount", () => {
     const { refundedAmount, ...withoutField } = validOrder;
     expect(() => OrderSchema.parse(withoutField)).toThrow();
+  });
+});
+
+describe("GateSchema", () => {
+  it("accepts a valid gate open to every sub-event and ticket type", () => {
+    const result = GateSchema.parse({
+      id: "gate-1",
+      eventId: "event-2",
+      subEventId: null,
+      name: "Puerta Norte",
+      code: "NORTE",
+      zoneId: "zone-pista",
+      direction: "in",
+      allowReentry: false,
+      maxScansPerTicket: 1,
+      allowedTicketTypeGroupIds: null,
+      opensAt: null,
+      closesAt: null,
+      operatorUserIds: ["user-subuser"],
+      isActive: true
+    });
+    expect(result.code).toBe("NORTE");
+  });
+
+  it("accepts a gate scoped to a specific sub-event and ticket-type groups", () => {
+    const result = GateSchema.parse({
+      id: "gate-2",
+      eventId: "event-2",
+      subEventId: "sub-event-2",
+      name: "Puerta Sur",
+      code: "SUR",
+      zoneId: null,
+      direction: "both",
+      allowReentry: true,
+      maxScansPerTicket: 3,
+      allowedTicketTypeGroupIds: ["tt-2-pista"],
+      opensAt: "2026-11-05T19:00:00.000Z",
+      closesAt: "2026-11-05T23:00:00.000Z",
+      operatorUserIds: [],
+      isActive: true
+    });
+    expect(result.allowedTicketTypeGroupIds).toEqual(["tt-2-pista"]);
+  });
+
+  it("rejects an unknown direction", () => {
+    expect(() =>
+      GateSchema.parse({
+        id: "gate-3", eventId: "event-2", subEventId: null, name: "Puerta X", code: "X", zoneId: null,
+        direction: "sideways", allowReentry: false, maxScansPerTicket: 1, allowedTicketTypeGroupIds: null,
+        opensAt: null, closesAt: null, operatorUserIds: [], isActive: true
+      })
+    ).toThrow();
+  });
+
+  it("rejects a non-positive maxScansPerTicket", () => {
+    expect(() =>
+      GateSchema.parse({
+        id: "gate-4", eventId: "event-2", subEventId: null, name: "Puerta X", code: "X", zoneId: null,
+        direction: "in", allowReentry: false, maxScansPerTicket: 0, allowedTicketTypeGroupIds: null,
+        opensAt: null, closesAt: null, operatorUserIds: [], isActive: true
+      })
+    ).toThrow();
+  });
+});
+
+describe("GuestListSchema", () => {
+  it("accepts a valid guest list with a quota", () => {
+    const result = GuestListSchema.parse({
+      id: "gl-1", eventId: "event-2", subEventId: null, name: "Prensa", quota: 5
+    });
+    expect(result.quota).toBe(5);
+  });
+
+  it("accepts a guest list without a quota (unlimited)", () => {
+    const result = GuestListSchema.parse({
+      id: "gl-2", eventId: "event-2", subEventId: "sub-event-2", name: "Patrocinadores", quota: null
+    });
+    expect(result.quota).toBeNull();
+  });
+});
+
+describe("GuestListEntrySchema", () => {
+  it("accepts a valid pending entry", () => {
+    const result = GuestListEntrySchema.parse({
+      id: "gle-1", guestListId: "gl-1", fullName: "Marta López", email: "marta@example.com",
+      phone: null, companions: 0, status: "pending", notes: null
+    });
+    expect(result.status).toBe("pending");
+  });
+
+  it("accepts a checked-in entry with companions and notes", () => {
+    const result = GuestListEntrySchema.parse({
+      id: "gle-2", guestListId: "gl-1", fullName: "Carlos Ruiz", email: null,
+      phone: "600111222", companions: 1, status: "checked_in", notes: "Fotógrafo acreditado"
+    });
+    expect(result.companions).toBe(1);
+  });
+
+  it("rejects an unknown status", () => {
+    expect(() =>
+      GuestListEntrySchema.parse({
+        id: "gle-3", guestListId: "gl-1", fullName: "X", email: null, phone: null,
+        companions: 0, status: "sent", notes: null
+      })
+    ).toThrow();
   });
 });
 
