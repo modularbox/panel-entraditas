@@ -42,7 +42,7 @@ describe("EventWizardPage", () => {
   });
 
   it("unlocks further steps and lets you navigate to them once the event is saved", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar"); // seeded with zero ticket types
     expect(screen.getByTestId("wizard-event-id")).toHaveTextContent("event-5");
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 4"));
@@ -66,7 +66,7 @@ describe("EventWizardPage", () => {
   });
 
   it("blocks advancing past the ticket-types step until at least one ticket type exists, but still allows going back", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar"); // seeded with zero ticket types
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 4"));
 
@@ -80,7 +80,7 @@ describe("EventWizardPage", () => {
   });
 
   it("includes the multiple-functions step for an event with hasSubEvents set", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-3/editar"); // seeded with hasSubEvents: true
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 5"));
 
@@ -89,7 +89,7 @@ describe("EventWizardPage", () => {
   });
 
   it("excludes the multiple-functions step for a single-function event", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-1/editar"); // seeded with hasSubEvents: false
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 4"));
 
@@ -110,7 +110,7 @@ describe("EventWizardPage", () => {
   });
 
   it("blocks advancing past the seating-plan step while a zone is over capacity, but still allows going back", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     db.ticketTypes.find((t) => t.id === "tt-2-pista")!.quantityTotal = 900; // zone-pista capacity is 800
     renderAt("/eventos/event-2/editar"); // venue-1 (Sala Apolo), Pista already assigned to tt-2-pista
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 4"));

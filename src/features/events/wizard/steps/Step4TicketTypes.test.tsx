@@ -23,13 +23,13 @@ describe("Step4TicketTypes", () => {
   });
 
   it("lists the existing ticket types, one row per group", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-2"); // seeded with 2 groups: tt-2-pista, tt-2-grada
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(2));
   });
 
   it("creates an event-scoped ticket type", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-5"); // seeded with zero ticket types
     await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
 
@@ -43,7 +43,7 @@ describe("Step4TicketTypes", () => {
   });
 
   it("creates a ticket type with a quantity limit and a color", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-5"); // seeded with zero ticket types
     await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
 
@@ -60,7 +60,7 @@ describe("Step4TicketTypes", () => {
   });
 
   it("creates one row per selected sub-event but displays a single group", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-3"); // has sub-event-3-0..3 and one pre-existing event-scoped ticket type (tt-3)
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
 
@@ -79,7 +79,7 @@ describe("Step4TicketTypes", () => {
   });
 
   it("reorders groups using the Subir/Bajar buttons", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-2");
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(2));
 
@@ -94,7 +94,7 @@ describe("Step4TicketTypes", () => {
   });
 
   it("shows an error and keeps the form filled when the server rejects creating a ticket type", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     server.use(
       http.post("http://localhost:4000/api/v1/events/:eventId/ticket-types", () =>
         HttpResponse.json(
@@ -117,7 +117,7 @@ describe("Step4TicketTypes", () => {
   });
 
   it("reports invalid with zero ticket types and valid once one is created", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     const onValidationChange = vi.fn();
     renderStep("event-5", onValidationChange); // seeded with zero ticket types
     await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(false));
@@ -131,7 +131,7 @@ describe("Step4TicketTypes", () => {
   });
 
   it("disables Crear tipo de entrada until Nombre, Precio and Cantidad are filled", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-5"); // seeded with zero ticket types
     await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
     expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeDisabled();
@@ -147,7 +147,7 @@ describe("Step4TicketTypes", () => {
   });
 
   it("disables and zeroes the price input when Gratuito is checked, and creates a free ticket type", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-5"); // seeded with zero ticket types
     await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
 
@@ -168,7 +168,7 @@ describe("Step4TicketTypes", () => {
   });
 
   it("shows an error and leaves sortOrder unchanged when the server rejects reordering", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     server.use(
       http.post("http://localhost:4000/api/v1/ticket-types/reorder", () =>
         HttpResponse.json(

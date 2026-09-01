@@ -11,7 +11,7 @@ describe("guestLists handlers", () => {
   });
 
   async function login() {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     return useSessionStore.getState().token!;
   }
 
@@ -88,7 +88,7 @@ describe("guestLists handlers", () => {
   });
 
   it("rejects access to an out-of-scope event's guest lists", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "T6#bW8@cL2!pZ9&"); // scoped to event-1 only
+    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234"); // scoped to event-1 only
     const token = useSessionStore.getState().token!;
     await expect(apiClient.get("/events/event-2/guest-lists", { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });

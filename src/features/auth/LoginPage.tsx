@@ -11,14 +11,21 @@ export function LoginPage() {
   const navigate = useNavigate();
   const login = useSessionStore((s) => s.login);
   const [loginError, setLoginError] = useState<string | null>(null);
+  // Generated once per mount so the challenge stays stable across re-renders of this form.
+  const [challenge] = useState(() => ({ a: 1 + Math.floor(Math.random() * 9), b: 1 + Math.floor(Math.random() * 9) }));
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting }
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
 
   async function onSubmit(values: LoginFormValues) {
     setLoginError(null);
+    if (Number(values.captchaAnswer) !== challenge.a + challenge.b) {
+      setError("captchaAnswer", { message: "Respuesta incorrecta" });
+      return;
+    }
     try {
       await login(values.email, values.password);
       navigate("/eventos");
@@ -81,13 +88,19 @@ export function LoginPage() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="notRobot" className="flex items-center gap-2 text-sm font-medium">
-              <input id="notRobot" type="checkbox" {...register("notRobot")} />
-              No soy un robot
+            <label htmlFor="captchaAnswer" className="text-sm font-medium">
+              Prueba de verificación: ¿cuánto es {challenge.a} + {challenge.b}?
             </label>
-            {errors.notRobot && (
+            <input
+              id="captchaAnswer"
+              type="text"
+              inputMode="numeric"
+              className="h-10 rounded-md border-2 border-foreground bg-background px-3 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              {...register("captchaAnswer")}
+            />
+            {errors.captchaAnswer && (
               <span role="alert" className="text-sm text-destructive">
-                {errors.notRobot.message}
+                {errors.captchaAnswer.message}
               </span>
             )}
           </div>

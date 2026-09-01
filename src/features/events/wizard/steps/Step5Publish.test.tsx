@@ -30,13 +30,13 @@ describe("Step5Publish", () => {
   });
 
   it("disables Publicar with zero ticket types", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-5");
     await waitFor(() => expect(screen.getByRole("button", { name: "Publicar evento" })).toBeDisabled());
   });
 
   it("publishes an event that already has a ticket type, then navigates to its detail page", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-3"); // seeded with tt-3
     await waitFor(() => expect(screen.getByRole("button", { name: "Publicar evento" })).toBeEnabled());
 

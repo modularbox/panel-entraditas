@@ -24,13 +24,13 @@ describe("TeamListPage", () => {
   });
 
   it("shows all 3 members of the organization to an admin", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4)); // 1 header row + 3 data rows
   });
 
   it("sorts by Nombre ascending on the first click and descending on the second", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
 
@@ -42,7 +42,7 @@ describe("TeamListPage", () => {
   });
 
   it("sorts by Correo ascending on the first click", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
 
@@ -52,7 +52,7 @@ describe("TeamListPage", () => {
   });
 
   it("sorts by Rol in cargo order (Admin > Usuario > Subusuario) on the first click", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
 

@@ -24,7 +24,7 @@ describe("GatesOverviewPage", () => {
   });
 
   it("shows both gates, each with its event, zone, status and operators, to a superadmin", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(3)); // header + 2 gates
 
@@ -40,7 +40,7 @@ describe("GatesOverviewPage", () => {
   });
 
   it("shows only the admin's own organization's gate", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(2)); // header + 1 gate
 
@@ -49,7 +49,7 @@ describe("GatesOverviewPage", () => {
   });
 
   it("shows an empty-state message when no gate is visible", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "T6#bW8@cL2!pZ9&"); // scoped to event-1 only
+    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234"); // scoped to event-1 only
     renderPage();
     expect(await screen.findByText("No hay puertas creadas todavía.")).toBeInTheDocument();
   });

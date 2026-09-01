@@ -24,21 +24,21 @@ describe("EventsListPage", () => {
   });
 
   it("shows all 5 events to a superadmin, with the create button visible", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(6)); // 1 header row + 5 data rows
     expect(screen.getByRole("button", { name: "Crear evento" })).toBeInTheDocument();
   });
 
   it("shows only the 1 scoped event to a subuser, with no create button", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "T6#bW8@cL2!pZ9&");
+    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(2)); // header row + 1 data row
     expect(screen.queryByRole("button", { name: "Crear evento" })).not.toBeInTheDocument();
   });
 
   it("sorts by Título ascending on the first header click and descending on the second", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(6));
 
@@ -50,7 +50,7 @@ describe("EventsListPage", () => {
   });
 
   it("colors each event's status label with its state color", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(6));
 

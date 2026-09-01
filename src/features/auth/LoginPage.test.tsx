@@ -16,10 +16,17 @@ function renderLoginPage() {
   );
 }
 
+function solveChallenge() {
+  const label = screen.getByText(/Prueba de verificación/).textContent ?? "";
+  const match = label.match(/(\d+)\s*\+\s*(\d+)/);
+  if (!match) throw new Error("challenge not found in label");
+  return Number(match[1]) + Number(match[2]);
+}
+
 async function fillAndSubmit(email: string, password: string) {
   fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: email } });
   fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: password } });
-  fireEvent.click(screen.getByLabelText("No soy un robot"));
+  fireEvent.change(screen.getByLabelText(/Prueba de verificación/), { target: { value: String(solveChallenge()) } });
   fireEvent.click(screen.getByLabelText(/Acepto los/));
   fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
 }
@@ -31,10 +38,10 @@ describe("LoginPage", () => {
   });
 
   it.each([
-    ["superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$", "organizations:manage"],
-    ["admin@entraditas.com", "N8@kP4!wY6#sD2&", "finance:read"],
-    ["usuario@entraditas.com", "xR5$Jq9%Fv3!Mn7*", "orders:read"],
-    ["subusuario@entraditas.com", "T6#bW8@cL2!pZ9&", "scan:validate"]
+    ["superadmin@entraditas.com", "superadmin1234", "organizations:manage"],
+    ["admin@entraditas.com", "admin1234", "finance:read"],
+    ["usuario@entraditas.com", "usuario1234", "orders:read"],
+    ["subusuario@entraditas.com", "subusuario1234", "scan:validate"]
   ])("logs in %s and redirects to /eventos with the expected permission granted", async (email, password, expectedPermission) => {
     renderLoginPage();
     await fillAndSubmit(email, password);
@@ -49,22 +56,23 @@ describe("LoginPage", () => {
     expect(screen.queryByText("Listado de eventos")).not.toBeInTheDocument();
   });
 
-  it("blocks submission with valid credentials until 'No soy un robot' is checked", async () => {
+  it("blocks submission with an incorrect answer to the verification test", async () => {
     renderLoginPage();
     fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@entraditas.com" } });
-    fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "N8@kP4!wY6#sD2&" } });
+    fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "admin1234" } });
+    fireEvent.change(screen.getByLabelText(/Prueba de verificación/), { target: { value: String(solveChallenge() + 1) } });
     fireEvent.click(screen.getByLabelText(/Acepto los/));
     fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
-    expect(await screen.findByText("Confirma que no eres un robot")).toBeInTheDocument();
+    expect(await screen.findByText("Respuesta incorrecta")).toBeInTheDocument();
     expect(screen.queryByText("Listado de eventos")).not.toBeInTheDocument();
   });
 
   it("blocks submission with valid credentials until the terms and conditions are accepted", async () => {
     renderLoginPage();
     fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@entraditas.com" } });
-    fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "N8@kP4!wY6#sD2&" } });
-    fireEvent.click(screen.getByLabelText("No soy un robot"));
+    fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "admin1234" } });
+    fireEvent.change(screen.getByLabelText(/Prueba de verificación/), { target: { value: String(solveChallenge()) } });
     fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
     expect(await screen.findByText("Debes aceptar los términos y condiciones")).toBeInTheDocument();

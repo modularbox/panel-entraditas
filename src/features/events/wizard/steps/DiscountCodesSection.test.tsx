@@ -27,13 +27,13 @@ describe("DiscountCodesSection", () => {
   });
 
   it("renders the event's already-created discount codes", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-2"); // seeded with one code: EARLYBIRD
     expect(await screen.findByText("EARLYBIRD")).toBeInTheDocument();
   });
 
   it("creates a discount code that applies to all ticket types", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-2");
     await screen.findByText("EARLYBIRD");
 
@@ -49,7 +49,7 @@ describe("DiscountCodesSection", () => {
   });
 
   it("disables Crear código until Código and Valor are filled", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-2");
     await screen.findByText("EARLYBIRD");
     expect(screen.getByRole("button", { name: "Crear código" })).toBeDisabled();
@@ -62,7 +62,7 @@ describe("DiscountCodesSection", () => {
   });
 
   it("creates a discount code that applies only to selected ticket types", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-2"); // ticket-type groups: tt-2-pista (Pista), tt-2-grada (Grada VIP)
     await screen.findByText("EARLYBIRD");
 
@@ -78,7 +78,7 @@ describe("DiscountCodesSection", () => {
   });
 
   it("toggles a discount code's status between active and inactive", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-2"); // EARLYBIRD starts active
     await screen.findByText("EARLYBIRD");
 
@@ -89,7 +89,7 @@ describe("DiscountCodesSection", () => {
   });
 
   it("deletes a discount code", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-2");
     await screen.findByText("EARLYBIRD");
 

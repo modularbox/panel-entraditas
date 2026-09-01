@@ -24,7 +24,7 @@ describe("OrdersListPage", () => {
   });
 
   it("shows only sales to a superadmin, hiding refunded orders", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(8)); // 1 header row + 7 active orders
     expect(screen.queryByRole("link", { name: "PED-2026-0004" })).toBeNull();
@@ -32,7 +32,7 @@ describe("OrdersListPage", () => {
   });
 
   it("shows the empty state when filtering by cancelled, since cancelled orders are deleted", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(8));
     fireEvent.change(screen.getByLabelText("Estado"), { target: { value: "cancelled" } });
@@ -40,14 +40,14 @@ describe("OrdersListPage", () => {
   });
 
   it("links each row to its order detail", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     const link = await screen.findByRole("link", { name: "PED-2026-0005" });
     expect(link).toHaveAttribute("href", "/ventas/pedidos/order-5");
   });
 
   it("sorts by Total ascending on the first header click and descending on the second", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(8));
 

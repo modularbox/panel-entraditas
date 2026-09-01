@@ -27,7 +27,7 @@ describe("OrganizationsListPage", () => {
   });
 
   it("shows both organizations with their administrator and a Conectar button each", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(3)); // 1 header row + 2 data rows
 
@@ -41,7 +41,7 @@ describe("OrganizationsListPage", () => {
   });
 
   it("Conectar switches the session to the organization's admin and lands on Eventos", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("button", { name: "Conectar" })).toHaveLength(2));
 

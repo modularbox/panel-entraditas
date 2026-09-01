@@ -24,14 +24,14 @@ describe("TaquillaPage", () => {
   });
 
   it("shows a permission notice instead of the form for a user without orders:create", async () => {
-    await useSessionStore.getState().login("usuario@entraditas.com", "xR5$Jq9%Fv3!Mn7*");
+    await useSessionStore.getState().login("usuario@entraditas.com", "usuario1234");
     renderPage();
     expect(await screen.findByText("No tienes permiso para vender entradas.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Evento")).not.toBeInTheDocument();
   });
 
   it("builds a multi-line cart and confirms the sale", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
 
     const eventSelect = await screen.findByLabelText("Evento");
@@ -47,7 +47,7 @@ describe("TaquillaPage", () => {
   });
 
   it("disables the quantity input and shows Agotado for a sold-out ticket type", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     const tt1 = db.ticketTypes.find((tt) => tt.id === "tt-1")!;
     tt1.quantityTotal = tt1.quantitySold; // 0 remaining
     renderPage();

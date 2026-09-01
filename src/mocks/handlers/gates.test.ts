@@ -11,7 +11,7 @@ describe("gates handlers", () => {
   });
 
   async function login() {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     return useSessionStore.getState().token!;
   }
 
@@ -88,7 +88,7 @@ describe("gates handlers", () => {
   });
 
   it("rejects access to an out-of-scope event's gates", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "T6#bW8@cL2!pZ9&"); // scoped to event-1 only
+    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234"); // scoped to event-1 only
     const token = useSessionStore.getState().token!;
     await expect(apiClient.get("/events/event-2/gates", { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
@@ -107,14 +107,14 @@ describe("gates handlers", () => {
   });
 
   it("GET /gates returns gates across every organization to a superadmin", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     const token = useSessionStore.getState().token!;
     const gates = await apiClient.get<{ id: string }[]>("/gates", { token });
     expect(gates.map((g) => g.id).sort()).toEqual(["gate-2-norte", "gate-4-entrada"]);
   });
 
   it("GET /gates returns none when the event-scoped user's events have no gates", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "T6#bW8@cL2!pZ9&"); // scoped to event-1 only, which has no gates
+    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234"); // scoped to event-1 only, which has no gates
     const token = useSessionStore.getState().token!;
     const gates = await apiClient.get<{ id: string }[]>("/gates", { token });
     expect(gates).toEqual([]);

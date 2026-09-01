@@ -15,7 +15,7 @@ function renderSection(eventId: string | null) {
 }
 
 async function loginAsAdmin() {
-  await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+  await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
 }
 
 describe("GatesSection", () => {

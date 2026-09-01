@@ -24,7 +24,7 @@ describe("DashboardPage", () => {
   });
 
   it("scopes the general overview to each user's access: superadmin sees everything", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
     expect(within(kpiArticle("Ingresos brutos")).getByText(/765,00/)).toBeInTheDocument();
@@ -35,7 +35,7 @@ describe("DashboardPage", () => {
   });
 
   it("scopes the general overview to an admin: only their organization's events", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
     expect(within(kpiArticle("Ingresos brutos")).getByText(/405,00/)).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe("DashboardPage", () => {
   });
 
   it("scopes the general overview to a scoped user: only their assigned events", async () => {
-    await useSessionStore.getState().login("usuario@entraditas.com", "xR5$Jq9%Fv3!Mn7*");
+    await useSessionStore.getState().login("usuario@entraditas.com", "usuario1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
     expect(within(kpiArticle("Ingresos brutos")).getByText(/405,00/)).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("DashboardPage", () => {
   });
 
   it("matches the saved counters and refunds in the database for a superadmin", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "vQ7!mZ2#Lr9@Tx5$");
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     const number = new Intl.NumberFormat("es-ES");
     const currencyDigits = (cents: number) =>
       new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(cents / 100).replace(/[\s\u00A0€]/g, "");
@@ -73,7 +73,7 @@ describe("DashboardPage", () => {
   });
 
   it("renders KPIs and every specified visualization for an admin", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
     expect(screen.getByText("Ventas acumuladas")).toBeInTheDocument();
@@ -86,7 +86,7 @@ describe("DashboardPage", () => {
   });
 
   it("queues the selected report format", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getByRole("button", { name: "Exportar informe" })).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Formato de informe"), { target: { value: "pdf" } });
@@ -95,7 +95,7 @@ describe("DashboardPage", () => {
   });
 
   it("generates an openable PDF containing the test data", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     const result = await apiClient.post<{ content: string; mimeType: string; filename: string }>(
       "/reports/export", { report: "dashboard", format: "pdf" }, { token: useSessionStore.getState().token! }
     );

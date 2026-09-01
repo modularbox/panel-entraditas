@@ -16,7 +16,7 @@ describe("auth handlers", () => {
   it("logs in a demo user and returns effective permissions", async () => {
     const result = await apiClient.post<LoginResponse>("/auth/login", {
       email: "admin@entraditas.com",
-      password: "N8@kP4!wY6#sD2&"
+      password: "admin1234"
     });
     expect(result.user.id).toBe(DEMO_ADMIN_ID);
     expect(result.effectivePermissions).toContain("finance:read");
@@ -24,7 +24,7 @@ describe("auth handlers", () => {
 
   it("rejects an unknown email with UNAUTHENTICATED", async () => {
     await expect(
-      apiClient.post("/auth/login", { email: "nope@entraditas.com", password: "N8@kP4!wY6#sD2&" })
+      apiClient.post("/auth/login", { email: "nope@entraditas.com", password: "admin1234" })
     ).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
   });
 
@@ -41,7 +41,7 @@ describe("auth handlers", () => {
   it("/auth/me returns the session for a valid token, and logout invalidates it", async () => {
     const login = await apiClient.post<LoginResponse>("/auth/login", {
       email: "admin@entraditas.com",
-      password: "N8@kP4!wY6#sD2&"
+      password: "admin1234"
     });
     const me = await apiClient.get<LoginResponse>("/auth/me", { token: login.accessToken });
     expect(me.user.id).toBe(DEMO_ADMIN_ID);

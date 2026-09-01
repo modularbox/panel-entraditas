@@ -6,7 +6,7 @@ describe("invitation handlers", () => {
   afterEach(() => resetDb());
 
   it("accepts a pending invitation and creates a session", async () => {
-    const login = await apiClient.post<{ accessToken: string }>("/auth/login", { email: "admin@entraditas.com", password: "N8@kP4!wY6#sD2&" });
+    const login = await apiClient.post<{ accessToken: string }>("/auth/login", { email: "admin@entraditas.com", password: "admin1234" });
     const invitation = await apiClient.post<{ inviteUrl: string }>("/users/invite", { email: "new@example.com", fullName: "Nueva", role: "user" }, { token: login.accessToken });
     const token = invitation.inviteUrl.split("/invitacion/")[1];
     const session = await apiClient.post<{ accessToken: string }>(`/invitations/${token}/accept`, { password: "password" });

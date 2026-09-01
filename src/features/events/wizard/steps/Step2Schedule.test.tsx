@@ -23,13 +23,13 @@ describe("Step2Schedule", () => {
   });
 
   it("lists the already-seeded sub-events for the theater event", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-3");
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(4));
   });
 
   it("generates recurring sub-events and adds them to the list", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-5");
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
 
@@ -41,7 +41,7 @@ describe("Step2Schedule", () => {
   });
 
   it("duplicates the doors-open time from the first sub-event to the rest", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     db.subEvents.find((s) => s.id === "sub-event-3-0")!.doorsOpenAt = "2026-09-05T19:30:00.000Z";
     renderStep("event-3");
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(4));
@@ -55,7 +55,7 @@ describe("Step2Schedule", () => {
   });
 
   it("shows an alert and does not add sub-events when generating fails", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     server.use(
       http.post("http://localhost:4000/api/v1/events/:eventId/sub-events/bulk", () =>
         HttpResponse.json(
@@ -76,7 +76,7 @@ describe("Step2Schedule", () => {
   });
 
   it("shows an alert when duplicating the doors-open time fails", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     db.subEvents.find((s) => s.id === "sub-event-3-0")!.doorsOpenAt = "2026-09-05T19:30:00.000Z";
     server.use(
       http.patch("http://localhost:4000/api/v1/sub-events/:id", () =>

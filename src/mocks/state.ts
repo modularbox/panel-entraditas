@@ -126,10 +126,10 @@ export const sessions = new Map<string, string>();
 
 // demo passwords are role-specific on purpose (mock stand-in for real per-user credentials).
 export const DEMO_PASSWORD_BY_EMAIL: Record<string, string> = {
-  "superadmin@entraditas.com": "vQ7!mZ2#Lr9@Tx5$",
-  "admin@entraditas.com": "N8@kP4!wY6#sD2&",
-  "usuario@entraditas.com": "xR5$Jq9%Fv3!Mn7*",
-  "subusuario@entraditas.com": "T6#bW8@cL2!pZ9&",
+  "superadmin@entraditas.com": "superadmin1234",
+  "admin@entraditas.com": "admin1234",
+  "usuario@entraditas.com": "usuario1234",
+  "subusuario@entraditas.com": "subusuario1234",
   "admin.surlive@entraditas.com": "A9#sL2!kR4@qT7&"
 };
 

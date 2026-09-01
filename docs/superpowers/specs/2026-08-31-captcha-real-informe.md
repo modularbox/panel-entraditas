@@ -1,11 +1,11 @@
 # Captcha real en el login — Informe
 
 **Fecha:** 2026-08-31
-**Tipo:** Informe de referencia (no es un spec para implementar ahora; documenta qué haría falta si algún día se sustituye la casilla "No soy un robot" por un captcha real).
+**Tipo:** Informe de referencia (no es un spec para implementar ahora; documenta qué haría falta si algún día se sustituye la prueba de verificación actual por un captcha real).
 
 ## Contexto
 
-El login actual (`src/features/auth/LoginPage.tsx`) tiene una casilla "No soy un robot" (`loginSchema.ts`) que es puramente una validación de cliente — no verifica nada, porque este panel es un mock completo: `src/mocks/handlers/auth.ts` simula el backend con MSW y no hay ningún servidor real al que llamar. Un captcha de verdad necesita, por definición, un servidor que verifique el resultado con el proveedor — así que no puede completarse solo en este repo tal como está montado hoy.
+El login actual (`src/features/auth/LoginPage.tsx`) tiene una prueba de verificación simple (una suma de dos números aleatorios, `loginSchema.ts`) que es puramente una validación de cliente — no verifica nada, porque este panel es un mock completo: `src/mocks/handlers/auth.ts` simula el backend con MSW y no hay ningún servidor real al que llamar. Un captcha de verdad necesita, por definición, un servidor que verifique el resultado con el proveedor — así que no puede completarse solo en este repo tal como está montado hoy.
 
 ## 1. Elegir proveedor
 
@@ -28,8 +28,8 @@ Para un panel de administración (login de personal, no de público general), **
 ## 3. Cambios en el frontend
 
 1. Cargar el script de Google: `<script src="https://www.google.com/recaptcha/api.js?render=SITE_KEY">` (o usar una librería como `react-google-recaptcha-v3`).
-2. En `LoginPage.tsx`, sustituir la casilla "No soy un robot" por una llamada a `grecaptcha.execute(SITE_KEY, { action: "login" })` justo antes de enviar el formulario, que devuelve un token.
-3. Añadir ese token al cuerpo de la petición `POST /auth/login` (`loginSchema.ts` pasaría a llevar `captchaToken: string` en vez de `notRobot: boolean`).
+2. En `LoginPage.tsx`, sustituir la prueba de verificación (suma de dos números) por una llamada a `grecaptcha.execute(SITE_KEY, { action: "login" })` justo antes de enviar el formulario, que devuelve un token.
+3. Añadir ese token al cuerpo de la petición `POST /auth/login` (`loginSchema.ts` pasaría a llevar `captchaToken: string` en vez de `captchaAnswer: string`).
 4. La site key se expondría como variable de entorno de build (`VITE_RECAPTCHA_SITE_KEY` en este proyecto, ya que usa Vite) — nunca hardcodeada.
 
 ## 4. Cambios en el backend (real, no en este mock)
