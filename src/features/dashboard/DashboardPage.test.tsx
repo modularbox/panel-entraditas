@@ -29,8 +29,9 @@ describe("DashboardPage", () => {
     await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
     expect(within(kpiArticle("Ingresos brutos")).getByText(/765,00/)).toBeInTheDocument();
     expect(within(kpiArticle("Entradas vendidas")).getByText("18")).toBeInTheDocument();
-    expect(screen.getByText("Festival del Sur")).toBeInTheDocument();
-    expect(screen.getByText("La Casa de Bernarda Alba")).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Festival del Sur")).toBeInTheDocument();
+    expect(within(table).getByText("La Casa de Bernarda Alba")).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(6);
   });
 
@@ -40,7 +41,8 @@ describe("DashboardPage", () => {
     await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
     expect(within(kpiArticle("Ingresos brutos")).getByText(/405,00/)).toBeInTheDocument();
     expect(within(kpiArticle("Entradas vendidas")).getByText("13")).toBeInTheDocument();
-    expect(screen.getByText("La Casa de Bernarda Alba")).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("La Casa de Bernarda Alba")).toBeInTheDocument();
     expect(screen.queryByText("Festival del Sur")).not.toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(5);
   });
@@ -60,7 +62,7 @@ describe("DashboardPage", () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     const number = new Intl.NumberFormat("es-ES");
     const currencyDigits = (cents: number) =>
-      new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(cents / 100).replace(/[\s\u00A0�€]/g, "");
+      new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(cents / 100).replace(/[\s\u00A0�€]/g, "");
     const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const savedTickets = db.ticketTypes.reduce((sum, ticketType) => sum + ticketType.quantitySold, 0);
     const savedRefunds = db.orders.reduce((sum, order) => sum + order.refundedAmount, 0);
@@ -82,7 +84,7 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText("Noche de Jazz").length).toBeGreaterThan(1);
     expect(screen.getAllByText("Ingresos netos").length).toBeGreaterThan(1);
     expect(screen.getByText("Origen de compradores")).toBeInTheDocument();
-    expect(screen.getByText("Embudo de conversi�n")).toBeInTheDocument();
+    expect(screen.getByText("Embudo de conversi�n")).toBeInTheDocument();
   });
 
   it("queues the selected report format", async () => {
@@ -92,6 +94,98 @@ describe("DashboardPage", () => {
     fireEvent.change(screen.getByLabelText("Formato de informe"), { target: { value: "pdf" } });
     fireEvent.click(screen.getByRole("button", { name: "Exportar informe" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("PDF"));
+  });
+
+  it("shows the organization filter only to a superadmin", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    expect(screen.getByLabelText("Organización")).toBeInTheDocument();
+  });
+
+  it("hides the organization filter from a non-superadmin", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    expect(screen.queryByLabelText("Organización")).not.toBeInTheDocument();
+  });
+
+  it("narrows the dashboard to the selected organization", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Organización"), { target: { value: "org-2" } });
+    // Wait on Rock en Directo disappearing (org-1) rather than Festival del Sur appearing (org-2):
+    // the latter is already visible in the superadmin's unfiltered view, so it wouldn't prove the
+    // filtered fetch — kept on screen via placeholderData while it loads — has actually landed.
+    await waitFor(() => expect(within(screen.getByRole("table")).queryByText("Rock en Directo")).not.toBeInTheDocument());
+    expect(within(screen.getByRole("table")).getByText("Festival del Sur")).toBeInTheDocument();
+    expect(within(kpiArticle("Ingresos brutos")).getByText(/360,00/)).toBeInTheDocument();
+  });
+
+  it("limits the event filter options to the selected organization", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Organización"), { target: { value: "org-2" } });
+    await waitFor(() => expect(within(screen.getByRole("table")).queryByText("Rock en Directo")).not.toBeInTheDocument());
+    const eventSelect = screen.getByLabelText("Evento") as HTMLSelectElement;
+    expect(Array.from(eventSelect.options).map((option) => option.textContent)).toEqual(["Todos los eventos", "Festival del Sur"]);
+  });
+
+  it("narrows the dashboard to the selected event", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Evento"), { target: { value: "event-2" } });
+    await waitFor(() => expect(within(kpiArticle("Ingresos brutos")).getByText(/280,00/)).toBeInTheDocument());
+    expect(within(screen.getByRole("table")).queryByText("Festival del Sur")).not.toBeInTheDocument();
+  });
+
+  it("narrows the dashboard to a custom date range", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2026-08-01" } });
+    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "2026-08-06" } });
+    await waitFor(() => expect(within(kpiArticle("Ingresos brutos")).getByText(/50,00/)).toBeInTheDocument());
+  });
+
+  it("clears every filter with the reset button", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Organización"), { target: { value: "org-2" } });
+    await waitFor(() => expect(screen.queryByText("Rock en Directo")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+    await waitFor(() => expect(within(screen.getByRole("table")).getByText("Rock en Directo")).toBeInTheDocument());
+    expect(screen.getByLabelText("Organización")).toHaveValue("");
+  });
+
+  it("marks the 'Todo' date-range preset as active by default", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    expect(screen.getByRole("button", { name: "Todo" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "30 días" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("keeps the clicked date-range preset marked as active", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    fireEvent.click(screen.getByRole("button", { name: "30 días" }));
+    expect(screen.getByRole("button", { name: "30 días" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Todo" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("clears the active preset once a date is entered manually", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2026-08-01" } });
+    expect(screen.getByRole("button", { name: "Todo" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "30 días" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("generates an openable PDF containing the test data", async () => {

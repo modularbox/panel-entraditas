@@ -34,14 +34,44 @@ const TICKET_PALETTE = ["#e4572e", "#f2c14e", "#2a9d8f", "#52606d", "#9b5de5"];
 const CHANNEL_LABELS: Record<string, string> = { web: "Web", box_office: "Taquilla", courtesy: "CortesÃ­a", panel: "Panel" };
 const CHANNEL_COLORS: Record<string, string> = { web: "#e4572e", box_office: "#2a9d8f", courtesy: "#f2c14e", panel: "#52606d" };
 
+interface DashboardFilters {
+  organizationId?: string | null;
+  eventId?: string | null;
+  from?: string | null;
+  to?: string | null;
+}
+
+function parseFilters(url: URL): DashboardFilters {
+  return {
+    organizationId: url.searchParams.get("organizationId"),
+    eventId: url.searchParams.get("eventId"),
+    from: url.searchParams.get("from"),
+    to: url.searchParams.get("to")
+  };
+}
+
+// True when an order's createdAt falls inside [from, to] (either bound optional). `to` is a plain
+// date (from a date input), so it's treated as inclusive through the end of that day.
+function withinRange(createdAt: string, from?: string | null, to?: string | null): boolean {
+  const time = new Date(createdAt).getTime();
+  if (from && time < new Date(from).getTime()) return false;
+  if (to && time > new Date(`${to}T23:59:59.999Z`).getTime()) return false;
+  return true;
+}
+
 // Every metric is derived from the real seed (events + orders + capacity pools) restricted to the
 // events the current user can actually see: superadmin = everything, admin = their organization's
-// events, scoped users = only their assigned events.
-function visibleEvents(user: User): DataEvent[] {
-  return db.events.filter(
+// events, scoped users = only their assigned events. organizationId/eventId filters narrow that set
+// further and can only ever shrink it, so a filter outside the caller's own scope yields no events
+// rather than leaking another organization's data.
+function visibleEvents(user: User, filters: DashboardFilters = {}): DataEvent[] {
+  let events = db.events.filter(
     (event) => (user.role === "superadmin" || event.organizationId === user.organizationId) &&
       (user.eventScopes.length === 0 || user.eventScopes.includes(event.id))
   );
+  if (filters.organizationId) events = events.filter((event) => event.organizationId === filters.organizationId);
+  if (filters.eventId) events = events.filter((event) => event.id === filters.eventId);
+  return events;
 }
 
 function capacityForEvent(eventId: string): { capacity: number; sold: number } {
@@ -81,13 +111,14 @@ interface EventMetric {
   refunds: number;
 }
 
-function computeOverview(user: User) {
-  const events = visibleEvents(user);
+function computeOverview(user: User, filters: DashboardFilters = {}) {
+  const events = visibleEvents(user, filters);
   const eventIds = new Set(events.map((event) => event.id));
   // Every stored order of the visible events (any status) is the source for the refund KPI, so it
   // matches the Reembolsos section; only active sales feed revenue/tickets, matching the saved
-  // sold counters in ticketTypes and capacityPools.
-  const allVisibleOrders = db.orders.filter((order) => eventIds.has(order.eventId));
+  // sold counters in ticketTypes and capacityPools. The date range only applies here, to orders —
+  // occupancy/capacity below is current inventory state, not something that happened "in a period".
+  const allVisibleOrders = db.orders.filter((order) => eventIds.has(order.eventId) && withinRange(order.createdAt, filters.from, filters.to));
   const revenueOrders = allVisibleOrders.filter((order) => REVENUE_STATUSES.has(order.status));
   const revenueOrderIds = new Set(revenueOrders.map((order) => order.id));
 
@@ -269,7 +300,8 @@ export const dashboardHandlers = [
     const permissions = user ? resolveEffectivePermissions(user.role, user.permissionOverrides) : new Set<string>();
     if (!user) return HttpResponse.json({ error: { code: "UNAUTHENTICATED", message: "SesiÃ³n no vÃ¡lida", requestId: "req_dashboard" } }, { status: 401 });
     if (!permissions.has("reports:read")) return HttpResponse.json({ error: { code: "FORBIDDEN", message: "No tienes permiso para consultar mÃ©tricas", requestId: "req_dashboard" } }, { status: 403 });
-    const { events, revenueOrders, orderQuantities, eventMetrics, totals } = computeOverview(user);
+    const filters = parseFilters(new URL(request.url));
+    const { events, revenueOrders, orderQuantities, eventMetrics, totals } = computeOverview(user, filters);
     const occupancy = events.map((event) => ({ event, ...capacityForEvent(event.id) })).filter((entry) => entry.capacity > 0);
     return HttpResponse.json({
       data: {
@@ -301,8 +333,8 @@ export const dashboardHandlers = [
     if (!user) return HttpResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sesion no valida", requestId: "req_export" } }, { status: 401 });
     const permissions = resolveEffectivePermissions(user.role, user.permissionOverrides);
     if (!permissions.has("reports:export")) return HttpResponse.json({ error: { code: "FORBIDDEN", message: "No tienes permiso para exportar informes", requestId: "req_export" } }, { status: 403 });
-    const body = await request.json() as { report?: string; format?: string };
-    const { events, revenueOrders, eventMetrics, totals } = computeOverview(user);
+    const body = await request.json() as { report?: string; format?: string; organizationId?: string; eventId?: string; from?: string; to?: string };
+    const { events, revenueOrders, eventMetrics, totals } = computeOverview(user, body);
     const kpiRows = [["Indicador", "Valor", "Variacion"], ["Ingresos brutos", formatMoney(totals.grossRevenue), "+12.4%"], ["Ingresos netos", formatMoney(totals.netRevenue), "+9.8%"], ["Entradas vendidas", `${totals.ticketsSold}`, "+18.2%"], ["Ticket medio", formatMoney(totals.averageTicket), "+3.1%"], ["Aforo ocupado", `${totals.occupancy}%`, "+5.6%"], ["Conversion", "4.8%", "+0.7%"], ["Asistencia", "74%", "+2.9%"], ["Reembolsos", formatMoney(totals.refunds), "-4.2%"]];
     const exportEvents = events.map((event) => {
       const metricEntry = eventMetrics.find((candidate) => candidate.id === event.id);
