@@ -22,7 +22,7 @@ describe("SeatingPlanSection", () => {
 
   it("shows a placeholder message when the event has not been saved yet", () => {
     renderSection(null);
-    expect(screen.getByText(/Guarda la información del evento/)).toBeInTheDocument();
+    expect(screen.getByText(/Guarda la informaciï¿½n del evento/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "+ Zona numerada" })).not.toBeInTheDocument();
   });
 
@@ -74,12 +74,8 @@ describe("SeatingPlanSection", () => {
   });
 
   it("assigns a ticket type to a zone", async () => {
-<<<<<<< HEAD
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-=======
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     db.capacityPools.find((p) => p.id === "pool-2-pista")!.ticketTypeGroupId = null;
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
     db.ticketTypes.find((t) => t.id === "tt-2-pista")!.capacityPoolId = null;
     renderSection("event-2");
     await screen.findByRole("button", { name: "Pista" });
@@ -89,13 +85,8 @@ describe("SeatingPlanSection", () => {
     await waitFor(() => expect(db.capacityPools.find((p) => p.id === "pool-2-pista")!.ticketTypeGroupId).toBe("tt-2-pista"));
   });
 
-<<<<<<< HEAD
-  it("auto-sets the zone's capacity to match the assigned ticket type's quantity", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-=======
   it("keeps the zone capacity as this zone's allocation when a ticket type is assigned", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     db.zones.find((z) => z.id === "zone-pista")!.capacity = 500;
     db.capacityPools.find((p) => p.id === "pool-2-pista")!.ticketTypeGroupId = null;
     db.ticketTypes.find((t) => t.id === "tt-2-pista")!.capacityPoolId = null; // quantityTotal is 800
@@ -108,13 +99,8 @@ describe("SeatingPlanSection", () => {
     await waitFor(() => expect(db.capacityPools.find((p) => p.id === "pool-2-pista")!.totalCapacity).toBe(500));
   });
 
-<<<<<<< HEAD
-  it("reflects the auto-set capacity in the Capacidad input while that zone stays selected", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-=======
   it("reflects the zone allocation in the Capacidad input while that zone stays selected", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     db.zones.find((z) => z.id === "zone-pista")!.capacity = 500;
     db.capacityPools.find((p) => p.id === "pool-2-pista")!.ticketTypeGroupId = null;
     db.ticketTypes.find((t) => t.id === "tt-2-pista")!.capacityPoolId = null; // quantityTotal is 800
@@ -142,15 +128,9 @@ describe("SeatingPlanSection", () => {
     expect(db.zones.find((z) => z.id === "zone-pista")!.capacity).toBe(500);
   });
 
-<<<<<<< HEAD
-  it("warns when the assigned ticket type's quantity exceeds the zone's capacity, and reports invalid", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    db.ticketTypes.find((t) => t.id === "tt-2-pista")!.quantityTotal = 900; // zone-pista capacity is 800
-=======
   it("warns when the assigned zone allocations exceed the ticket type's quantity, and reports invalid", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     db.ticketTypes.find((t) => t.id === "tt-2-pista")!.quantityTotal = 700; // zone-pista assigns 800 from this ticket type
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
     const onValidationChange = vi.fn();
     renderSection("event-2", onValidationChange);
 

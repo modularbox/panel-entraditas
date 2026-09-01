@@ -103,7 +103,7 @@ describe("EventWizardPage", () => {
   });
 
   it("lets you go back to a previous step", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar");
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 4"));
 
@@ -115,13 +115,8 @@ describe("EventWizardPage", () => {
   });
 
   it("blocks advancing past the seating-plan step while a zone is over capacity, but still allows going back", async () => {
-<<<<<<< HEAD
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    db.ticketTypes.find((t) => t.id === "tt-2-pista")!.quantityTotal = 900; // zone-pista capacity is 800
-=======
-    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     db.ticketTypes.find((t) => t.id === "tt-2-pista")!.quantityTotal = 700; // zone-pista assigns 800 from this ticket type
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
     renderAt("/eventos/event-2/editar"); // venue-1 (Sala Apolo), Pista already assigned to tt-2-pista
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 4"));
 

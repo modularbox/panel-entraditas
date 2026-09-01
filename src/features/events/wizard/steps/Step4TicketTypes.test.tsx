@@ -29,16 +29,6 @@ describe("Step4TicketTypes", () => {
   });
 
   it("lists the existing ticket types, one row per group", async () => {
-<<<<<<< HEAD
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    renderStep("event-2"); // seeded with 2 groups: tt-2-pista, tt-2-grada
-    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(2));
-  });
-
-  it("creates an event-scoped ticket type", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    renderStep("event-5"); // seeded with zero ticket types
-=======
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     renderStep("event-2");
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(2));
@@ -47,7 +37,6 @@ describe("Step4TicketTypes", () => {
   it("creates an event-scoped ticket type with total quantity", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     renderStep("event-5");
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
     await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
 
     fillTicketDraft("General", "15.00", "120");
@@ -55,37 +44,12 @@ describe("Step4TicketTypes", () => {
 
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
     expect(db.ticketTypes.filter((t) => t.eventId === "event-5")).toHaveLength(1);
-<<<<<<< HEAD
-  });
-
-  it("creates a ticket type with a quantity limit and a color", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    renderStep("event-5"); // seeded with zero ticket types
-    await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
-
-    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "VIP" } });
-    fireEvent.change(screen.getByLabelText("Precio (€)"), { target: { value: "50.00" } });
-    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "20" } });
-    fireEvent.click(screen.getByLabelText("#3b82f6"));
-    fireEvent.click(screen.getByRole("button", { name: "Crear tipo de entrada" }));
-
-    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
-    const created = db.ticketTypes.find((t) => t.name === "VIP")!;
-    expect(created.quantityTotal).toBe(20);
-    expect(created.color).toBe("#3b82f6");
-  });
-
-  it("creates one row per selected sub-event but displays a single group", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    renderStep("event-3"); // has sub-event-3-0..3 and one pre-existing event-scoped ticket type (tt-3)
-=======
     expect(db.ticketTypes.find((t) => t.eventId === "event-5")!.quantityTotal).toBe(120);
   });
 
   it("creates one row per selected sub-event but displays a single group", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     renderStep("event-3");
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
 
     fillTicketDraft("VIP funciones seleccionadas", "30.00", "80");
@@ -103,11 +67,7 @@ describe("Step4TicketTypes", () => {
   });
 
   it("reorders groups using the Subir/Bajar buttons", async () => {
-<<<<<<< HEAD
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-=======
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
     renderStep("event-2");
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(2));
 
@@ -122,11 +82,7 @@ describe("Step4TicketTypes", () => {
   });
 
   it("shows an error and keeps the form filled when the server rejects creating a ticket type", async () => {
-<<<<<<< HEAD
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-=======
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
     server.use(
       http.post("http://localhost:4000/api/v1/events/:eventId/ticket-types", () =>
         HttpResponse.json(
@@ -147,13 +103,8 @@ describe("Step4TicketTypes", () => {
     expect(screen.getByLabelText("Cantidad total")).toHaveValue(120);
   });
 
-<<<<<<< HEAD
-  it("reports invalid with zero ticket types and valid once one is created", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-=======
   it("reports invalid while a ticket type draft is not saved yet", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
     const onValidationChange = vi.fn();
     renderStep("event-5", onValidationChange);
     await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
@@ -161,61 +112,10 @@ describe("Step4TicketTypes", () => {
     fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "General" } });
 
     await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(false));
-<<<<<<< HEAD
-
-    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "General" } });
-    fireEvent.change(screen.getByLabelText("Precio (€)"), { target: { value: "15.00" } });
-    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "100" } });
-    fireEvent.click(screen.getByRole("button", { name: "Crear tipo de entrada" }));
-
-    await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(true));
-  });
-
-  it("disables Crear tipo de entrada until Nombre, Precio and Cantidad are filled", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    renderStep("event-5"); // seeded with zero ticket types
-    await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
-    expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeDisabled();
-
-    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "General" } });
-    expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeDisabled();
-
-    fireEvent.change(screen.getByLabelText("Precio (€)"), { target: { value: "15.00" } });
-    expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeDisabled();
-
-    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "100" } });
-    expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeEnabled();
-  });
-
-  it("disables and zeroes the price input when Gratuito is checked, and creates a free ticket type", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    renderStep("event-5"); // seeded with zero ticket types
-    await waitFor(() => expect(screen.queryAllByRole("listitem")).toHaveLength(0));
-
-    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Acreditación" } });
-    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "30" } });
-    fireEvent.click(screen.getByLabelText("Gratuito"));
-
-    expect(screen.getByLabelText("Precio (€)")).toBeDisabled();
-    expect(screen.getByLabelText("Precio (€)")).toHaveValue(0);
-    expect(screen.getByRole("button", { name: "Crear tipo de entrada" })).toBeEnabled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Crear tipo de entrada" }));
-
-    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
-    const created = db.ticketTypes.find((t) => t.name === "Acreditación")!;
-    expect(created.kind).toBe("gratis");
-    expect(created.basePrice).toBe(0);
-  });
-
-  it("shows an error and leaves sortOrder unchanged when the server rejects reordering", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-=======
   });
 
   it("shows an error and leaves sortOrder unchanged when the server rejects reordering", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
->>>>>>> 1414b2fd0cecb65dc3686f8624ec85638b33e6e7
     server.use(
       http.post("http://localhost:4000/api/v1/ticket-types/reorder", () =>
         HttpResponse.json(
