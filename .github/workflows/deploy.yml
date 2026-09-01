@@ -9,6 +9,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
+      FTP_SERVER: ${{ secrets.FTP_SERVER || 'ftp.entraditas.com' }}
       FTP_REMOTE_DIR: ${{ vars.FTP_REMOTE_DIR || 'panel.entraditas.com/' }}
     steps:
       - name: Descargar codigo
@@ -28,16 +29,21 @@ jobs:
 
       - name: Comprobar carpeta de destino
         run: |
+          if [ -z "$FTP_SERVER" ]; then
+            echo "::error::No se pudo resolver FTP_SERVER."
+            exit 1
+          fi
           if [ -z "$FTP_REMOTE_DIR" ]; then
             echo "::error::No se pudo resolver FTP_REMOTE_DIR."
             exit 1
           fi
+          echo "Servidor FTP: $FTP_SERVER"
           echo "Destino FTP: $FTP_REMOTE_DIR"
 
       - name: Subir por FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
+          server: ${{ env.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
