@@ -164,6 +164,16 @@ function commandState(name: string): boolean {
   return typeof document.queryCommandState === "function" ? document.queryCommandState(name) : false;
 }
 
+function selectionInsideList(editor: HTMLElement | null): boolean {
+  const selection = window.getSelection?.();
+  let node = selection?.anchorNode ?? null;
+  while (node && node !== editor) {
+    if (node instanceof HTMLElement && (node.tagName === "UL" || node.tagName === "LI")) return true;
+    node = node.parentNode;
+  }
+  return false;
+}
+
 export function RichTextEditor({
   id,
   label,
@@ -187,38 +197,43 @@ export function RichTextEditor({
     }
   }, [value]);
 
+  function refreshActiveFormats() {
+    if (!editorRef.current || !editorRef.current.contains(document.activeElement)) return;
+    setActiveFormats({
+      bold: commandState("bold"),
+      list: commandState("insertUnorderedList") || selectionInsideList(editorRef.current)
+    });
+  }
+
   useEffect(() => {
-    function refreshState() {
-      if (!editorRef.current || !editorRef.current.contains(document.activeElement)) return;
-      setActiveFormats({
-        bold: commandState("bold"),
-        list: commandState("insertUnorderedList")
-      });
-    }
-    document.addEventListener("selectionchange", refreshState);
-    return () => document.removeEventListener("selectionchange", refreshState);
+    document.addEventListener("selectionchange", refreshActiveFormats);
+    return () => document.removeEventListener("selectionchange", refreshActiveFormats);
   }, []);
 
   function sync() {
     const next = editorRef.current?.innerHTML ?? "";
     lastValueRef.current = next;
     onChange(next);
-    setActiveFormats({
-      bold: commandState("bold"),
-      list: commandState("insertUnorderedList")
-    });
+    refreshActiveFormats();
+  }
+
+  function syncAfterCommand() {
+    window.requestAnimationFrame ? window.requestAnimationFrame(sync) : window.setTimeout(sync, 0);
   }
 
   function command(name: "bold" | "insertUnorderedList") {
     editorRef.current?.focus();
-    if (name === "insertUnorderedList" && activeFormats.list) {
-      if (typeof document.execCommand === "function") document.execCommand(name);
-      setActiveFormats((current) => ({ ...current, list: false }));
-      sync();
+    const listActive = activeFormats.list || selectionInsideList(editorRef.current);
+    if (typeof document.execCommand === "function") document.execCommand(name);
+    if (name === "insertUnorderedList") {
+      setActiveFormats({
+        bold: commandState("bold"),
+        list: !listActive
+      });
+      syncAfterCommand();
       return;
     }
-    if (typeof document.execCommand === "function") document.execCommand(name);
-    sync();
+    syncAfterCommand();
   }
 
   return (

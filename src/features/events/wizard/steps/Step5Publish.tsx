@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import type { Event, TicketType, VenuePlanElement, Zone } from "@entraditas/types";
+import type { CapacityPool, Event, TicketType, VenuePlanElement, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
@@ -42,6 +42,15 @@ function useEventQuery(eventId: string | null) {
   });
 }
 
+function useCapacityPoolsQuery(subEventId: string | undefined) {
+  const token = useSessionStore((s) => s.token);
+  return useQuery({
+    queryKey: ["capacity-pools", subEventId],
+    queryFn: () => apiClient.get<CapacityPool[]>(`/sub-events/${subEventId}/capacity`, { token: token! }),
+    enabled: Boolean(subEventId && token)
+  });
+}
+
 function dateParts(startsAt?: string | null) {
   if (!startsAt) return { startDate: "", startTime: "" };
   const date = new Date(startsAt);
@@ -68,6 +77,14 @@ function groupTickets(ticketTypes: TicketType[]): PreviewTicketTier[] {
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 }
 
+function plainText(value?: string | null): string {
+  return (value ?? "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function planElementsFromZones(zones: Zone[]): VenuePlanElement[] {
   return zones
     .filter((zone) => zone.kind !== "gate")
@@ -91,12 +108,65 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
   const { data: event } = useEventQuery(eventId);
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
   const { data: subEvents = [] } = useSubEventsQuery(eventId);
+  const firstSubEvent = subEvents[0];
+  const { data: pools = [] } = useCapacityPoolsQuery(firstSubEvent?.id);
   const { data: zones = [] } = useZonesQuery(event?.venueId);
   const [publishError, setPublishError] = useState<string | null>(null);
   const planElements = planElementsFromZones(zones);
 
 
   const hasTicketTypes = (summary?.ticketTypesCount ?? 0) > 0;
+  const sellableZones = zones.filter((zone) => zone.kind === "numbered" || zone.kind === "standing");
+  const missingBasicFields = [
+    !event?.title?.trim() ? "titulo" : null,
+    !event?.category?.trim() ? "categoria" : null,
+    !plainText(event?.description) ? "descripcion" : null,
+    !event?.location?.trim() ? "ubicacion" : null,
+    !event?.locality?.trim() ? "localidad" : null
+  ].filter(Boolean);
+  const dateReady = Boolean(event?.datePending || event?.startsAt);
+  const groupUsage = new Map<string, number>();
+  const hasUnassignedZone = sellableZones.some((zone) => {
+    const pool = pools.find((candidate) => candidate.zoneId === zone.id);
+    const legacyGroupId = pool ? ticketTypes.find((ticketType) => ticketType.capacityPoolId === pool.id)?.groupId : null;
+    const groupId = pool?.ticketTypeGroupId ?? legacyGroupId ?? null;
+    if (groupId) groupUsage.set(groupId, (groupUsage.get(groupId) ?? 0) + (pool?.totalCapacity ?? zone.capacity));
+    return !groupId;
+  });
+  const overCapacityGroups = [...groupUsage.entries()].filter(([groupId, used]) => {
+    const ticket = ticketTypes.find((candidate) => candidate.groupId === groupId);
+    return ticket?.quantityTotal !== null && ticket?.quantityTotal !== undefined && used > ticket.quantityTotal;
+  });
+  const checklist = [
+    {
+      label: "Datos principales de la plantilla",
+      ok: missingBasicFields.length === 0,
+      detail: missingBasicFields.length ? `Falta: ${missingBasicFields.join(", ")}` : "Titulo, categoria, descripcion y lugar listos"
+    },
+    {
+      label: "Fecha o aviso",
+      ok: dateReady,
+      detail: dateReady ? "Tiene fecha confirmada o aviso de fecha por confirmar" : "Falta fecha o activar fecha por confirmar"
+    },
+    {
+      label: "Tipos de entrada",
+      ok: hasTicketTypes,
+      detail: hasTicketTypes ? "Hay al menos un tipo de entrada" : "Falta crear al menos un tipo de entrada"
+    },
+    {
+      label: "Plano y zonas",
+      ok: sellableZones.length === 0 || (!hasUnassignedZone && overCapacityGroups.length === 0),
+      detail:
+        sellableZones.length === 0
+          ? "Plano opcional sin zonas vendibles"
+          : hasUnassignedZone
+            ? "Hay zonas vendibles sin tipo de entrada asignado"
+            : overCapacityGroups.length > 0
+              ? "Una asignacion supera el limite de entradas disponibles"
+              : "Zonas asignadas correctamente"
+    }
+  ];
+  const canRequestReview = checklist.every((item) => item.ok);
   const activeCategory = PREVIEW_CATEGORIES.find((category) => category.id === event?.category) ?? PREVIEW_CATEGORIES[0]!;
   const eventDate = dateParts(event?.startsAt);
   const previewEvent = {
@@ -135,9 +205,17 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
       <section className="flex min-w-0 flex-col gap-4">
         <h2>Checklist de revision</h2>
         <ul className="flex flex-col gap-2">
-          <li className="rounded-md border-2 border-border bg-surface px-3 py-2 text-sm font-medium">
-            {hasTicketTypes ? "OK" : "Pendiente"} - Al menos un tipo de entrada
-          </li>
+          {checklist.map((item) => (
+            <li
+              key={item.label}
+              className={`rounded-md border-2 px-3 py-2 text-sm font-medium ${
+                item.ok ? "border-success bg-success-bg text-success" : "border-primary bg-primary/10 text-foreground"
+              }`}
+            >
+              <strong>{item.ok ? "OK" : "Pendiente"} - {item.label}</strong>
+              <span className="mt-1 block text-xs text-muted-foreground">{item.detail}</span>
+            </li>
+          ))}
         </ul>
 
         <p className="max-w-2xl text-sm font-medium text-muted-foreground">
@@ -147,7 +225,7 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
 
         {publishError && <p role="alert">{publishError}</p>}
 
-        <Button type="button" onClick={requestReview} disabled={!hasTicketTypes} className="self-start">
+        <Button type="button" onClick={requestReview} disabled={!canRequestReview} className="self-start">
           Enviar a revision
         </Button>
       </section>

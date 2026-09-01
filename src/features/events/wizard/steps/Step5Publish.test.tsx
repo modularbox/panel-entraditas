@@ -32,14 +32,30 @@ describe("Step5Publish", () => {
   it("disables review submission and shows a failing checklist item with zero ticket types", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     renderStep("event-5");
-    await waitFor(() => expect(screen.getByText(/Al menos un tipo de entrada/)).toHaveTextContent("Pendiente"));
+    await waitFor(() => expect(screen.getByText(/Tipos de entrada/)).toHaveTextContent("Pendiente"));
+    expect(screen.getByText(/Falta crear al menos un tipo de entrada/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Enviar a revision" })).toBeDisabled();
+  });
+
+  it("shows which basic template fields are missing before review", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+    db.events.find((event) => event.id === "event-5")!.description = "";
+    db.events.find((event) => event.id === "event-5")!.location = "";
+    db.events.find((event) => event.id === "event-5")!.locality = "";
+
+    renderStep("event-5");
+
+    await waitFor(() => expect(screen.getByText(/Datos principales de la plantilla/)).toHaveTextContent("Pendiente"));
+    await waitFor(() => expect(screen.getByText(/Falta: descripcion, ubicacion, localidad/)).toBeInTheDocument());
   });
 
   it("sends an event that already has a ticket type to review, then navigates to the events panel", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+    db.events.find((event) => event.id === "event-3")!.location = "Teatro Principal";
+    db.events.find((event) => event.id === "event-3")!.locality = "Alicante";
     renderStep("event-3");
-    await waitFor(() => expect(screen.getByText(/Al menos un tipo de entrada/)).toHaveTextContent("OK"));
+    await waitFor(() => expect(screen.getByText(/Tipos de entrada/)).toHaveTextContent("OK"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Enviar a revision" })).toBeEnabled());
 
     fireEvent.click(screen.getByRole("button", { name: "Enviar a revision" }));
 

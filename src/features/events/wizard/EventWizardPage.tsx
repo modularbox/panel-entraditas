@@ -30,7 +30,7 @@ interface WizardStep {
 }
 
 const ALL_STEPS: WizardStep[] = [
-  { key: "info", label: "Información del evento", needsEventId: false },
+  { key: "info", label: "Informacion del evento", needsEventId: false },
   { key: "subeventos", label: "Varias funciones", needsEventId: true },
   { key: "tipos", label: "Tipos de entrada", needsEventId: true },
   { key: "plano", label: "Plano de asientos", needsEventId: true },
@@ -57,18 +57,16 @@ export function EventWizardPage() {
   }, [params.id, setEventId, reset]);
 
   const steps = ALL_STEPS.filter((step) => {
-    // "subeventos" only applies to events flagged as having multiple functions
-    if (step.key === "subeventos" && !event?.hasSubEvents) return false;
-    // steps after step 1 need a saved event id, so they're hidden until step 1 has been submitted
-    if (step.needsEventId && !eventId) return false;
+    // Once an event is loaded, hide the multi-session step for single-session events.
+    if (eventId && event && step.key === "subeventos" && !event.hasSubEvents) return false;
     return true;
   });
-  // steps can shrink (e.g. "subeventos" disappearing once hasSubEvents is known), so clamp
-  // stepIndex to avoid pointing past the end of the filtered list
+
   const activeIndex = Math.min(stepIndex, steps.length - 1);
   const activeStep = steps[activeIndex]!;
-
   const goNext = () => setStepIndex((i) => Math.min(steps.length - 1, i + 1));
+  const canVisitStep = (step: WizardStep | undefined) => Boolean(step && (!step.needsEventId || eventId));
+  const nextStep = steps[Math.min(activeIndex + 1, steps.length - 1)];
 
   return (
     <div className="flex flex-col gap-6">
@@ -76,7 +74,7 @@ export function EventWizardPage() {
         {eventId ?? "sin-id"}
       </p>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <p className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
           Paso {activeIndex + 1} de {steps.length} - {activeStep.label}
         </p>
@@ -91,10 +89,9 @@ export function EventWizardPage() {
           </Button>
           <Button
             type="button"
-            // block advancing while the seating plan or ticket types step reports invalid data,
-            // so the wizard can't move on to steps that depend on them
             disabled={
               activeIndex >= steps.length - 1 ||
+              !canVisitStep(nextStep) ||
               (activeStep.key === "plano" && !planoValid) ||
               (activeStep.key === "tipos" && !tiposValid)
             }
@@ -104,6 +101,32 @@ export function EventWizardPage() {
           </Button>
         </div>
       </div>
+
+      <nav aria-label="Pasos del asistente" className="flex flex-wrap gap-2">
+        {steps.map((step, index) => {
+          const active = index === activeIndex;
+          const disabled = !canVisitStep(step);
+          return (
+            <button
+              key={step.key}
+              type="button"
+              disabled={disabled}
+              aria-current={active ? "step" : undefined}
+              onClick={() => setStepIndex(index)}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-md border-2 px-3 py-2 text-xs font-extrabold uppercase shadow-flat ${
+                active
+                  ? "border-foreground bg-foreground text-background"
+                  : disabled
+                    ? "border-border bg-surface-alt text-muted-foreground"
+                    : "border-foreground bg-surface text-foreground"
+              }`}
+            >
+              <span>{index + 1}.</span>
+              {step.label}
+            </button>
+          );
+        })}
+      </nav>
 
       <section aria-label={activeStep.label} className="rounded-lg border-2 border-foreground bg-surface p-6 shadow-flat">
         {activeStep.key === "info" && <Step1BasicInfo eventId={eventId} onSaved={setEventId} goNext={goNext} />}

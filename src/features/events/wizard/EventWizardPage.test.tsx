@@ -31,11 +31,15 @@ describe("EventWizardPage", () => {
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
-  it("resets to no eventId for a new event and shows only the first step", () => {
+  it("resets to no eventId for a new event and shows the locked next steps", () => {
     renderAt("/eventos/nuevo/editar");
     expect(screen.getByTestId("wizard-event-id")).toHaveTextContent("sin-id");
     expect(screen.getByRole("region", { name: /Informaci.n del evento/ })).toBeInTheDocument();
-    expect(screen.getByText(/Paso 1 de 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Paso 1 de 5/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "2. Varias funciones" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "3. Tipos de entrada" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "4. Plano de asientos" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "5. Publicar evento" })).toBeDisabled();
     expect(screen.queryByRole("region", { name: "Plano de asientos" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Anterior" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled();
@@ -99,6 +103,7 @@ describe("EventWizardPage", () => {
   });
 
   it("lets you go back to a previous step", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "N8@kP4!wY6#sD2&");
     renderAt("/eventos/event-5/editar");
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 4"));
 
