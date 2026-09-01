@@ -123,8 +123,8 @@ describe("events handlers", () => {
       color: null
     });
 
-    const published = await apiClient.post<Event>("/events/event-5/publish", undefined, { token });
-    expect(published.status).toBe("published");
+    const submitted = await apiClient.post<Event>("/events/event-5/publish", undefined, { token });
+    expect(submitted.status).toBe("pending_review");
   });
 
   it("summary reports the total capacity across an event's pools", async () => {

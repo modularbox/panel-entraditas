@@ -60,7 +60,7 @@ describe("DashboardPage", () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     const number = new Intl.NumberFormat("es-ES");
     const currencyDigits = (cents: number) =>
-      new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(cents / 100).replace(/[\s\u00A0â‚¬]/g, "");
+      new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(cents / 100).replace(/[\s\u00A0€â‚¬]/g, "");
     const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const savedTickets = db.ticketTypes.reduce((sum, ticketType) => sum + ticketType.quantitySold, 0);
     const savedRefunds = db.orders.reduce((sum, order) => sum + order.refundedAmount, 0);
@@ -82,7 +82,7 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText("Noche de Jazz").length).toBeGreaterThan(1);
     expect(screen.getAllByText("Ingresos netos").length).toBeGreaterThan(1);
     expect(screen.getByText("Origen de compradores")).toBeInTheDocument();
-    expect(screen.getByText("Embudo de conversiÃ³n")).toBeInTheDocument();
+    expect(screen.getByText("Embudo de conversión")).toBeInTheDocument();
   });
 
   it("queues the selected report format", async () => {
@@ -109,6 +109,6 @@ describe("DashboardPage", () => {
     expect(result.content).toContain("Noche de Jazz");
     expect(result.content).toContain("Publicado");
     expect(result.content).toContain("10/10/2026");
-    expect(result.content).toContain("405,00\\200");
+    expect(result.content).toContain("405,00");
   });
 });

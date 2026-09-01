@@ -8,8 +8,11 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      FTP_SERVER: ${{ secrets.FTP_SERVER || 'ftp.entraditas.com' }}
+      FTP_REMOTE_DIR: ${{ vars.FTP_REMOTE_DIR || 'panel.entraditas.com/' }}
     steps:
-      - name: Descargar código
+      - name: Descargar codigo
         uses: actions/checkout@v4
 
       - name: Instalar Node
@@ -22,20 +25,26 @@ jobs:
         run: npm ci
 
       - name: Compilar el panel
-        run: npm run build --workspace panel
+        run: npm run build
 
-      - name: Comprobar que la carpeta de destino está configurada
+      - name: Comprobar carpeta de destino
         run: |
-          if [ -z "${{ vars.FTP_REMOTE_DIR }}" ]; then
-            echo "::error::Falta la variable de repositorio FTP_REMOTE_DIR (carpeta del subdominio panel.entraditas.com). Sin ella el deploy no continúa, para no subir por error a la raíz del FTP o pisar httpdocs de entraditas.com."
+          if [ -z "$FTP_SERVER" ]; then
+            echo "::error::No se pudo resolver FTP_SERVER."
             exit 1
           fi
+          if [ -z "$FTP_REMOTE_DIR" ]; then
+            echo "::error::No se pudo resolver FTP_REMOTE_DIR."
+            exit 1
+          fi
+          echo "Servidor FTP: $FTP_SERVER"
+          echo "Destino FTP: $FTP_REMOTE_DIR"
 
       - name: Subir por FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
+          server: ${{ env.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./apps/panel/dist/
-          server-dir: ${{ vars.FTP_REMOTE_DIR }}
+          local-dir: ./dist/
+          server-dir: ${{ env.FTP_REMOTE_DIR }}

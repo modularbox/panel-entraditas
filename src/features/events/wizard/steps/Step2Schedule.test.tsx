@@ -33,11 +33,12 @@ describe("Step2Schedule", () => {
     renderStep("event-5");
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
 
-    fireEvent.change(screen.getByLabelText("Fecha de inicio"), { target: { value: "2026-12-05" } });
-    fireEvent.change(screen.getByLabelText("Número de funciones"), { target: { value: "3" } });
-    fireEvent.click(screen.getByRole("button", { name: "Generar funciones" }));
+    fireEvent.click(screen.getByRole("button", { name: "Varias sesiones" }));
+    fireEvent.change(screen.getByLabelText("Fecha inicio"), { target: { value: "2026-12-05" } });
+    fireEvent.change(screen.getByLabelText("Sesiones"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Generar sesiones" }));
 
-    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(4)); // 1 seeded + 3 generated
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(4));
   });
 
   it("duplicates the doors-open time from the first sub-event to the rest", async () => {
@@ -67,9 +68,10 @@ describe("Step2Schedule", () => {
     renderStep("event-5");
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
 
-    fireEvent.change(screen.getByLabelText("Fecha de inicio"), { target: { value: "2026-12-05" } });
-    fireEvent.change(screen.getByLabelText("Número de funciones"), { target: { value: "3" } });
-    fireEvent.click(screen.getByRole("button", { name: "Generar funciones" }));
+    fireEvent.click(screen.getByRole("button", { name: "Varias sesiones" }));
+    fireEvent.change(screen.getByLabelText("Fecha inicio"), { target: { value: "2026-12-05" } });
+    fireEvent.change(screen.getByLabelText("Sesiones"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Generar sesiones" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No se pudieron generar las funciones"));
     expect(screen.getAllByRole("listitem")).toHaveLength(1);

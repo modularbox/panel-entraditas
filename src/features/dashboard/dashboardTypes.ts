@@ -26,7 +26,7 @@ export interface DashboardOverview {
     id: string;
     title: string;
     status: string;
-    startsAt: string;
+    startsAt: string | null;
     grossRevenue: number;
     netRevenue: number;
     ticketsSold: number;

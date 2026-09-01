@@ -6,7 +6,7 @@ import { computeDragPosition, computeResizeSize, type ZoneLayout } from "./zoneG
 export interface ZoneCanvasProps {
   zones: Zone[];
   selectedZoneId: string | null;
-  onSelectZone: (id: string) => void;
+  onSelectZone: (id: string | null) => void;
   onZoneCommitted: (id: string, layout: ZoneLayout) => void;
 }
 
@@ -32,6 +32,7 @@ export function ZoneCanvas({ zones, selectedZoneId, onSelectZone, onZoneCommitte
 
   function handlePointerDown(zone: Zone, mode: "move" | "resize", e: ReactPointerEvent) {
     e.stopPropagation();
+    onSelectZone(mode === "move" && zone.id === selectedZoneId ? null : zone.id);
     dragRef.current = { zoneId: zone.id, startX: e.clientX, startY: e.clientY, origin: layoutFor(zone), mode };
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   }
@@ -72,13 +73,16 @@ export function ZoneCanvas({ zones, selectedZoneId, onSelectZone, onZoneCommitte
         const layout = layoutFor(zone);
         const selected = zone.id === selectedZoneId;
         const sellable = zone.kind === "numbered" || zone.kind === "standing";
+        const showSeats = zone.kind === "numbered" && zone.capacity > 0;
+        const seatCount = Math.min(zone.capacity, 900);
+        const columns = Math.max(2, Math.ceil(Math.sqrt(seatCount * Math.max(layout.width / Math.max(layout.height, 1), 0.5))));
         return (
           <button
             key={zone.id}
             type="button"
             aria-pressed={selected}
             aria-label={zone.name}
-            onClick={() => onSelectZone(zone.id)}
+            onClick={() => onSelectZone(selected ? null : zone.id)}
             onPointerDown={(e) => handlePointerDown(zone, "move", e)}
             style={{
               left: `${layout.x}%`,
@@ -96,8 +100,19 @@ export function ZoneCanvas({ zones, selectedZoneId, onSelectZone, onZoneCommitte
               selected && "ring-2 ring-primary"
             )}
           >
-            <span>{zone.name}</span>
-            {sellable && <span>{zone.capacity} plazas</span>}
+            {showSeats && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-2 grid content-center gap-0.5 opacity-35"
+                style={{ gridTemplateColumns: `repeat(${columns}, minmax(2px, 1fr))` }}
+              >
+                {Array.from({ length: seatCount }, (_, index) => (
+                  <span key={index} className="aspect-square min-h-1 rounded-full bg-current" />
+                ))}
+              </span>
+            )}
+            <span className="relative z-10">{zone.name}</span>
+            {sellable && <span className="relative z-10">{zone.capacity} plazas</span>}
             {selected && (
               <span
                 role="presentation"

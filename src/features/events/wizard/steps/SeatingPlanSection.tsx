@@ -10,7 +10,6 @@ import { ZoneCanvas } from "./ZoneCanvas";
 import { ZoneEditorPanel } from "./ZoneEditorPanel";
 import { TicketTypeAssignment, type ZoneAssignment } from "./TicketTypeAssignment";
 import { groupTicketTypes } from "./Step4TicketTypes";
-import { sumDefinedQuantities, zoneExceedsCapacity } from "./capacityWarnings";
 
 export interface SeatingPlanSectionProps {
   eventId: string | null;
@@ -135,21 +134,19 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
   }
 
-  async function assignTicketType(zoneId: string, groupId: string) {
+  async function assignTicketType(zoneId: string, groupId: string | null) {
     setError(null);
     const zone = zones.find((z) => z.id === zoneId);
     const pool = pools.find((p) => p.zoneId === zoneId);
     if (!zone || !pool) return;
     try {
-      const rows = ticketTypes.filter((t) => t.groupId === groupId);
-      await Promise.all(
-        rows.map((t) => apiClient.patch(`/ticket-types/${t.id}`, { capacityPoolId: pool.id }, { token: token! }))
+      await apiClient.patch(
+        `/capacity-pools/${pool.id}`,
+        { totalCapacity: zone.capacity, ticketTypeGroupId: groupId },
+        { token: token! }
       );
+      await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent?.id] });
       await queryClient.invalidateQueries({ queryKey: ["ticket-types", eventId] });
-      // Keep the zone capacity in sync with the sum of the linked ticket types' quantities,
-      // unless none of them have a defined quantity (sumDefinedQuantities returns null then).
-      const matchingCapacity = sumDefinedQuantities(rows.map((t) => t.quantityTotal));
-      if (matchingCapacity !== null) await updateZone(zoneId, { capacity: matchingCapacity });
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
@@ -159,19 +156,31 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   const groups = groupTicketTypes(ticketTypes);
   const assignments: ZoneAssignment[] = sellableZones.map((zone) => {
     const pool = pools.find((p) => p.zoneId === zone.id);
-    const assignedGroup = pool
+    const legacyGroup = pool
       ? groups.find((g) => ticketTypes.some((t) => t.groupId === g.groupId && t.capacityPoolId === pool.id))
       : undefined;
-    const linkedQuantities = pool
-      ? ticketTypes.filter((t) => t.capacityPoolId === pool.id).map((t) => t.quantityTotal)
-      : [];
+    const assignedGroupId = pool?.ticketTypeGroupId ?? legacyGroup?.groupId ?? null;
+    const assignedGroup = groups.find((group) => group.groupId === assignedGroupId);
+    const assignedTotalForGroup = assignedGroupId
+      ? sellableZones.reduce((sum, candidateZone) => {
+          const candidatePool = pools.find((p) => p.zoneId === candidateZone.id);
+          const legacyCandidate = candidatePool
+            ? groups.find((g) => ticketTypes.some((t) => t.groupId === g.groupId && t.capacityPoolId === candidatePool.id))
+            : undefined;
+          const candidateGroupId = candidatePool?.ticketTypeGroupId ?? legacyCandidate?.groupId ?? null;
+          return candidateGroupId === assignedGroupId ? sum + candidateZone.capacity : sum;
+        }, 0)
+      : 0;
     return {
       zone,
-      assignedGroupId: assignedGroup?.groupId ?? null,
-      isOverCapacity: zoneExceedsCapacity(zone.capacity, linkedQuantities)
+      assignedGroupId,
+      assignedCapacity: pool?.totalCapacity ?? zone.capacity,
+      groupLimit: assignedGroup?.quantityTotal ?? null,
+      assignedTotalForGroup,
+      isOverCapacity: assignedGroup?.quantityTotal !== null && assignedGroup?.quantityTotal !== undefined && assignedTotalForGroup > assignedGroup.quantityTotal
     };
   });
-  const isValid = !assignments.some((a) => a.isOverCapacity);
+  const isValid = !assignments.some((a) => a.assignedGroupId === null || a.isOverCapacity);
 
   useEffect(() => {
     onValidationChange?.(isValid);
@@ -180,13 +189,13 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   if (!eventId) {
     return (
       <p className="text-sm text-muted-foreground">
-        Guarda la informaciÃ³n del evento para poder dibujar el plano de asientos.
+        Guarda la información del evento para poder dibujar el plano de asientos.
       </p>
     );
   }
   if (!event) return null;
   if (!venueId) {
-    return <p role="alert">Este evento no tiene un recinto asociado todavÃ­a.</p>;
+    return <p role="alert">Este evento no tiene un recinto asociado todavía.</p>;
   }
 
   return (

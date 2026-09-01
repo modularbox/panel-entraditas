@@ -16,7 +16,7 @@ import { GuestlistSection } from "../wizard/steps/GuestlistSection";
 const ENABLED_TABS = [
   { key: "general", label: "Información general" },
   { key: "subeventos", label: "Subeventos" },
-  { key: "plano", label: "Plano de asientos" },
+  { key: "aforos", label: "Aforos y zonas" },
   { key: "tipos", label: "Tipos de entrada" },
   { key: "descuentos", label: "Códigos de descuento" },
   { key: "puertas", label: "Puertas" },
@@ -98,7 +98,7 @@ export function EventDetailPage() {
       >
         {activeTab === "general" && <Step1BasicInfo eventId={eventId} onSaved={noop} />}
         {activeTab === "subeventos" && <Step2Schedule eventId={eventId} onSaved={noop} />}
-        {activeTab === "plano" && <SeatingPlanSection eventId={eventId} />}
+        {activeTab === "aforos" && <SeatingPlanSection eventId={eventId} />}
         {activeTab === "tipos" && <Step4TicketTypes eventId={eventId} onSaved={noop} />}
         {activeTab === "descuentos" && <DiscountCodesSection eventId={eventId} />}
         {activeTab === "puertas" && <GatesSection eventId={eventId} />}

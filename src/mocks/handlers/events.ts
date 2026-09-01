@@ -8,7 +8,7 @@ const BASE = "http://localhost:4000/api/v1";
 
 function unauthenticated(requestId: string) {
   return HttpResponse.json(
-    { error: { code: "UNAUTHENTICATED", message: "Sesión no válida", requestId } },
+    { error: { code: "UNAUTHENTICATED", message: "Sesion no valida", requestId } },
     { status: 401 }
   );
 }
@@ -26,7 +26,6 @@ function requireUser(request: Request): User | null {
   return db.users.find((u) => u.id === userId) ?? null;
 }
 
-// org-scoped (superadmin bypasses), plus permission system's own event-scope check (e.g. subuser role).
 export function canAccessEvent(event: Event, user: User): boolean {
   if (user.role !== "superadmin" && event.organizationId !== user.organizationId) return false;
   const effective = resolveEffectivePermissions(user.role, user.permissionOverrides);
@@ -37,12 +36,11 @@ function slugify(title: string): string {
   return title
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // strips combining diacritics left behind by NFD normalization
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 }
 
-// dedupes by name+city within the same org so re-entering an existing venue's details doesn't create a duplicate.
 function findOrCreateVenue(user: User, name: string, city: string): Venue {
   const trimmedName = name.trim();
   const trimmedCity = city.trim();
@@ -58,7 +56,7 @@ function findOrCreateVenue(user: User, name: string, city: string): Venue {
     organizationId: user.organizationId!,
     name: trimmedName,
     city: trimmedCity,
-    totalCapacity: 999999 // unknown until the venue is configured properly; a placeholder, not a real cap
+    totalCapacity: 999999
   };
   db.venues.push(venue);
   return venue;
@@ -68,7 +66,6 @@ function combineDateTime(date: string, time: string): string {
   return `${date}T${time}:00.000Z`;
 }
 
-// used to default the single-function end time to 3h after start when the wizard only collects a start time.
 function addMinutesToIso(iso: string, minutes: number): string {
   return new Date(new Date(iso).getTime() + minutes * 60_000).toISOString();
 }
@@ -79,6 +76,42 @@ type EventFieldsBody = Partial<Event> & {
   date?: string;
   time?: string;
 };
+
+function resolveVenueId(user: User, body: EventFieldsBody): string | null {
+  if (body.venueId !== undefined) return body.venueId;
+  if (body.venueName && body.city) return findOrCreateVenue(user, body.venueName, body.city).id;
+  if (body.location && body.locality) return findOrCreateVenue(user, body.location, body.locality).id;
+  return null;
+}
+
+function resolveStartsAt(body: EventFieldsBody): string | null {
+  if (body.startsAt !== undefined) return body.startsAt;
+  if (body.date && body.time) return combineDateTime(body.date, body.time);
+  return null;
+}
+
+function upsertSingleSubEvent(event: Event, startsAt: string | null, endsAt?: string | null) {
+  if (event.hasSubEvents || !startsAt) return;
+  const firstSubEvent = db.subEvents
+    .filter((s) => s.eventId === event.id)
+    .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+  const nextEndsAt = endsAt ?? addMinutesToIso(startsAt, 180);
+  if (firstSubEvent) {
+    firstSubEvent.startsAt = startsAt;
+    firstSubEvent.endsAt = nextEndsAt;
+    return;
+  }
+  db.subEvents.push({
+    id: `sub-event-${event.id}`,
+    eventId: event.id,
+    name: "Funcion unica",
+    startsAt,
+    endsAt: nextEndsAt,
+    doorsOpenAt: null,
+    status: "scheduled",
+    sortOrder: 0
+  });
+}
 
 export const eventsHandlers = [
   http.get(`${BASE}/events`, ({ request }) => {
@@ -97,43 +130,35 @@ export const eventsHandlers = [
     const user = requireUser(request);
     if (!user) return unauthenticated("req_events_create");
     const body = (await request.json()) as EventFieldsBody & { title: string };
-    const venueId =
-      body.venueName && body.city ? findOrCreateVenue(user, body.venueName, body.city).id : body.venueId ?? null;
+    const startsAt = resolveStartsAt(body);
     const event: Event = {
       id: `event-created-${db.events.length + 1}`,
       organizationId: user.organizationId ?? (body.organizationId as string),
-      venueId,
+      venueId: resolveVenueId(user, body),
       slug: slugify(body.title),
+      coverImageUrl: body.coverImageUrl ?? null,
+      gallery: body.gallery ?? [],
       title: body.title,
       description: body.description ?? "",
       category: body.category ?? "otros",
       status: "draft",
       visibility: body.visibility ?? "private",
-      startsAt: body.startsAt ?? new Date().toISOString(),
-      endsAt: body.endsAt ?? new Date().toISOString(),
-      salesStartAt: null,
-      salesEndAt: null,
+      location: body.location ?? body.venueName,
+      locality: body.locality ?? body.city,
+      startsAt,
+      endsAt: body.endsAt ?? (startsAt ? addMinutesToIso(startsAt, 180) : null),
+      salesStartAt: body.salesStartAt ?? null,
+      salesEndAt: body.salesEndAt ?? null,
       hasSubEvents: body.hasSubEvents ?? false,
       isCompetition: body.isCompetition ?? false,
+      datePending: body.datePending ?? !startsAt,
+      notifyWhenDateConfirmed: body.notifyWhenDateConfirmed ?? !startsAt,
+      serviceFeeType: body.serviceFeeType ?? "none",
+      serviceFeeValue: body.serviceFeeValue ?? 0,
       createdAt: new Date().toISOString()
     };
     db.events.push(event);
-
-    if (!event.hasSubEvents && body.date && body.time) {
-      const startsAt = combineDateTime(body.date, body.time);
-      const subEvent: SubEvent = {
-        id: `sub-event-${event.id}`,
-        eventId: event.id,
-        name: "Función única",
-        startsAt,
-        endsAt: addMinutesToIso(startsAt, 180),
-        doorsOpenAt: null,
-        status: "scheduled",
-        sortOrder: 0
-      };
-      db.subEvents.push(subEvent);
-    }
-
+    upsertSingleSubEvent(event, event.startsAt, event.endsAt);
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_create" } }, { status: 201 });
   }),
 
@@ -152,22 +177,14 @@ export const eventsHandlers = [
     if (!event || !canAccessEvent(event, user)) return notFound("req_events_patch");
     const body = (await request.json()) as EventFieldsBody;
     const { city, venueName, date, time, ...eventFields } = body;
-    if (venueName && city) {
-      eventFields.venueId = findOrCreateVenue(user, venueName, city).id;
+    const nextVenueId = resolveVenueId(user, body);
+    if (nextVenueId) eventFields.venueId = nextVenueId;
+    if (body.startsAt === undefined && date && time) {
+      eventFields.startsAt = combineDateTime(date, time);
+      if (body.endsAt === undefined) eventFields.endsAt = addMinutesToIso(eventFields.startsAt, 180);
     }
     Object.assign(event, eventFields);
-
-    if (!event.hasSubEvents && date && time) {
-      const firstSubEvent = db.subEvents
-        .filter((s) => s.eventId === event.id)
-        .sort((a, b) => a.sortOrder - b.sortOrder)[0];
-      if (firstSubEvent) {
-        const startsAt = combineDateTime(date, time);
-        firstSubEvent.startsAt = startsAt;
-        firstSubEvent.endsAt = addMinutesToIso(startsAt, 180);
-      }
-    }
-
+    upsertSingleSubEvent(event, event.startsAt, event.endsAt);
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_patch" } });
   }),
 
@@ -191,6 +208,7 @@ export const eventsHandlers = [
     db.events = db.events.filter((e) => e.id !== event.id);
     db.subEvents = db.subEvents.filter((s) => s.eventId !== event.id);
     db.ticketTypes = db.ticketTypes.filter((t) => t.eventId !== event.id);
+    db.discountCodes = db.discountCodes.filter((d) => d.eventId !== event.id);
     return HttpResponse.json({ data: {}, meta: { requestId: "req_events_delete" } });
   }),
 
@@ -212,8 +230,8 @@ export const eventsHandlers = [
         { status: 422 }
       );
     }
-    event.status = "published";
-    event.publishedAt = new Date().toISOString();
+    event.status = "pending_review";
+    event.publishedAt = null;
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_publish" } });
   }),
 
@@ -232,14 +250,14 @@ export const eventsHandlers = [
     if (!user) return unauthenticated("req_events_summary");
     const event = db.events.find((e) => e.id === params.id);
     if (!event || !canAccessEvent(event, user)) return notFound("req_events_summary");
-    const subEvents = db.subEvents.filter((s) => s.eventId === event.id);
-    const pools = db.capacityPools.filter((p) => subEvents.some((s) => s.id === p.subEventId));
+    const subEvents = db.subEvents.filter((subEvent) => subEvent.eventId === event.id);
+    const pools = db.capacityPools.filter((pool) => subEvents.some((subEvent) => subEvent.id === pool.subEventId));
     return HttpResponse.json({
       data: {
-        ticketTypesCount: db.ticketTypes.filter((t) => t.eventId === event.id).length,
+        ticketTypesCount: db.ticketTypes.filter((ticketType) => ticketType.eventId === event.id).length,
         subEventsCount: subEvents.length,
-        totalCapacity: pools.reduce((sum, p) => sum + p.totalCapacity, 0),
-        soldCount: pools.reduce((sum, p) => sum + p.soldCount, 0)
+        totalCapacity: pools.reduce((sum, pool) => sum + pool.totalCapacity, 0),
+        soldCount: pools.reduce((sum, pool) => sum + pool.soldCount, 0)
       },
       meta: { requestId: "req_events_summary" }
     });
