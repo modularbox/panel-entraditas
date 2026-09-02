@@ -96,11 +96,16 @@ npm.cmd run build
 npm.cmd run dev
 ```
 
-Validacion mas reciente antes de este handoff:
+Validacion mas reciente (2026-09-02):
 
-- Tests: `56 passed`, `358 tests OK`
-- Build: OK
-- Produccion verificada con `200 OK`
+- Tests: `58 passed`, `411 tests OK`
+- Build: OK (tipos limpios; sigue el aviso preexistente de chunk > 500 kB)
+- Produccion verificada con `200 OK` (verificacion anterior)
+
+Nota de entorno: el navegador integrado de Claude Code no puede ejecutar el panel porque
+bloquea el registro del Service Worker de MSW, y `src/main.tsx` solo renderiza dentro de
+`enableMocking().then(...)`. Para revisar visualmente hay que abrir `npm.cmd run dev` en un
+Chrome/Edge normal (`http://localhost:5174`). Se anadio `.claude/launch.json` en este repo.
 
 ## Estructura Principal Del Panel
 
@@ -174,14 +179,50 @@ Plano y zonas:
   - `src/features/events/wizard/steps/SeatingPlanSection.tsx`
   - `src/features/events/wizard/steps/ZoneCanvas.tsx`
   - `src/features/events/wizard/steps/ZoneEditorPanel.tsx`
+  - `src/features/events/wizard/steps/ZoneSeatEditor.tsx`
+  - `src/features/events/wizard/steps/seatMap.ts`
   - `src/features/events/wizard/steps/TicketTypeAssignment.tsx`
 - El plano es opcional.
 - Zonas vendibles: numeradas y de pie.
 - Elementos no vendibles: escenario, accesible, puerta.
-- Las zonas numeradas pintan butacas adaptadas al tamaño de la zona.
-- Una zona vendible no puede quedar sin tipo de entrada asignado.
 - La asignacion acumulada por tipo muestra fraccion tipo `30/80`.
 - No se puede superar el limite de entradas del tipo entre varias zonas.
+
+### Asientos Individuales (2026-09-02)
+
+Las zonas numeradas ya no pintan puntos decorativos: tienen asientos reales, numerados y
+asignables uno a uno.
+
+Modelo:
+
+- Los asientos NO se guardan en base de datos. Se derivan de `capacity` + `rows` de la zona
+  con `buildSeatGrid()` en `seatMap.ts`. La zona sigue siendo un registro pequeno y reutilizable.
+- Numeracion fisica: la fila A es la mas cercana al escenario (se calcula comparando la posicion
+  del elemento `stage` con la de la zona), y el asiento 1 es el de la izquierda de cada fila.
+  Etiquetas tipo `A1`, `B7`; con mas de 26 filas continua en `AA`, `AB`.
+- El reparto de plazas por fila es lo mas uniforme posible: 25 plazas en 4 filas son 7/6/6/6.
+- `Zone.rows` (nuevo, opcional): filas fisicas de una zona numerada. `null` = se deduce de la
+  forma de la zona para que las butacas salgan aproximadamente cuadradas.
+- `CapacityPool.seatAssignments` (nuevo, opcional): lista dispersa `{seatId, ticketTypeGroupId}`.
+  Solo aparecen los asientos asignados, asi que una zona puede tener asientos sin vender.
+
+Reglas de negocio:
+
+- Una zona numerada puede vender VARIOS tipos de entrada a la vez (antes era uno por zona).
+- Un tipo de entrada consume stock por asiento asignado, no por capacidad entera de la zona.
+  El handler valida esto en `poolTakeForGroup()` / `validateAllocation()`.
+- El reparto se hace por cantidad (se colocan solos en orden de lectura) o clicando asientos.
+- Sobre un asiento asignado se puede: quitar el tipo, cambiarlo, o moverlo a otro asiento
+  (si el destino esta ocupado, se intercambian; nunca se pierde una asignacion).
+- Bajar la cantidad libera los ultimos asientos colocados.
+- Las asignaciones que apuntan a asientos inexistentes (tras redimensionar o cambiar filas)
+  se descartan con `pruneAssignments()` para que no sigan consumiendo stock.
+- Validacion del paso: una zona numerada es invalida si no tiene plazas o si no tiene ningun
+  asiento asignado. Dejar asientos sin asignar es valido (se muestra como aviso, no bloquea).
+- Las zonas de pie mantienen la asignacion por zona entera en `TicketTypeAssignment`.
+
+Tests: `seatMap.test.ts` (37) y `ZoneSeatEditor.test.tsx` (13), mas 3 de integracion en
+`SeatingPlanSection.test.tsx`.
 
 Revision/publicacion:
 
@@ -262,9 +303,163 @@ Workflow:
 - El panel trabaja contra mocks ahora mismo, preparado para API futura.
 - El stock real, reservas, pagos, QR y seguridad final deben quedar bajo autoridad de API, no del cliente.
 
+## Contrato De Publicacion Implementado (2026-09-02)
+
+Primera mitad de la sincronizacion, ya en codigo. Falta la segunda (ver "Lo Que Bloquea").
+
+### Que Se Construyo
+
+- `packages/types/src/publicCatalog.ts`: el contrato que consume la web publica
+  (`PublicEvent`, `PublicTicketTier`, `PublicSeat`, `PublicSeatZone`, `PublicDiscountCode`,
+  `PublicSession`, `PublicMatchup`, `EVENT_CATEGORIES`).
+- `src/features/publish/toPublicEvent.ts`: mapper puro del modelo interno del panel al
+  contrato. Es el UNICO sitio donde se resuelven las diferencias entre los dos mundos.
+- `src/mocks/handlers/publicCatalog.ts`: `GET /public/events` y `GET /public/events/:slug`.
+  Sin autenticacion y cross-organizacion a proposito: un comprador no tiene sesion de panel
+  y navega los eventos de todos los organizadores a la vez.
+
+### Reglas Fijadas En El Contrato
+
+- **Dinero siempre en centimos**, enteros. La web formatea. Nunca floats.
+- **Categorias cerradas** (`EVENT_CATEGORIES`). `Event.category` ya es el enum compartido, y
+  los handlers de crear/editar rechazan con 422 una categoria desconocida: antes el default
+  era `"otros"`, que la web no sabe pintar. Este bug lo caza ahora el chequeo de tipos.
+- **Los asientos viajan explicitos** (no `rows x seatsPerRow`), cada uno con su etiqueta y su
+  `tierId`. Asi la web nunca re-deriva la numeracion y no puede discrepar con el panel sobre
+  que silla es la A7. Esto ANULA la recomendacion previa de compartir `seatMap.ts`: ya no hace
+  falta, el panel manda los asientos resueltos.
+- `tierId: null` en un asiento = **no esta a la venta**, no es "agotado". La web debe pintarlo
+  como no seleccionable.
+- **Gastos de gestion** viajan como `{type, value}`, no como importe fijo por entrada: un fee
+  porcentual no se puede resolver a una cifra antes de que el comprador elija tipo de entrada.
+- Estados internos de revision NUNCA salen: solo `published`/`on_sale`/`sold_out`/`paused`/
+  `finished` y ademas `visibility: "public"`. Borrador, pendiente y rechazado quedan fuera.
+- Tipos de entrada `hidden` y `code_only` no entran en el catalogo.
+- **Codigos de descuento**: solo se publican los `active` y con usos restantes. `percent` es
+  entero (10 = 10%), `fixed` en centimos, y se conserva la restriccion por tipo de entrada.
+
+### Lo Que Bloquea La Sincronizacion Real
+
+El endpoint existe pero vive dentro del Service Worker de MSW del panel: **solo responde
+dentro del navegador del panel**. La web publica no puede llamarlo (otro origen, otro
+despliegue estatico, sin backend comun). Hoy son dos sitios estaticos por FTP sin API.
+
+Para que un evento creado en el panel aparezca de verdad en entraditas.com hace falta UNA de
+estas dos, y ninguna se puede hacer solo desde este repo:
+
+1. Levantar `api-entraditas` sirviendo `GET /public/events` con estos mismos contratos
+   (el mapper ya esta escrito y probado, es portable tal cual).
+2. O un paso de build que exporte el catalogo a un JSON estatico que la web lea.
+
+Ademas la web tiene que cambiar para consumirlo: hoy sus eventos salen de datos mock locales
+y sus 2 codigos de descuento estan hardcodeados en `src/lib/discounts.ts`.
+
+## Analisis De api.entraditas.com (2026-09-02)
+
+Revisado `C:\Users\AXEL\Desktop\MODULARBOX\api-entraditas`. **La API NO es solo para pagos**:
+ya implementa el transporte que necesita la sincronizacion.
+
+- Node + SQLite, escucha en `127.0.0.1:8787`. Su README lo dice explicitamente:
+  "publicacion de eventos desde el panel y lectura desde la web publica".
+- `PUT /v1/events/:id` con cabecera `x-panel-api-key` -> el panel publica.
+- `GET /v1/events` -> devuelve `{ items: [...] }` con los eventos `status = 'published'`.
+- Guarda el body tal cual en `payload_json`, asi que es casi agnostica a la forma: solo
+  **valida** que existan `slug`, `title`, `status`, `category`, `venue.name`, `venue.city`,
+  `ticketTiers` (array no vacio) y, si `dateStatus` es `confirmed`, `date` y `time`.
+- Bonus importante: al pasar un evento de `to_be_announced` a `confirmed` **dispara sola** las
+  notificaciones a quien pulso la campanita (usuarios registrados e invitados por email/SMS).
+
+### Incompatibilidades Con El Contrato De Publicacion
+
+| Concepto | Contrato del panel | Lo que valida la API |
+|---|---|---|
+| Tipos de entrada | `tiers` | `ticketTiers` (nombre distinto) |
+| Fecha | `startsAt` ISO | `date` + `time` separados |
+| Dinero | centimos | la web espera euros |
+| Envoltorio de respuesta | `{data, meta}` | `{items}` |
+
+Como la API guarda el payload entero, basta con que el panel mande **ademas** los campos que
+ella valida (`ticketTiers`, `date`, `time`) para pasar la validacion sin perder el contrato rico.
+
+### Lo Que Falta Para Que Un Evento Del Panel Llegue A La Web
+
+Ya esta hecho: la web consume y fusiona (commit `c8cba60` en `web-entraditas`), y el panel
+produce el contrato (`toPublicEvent`). **Falta la pieza del medio: el panel no llama nunca a
+`PUT /v1/events/:id`.** Sin eso la API no tiene nada que servir.
+
+Antes de implementarlo hay que decidir una cosa de seguridad: `PANEL_API_KEY` esta pensada para
+llamadas servidor-a-servidor. El panel es una app de navegador, asi que **cualquiera que abra
+las devtools podria leer la clave** y publicar eventos falsos. Opciones:
+
+1. Que la publicacion la haga un backend/funcion intermedia con la clave (lo correcto).
+2. O que la API acepte el JWT de sesion del panel y valide rol en vez de una clave compartida.
+
+No se ha implementado ninguna: es una decision de Axel.
+
+## Analisis Sincronizacion Web <-> Panel (2026-09-02)
+
+Analisis de lectura del repo `ENTRADITAS` para preparar la conexion. Nada implementado
+todavia: esto es el inventario de lo que hay que alinear.
+
+### La Web Ya Tiene Un Contrato De API Esperado
+
+`ENTRADITAS/src/lib/accountApi.ts` ya llama a `VITE_API_URL` con estos endpoints. Es el
+contrato que la API tendra que cumplir, y varios exigen pantallas en el panel que NO existen:
+
+| Endpoint que llama la web | Que necesita del panel |
+|---|---|
+| `POST /v1/auth/login` | Cuentas de comprador (dominio distinto al staff del panel) |
+| `POST /v1/auth/verification` + `/v1/auth/register` | Alta con codigo por email/SMS |
+| `PATCH /v1/me` | Perfil del comprador |
+| `GET /v1/notifications`, `PATCH /v1/notifications/:id/read` | **Falta en panel**: nada emite notificaciones |
+| `POST/DELETE /v1/events/:id/alerts` | **Falta en panel**: al confirmar fecha hay que disparar el aviso |
+| `POST /v1/support/requests` | **Falta en panel**: bandeja de soporte |
+| `POST /v1/organizers/applications` | **Falta en panel**: aprobar/rechazar solicitudes de organizador |
+
+Ojo: la web usa base `/v1/...` y el panel `http://localhost:4000/api/v1/...`. Hay que unificar.
+
+### Desajustes De Contrato De Evento
+
+Comparando `ENTRADITAS/src/types/index.ts` (`EventItem`) con `packages/types/src/schemas.ts`:
+
+| Campo | Web publica | Panel | Accion |
+|---|---|---|---|
+| Categoria | union cerrada de 7 (`concierto`, `teatro`, `cine`, `festival`, `deporte`, `conferencia`, `familiar`) | `category: z.string()` libre | **Compartir el enum**. Hoy el panel puede crear una categoria que la web no sabe pintar |
+| Precios | euros (`price: 25`) | centimos (`basePrice: 2500`) | Fijar unidad unica en el contrato (recomendado: centimos en API, formateo en cliente) |
+| Recinto | `address`, `province`, `coordinates`, `placeId` | `Venue` solo tiene `name`, `city`, `totalCapacity` | **Falta en panel**: direccion, provincia y coordenadas |
+| `longDescription` | si | solo `description` | **Falta en panel** |
+| `tags: string[]` | si | no | **Falta en panel** |
+| `featured: boolean` | si (destacados en home) | no | **Falta en panel**: no hay forma de destacar un evento |
+| `durationMinutes` | si | no | **Falta en panel** |
+| Partido/versus | `Matchup` con equipos y logos | solo `isCompetition: boolean` | **Falta en panel**: no se pueden crear equipos ni subir sus logos |
+| Plano | `SeatsElement {rows, seatsPerRow, price}` (1 precio por zona) | `Zone {capacity, rows}` + tipo por asiento | Modelos incompatibles: ver "Cambio De Contrato" abajo |
+
+### Cuentas
+
+Son dos dominios de identidad distintos y conviene no mezclarlos:
+
+- Panel: `superadmin | admin | user | subuser`, con `organizationId`, `permissionOverrides`
+  y `eventScopes`.
+- Web: `AccountRole = 'user' | 'organizer' | 'admin'` en `AuthContext.tsx`.
+
+El rol `organizer` de la web es residuo de cuando el panel vivia dentro de ese repo. Decision
+propuesta: la web se queda solo con compradores y el alta de organizador pasa a ser una
+solicitud (`POST /v1/organizers/applications`) que se aprueba desde el panel.
+
+### Orden Recomendado
+
+1. Mover el enum de categorias y `seatMap.ts` a `packages/` compartido entre repos.
+2. Anadir al panel los campos que la web ya pinta y el panel no puede rellenar
+   (`longDescription`, `tags`, `featured`, `durationMinutes`, matchup, direccion del recinto).
+3. Pantalla de solicitudes de organizador en el panel.
+4. Notificaciones/avisos de fecha disparados desde el panel.
+5. Unificar base de URL y unidad monetaria en la API real.
+
 ## Pendientes Prioritarios
 
-- Probar visualmente el wizard completo en desktop y movil.
+- Probar visualmente el wizard completo en desktop y movil (incluido el nuevo editor de asientos).
+- Desarrollar el apartado de QR (pendiente, no empezado).
+- Ejecutar el plan de sincronizacion web <-> panel del analisis de arriba.
 - Mejorar drag/touch del plano si vuelve a ir mal en pantallas tactiles.
 - Implementar plantillas reutilizables de plano con API/mock formal.
 - Pulir selectores nativos visibles en puertas, invitados y cualquier pantalla nueva.
@@ -288,3 +483,22 @@ Actualmente el panel prepara/dibuja estos datos para que la web publica los cons
 - Estado de revision/publicacion.
 
 Regla vigente: si un evento no tiene fecha confirmada, la web publica debe mostrar `Fecha por confirmar` + aviso/campanita y no compra general.
+
+### Cambio De Contrato 2026-09-02 (afecta a la web publica)
+
+Dos campos nuevos, ambos opcionales y retrocompatibles (un cliente que los ignore sigue
+funcionando igual que antes):
+
+- `Zone.rows: number | null` - filas fisicas de una zona numerada.
+- `CapacityPool.seatAssignments: {seatId, ticketTypeGroupId}[]` - que tipo de entrada vende
+  cada asiento.
+
+Impacto para la web publica cuando exista la API:
+
+- El plano publico debe derivar los asientos igual que el panel (`capacity` + `rows`), o la
+  numeracion que vea el comprador NO coincidira con la del panel ni con la sala fisica.
+  Conviene mover `seatMap.ts` a `packages/` y compartirlo entre los dos repos.
+- Una zona numerada puede tener varios precios/tipos a la vez: el selector de entradas del
+  comprador no puede asumir "una zona = un tipo de entrada".
+- Los asientos sin `ticketTypeGroupId` no estan a la venta y deben pintarse como no
+  seleccionables, no como agotados.

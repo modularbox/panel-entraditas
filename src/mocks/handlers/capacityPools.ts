@@ -1,5 +1,5 @@
-﻿import { http, HttpResponse } from "msw";
-import type { CapacityPool } from "@entraditas/types";
+import { http, HttpResponse } from "msw";
+import type { CapacityPool, SeatAssignment } from "@entraditas/types";
 import { db } from "../state";
 import { getSessionUserId } from "../authContext";
 import { canAccessEvent } from "./events";
@@ -46,18 +46,60 @@ function ticketGroupLimit(groupId?: string | null): number | null {
   return db.ticketTypes.find((ticketType) => ticketType.groupId === groupId)?.quantityTotal ?? null;
 }
 
-function assignedCapacity(groupId: string, subEventId: string, nextPool?: { id?: string; totalCapacity: number }) {
-  const existing = db.capacityPools
-    .filter((pool) => pool.subEventId === subEventId && pool.ticketTypeGroupId === groupId)
-    .reduce((sum, pool) => sum + (pool.id === nextPool?.id ? nextPool.totalCapacity : pool.totalCapacity), 0);
-  return nextPool && !nextPool.id ? existing + nextPool.totalCapacity : existing;
+type PoolAllocation = Pick<CapacityPool, "totalCapacity" | "ticketTypeGroupId" | "seatAssignments">;
+
+/**
+ * How much of a ticket type's stock a single pool consumes. A zone broken down seat by seat
+ * only consumes one unit per assigned seat, so several ticket types can share one zone; a zone
+ * without a seat breakdown still consumes its whole capacity for its zone-wide ticket type.
+ */
+function poolTakeForGroup(pool: PoolAllocation, groupId: string): number {
+  if (pool.seatAssignments && pool.seatAssignments.length > 0) {
+    return pool.seatAssignments.filter((seat) => seat.ticketTypeGroupId === groupId).length;
+  }
+  return pool.ticketTypeGroupId === groupId ? pool.totalCapacity : 0;
 }
 
-function validateTicketTypeAllocation(ticketTypeGroupId: string | null | undefined, subEventId: string, totalCapacity: number, poolId?: string) {
-  const limit = ticketGroupLimit(ticketTypeGroupId);
-  if (!ticketTypeGroupId || limit === null) return null;
-  const nextAssigned = assignedCapacity(ticketTypeGroupId, subEventId, { id: poolId, totalCapacity });
-  return nextAssigned > limit ? validation(`Este tipo de entrada tiene ${limit} entradas y ya hay ${nextAssigned}/${limit} asignadas`, "req_capacity") : null;
+function assignedCapacity(groupId: string, subEventId: string, poolId: string | undefined, candidate: PoolAllocation) {
+  const others = db.capacityPools
+    .filter((pool) => pool.subEventId === subEventId && pool.id !== poolId)
+    .reduce((sum, pool) => sum + poolTakeForGroup(pool, groupId), 0);
+  return others + poolTakeForGroup(candidate, groupId);
+}
+
+/**
+ * A ticket type can be spread over several zones, but never beyond the quantity it was created
+ * with. Validates every ticket type the candidate pool touches, not just its zone-wide one,
+ * since a seat breakdown can put several types in the same zone.
+ */
+function validateAllocation(subEventId: string, candidate: PoolAllocation, poolId?: string) {
+  const touched = new Set<string>();
+  if (candidate.ticketTypeGroupId) touched.add(candidate.ticketTypeGroupId);
+  for (const seat of candidate.seatAssignments ?? []) touched.add(seat.ticketTypeGroupId);
+
+  for (const groupId of touched) {
+    const limit = ticketGroupLimit(groupId);
+    if (limit === null) continue;
+    const nextAssigned = assignedCapacity(groupId, subEventId, poolId, candidate);
+    if (nextAssigned > limit) {
+      return validation(`Este tipo de entrada tiene ${limit} entradas y ya hay ${nextAssigned}/${limit} asignadas`, "req_capacity");
+    }
+  }
+  return null;
+}
+
+/** Seats can only be assigned within the zone's capacity, and only once each. */
+function validateSeatAssignments(seatAssignments: SeatAssignment[] | undefined, totalCapacity: number) {
+  if (!seatAssignments) return null;
+  if (seatAssignments.length > totalCapacity) {
+    return validation(`Esta zona tiene ${totalCapacity} plazas y se han asignado ${seatAssignments.length}`, "req_capacity");
+  }
+  const seen = new Set<string>();
+  for (const seat of seatAssignments) {
+    if (seen.has(seat.seatId)) return validation(`El asiento ${seat.seatId} esta asignado dos veces`, "req_capacity");
+    seen.add(seat.seatId);
+  }
+  return null;
 }
 
 export const capacityPoolsHandlers = [
@@ -71,8 +113,11 @@ export const capacityPoolsHandlers = [
   http.post(`${BASE}/sub-events/:id/capacity-pools`, async ({ request, params }) => {
     const result = requireSubEvent(request, params.id as string);
     if ("error" in result) return result.error;
-    const body = (await request.json()) as Pick<CapacityPool, "name" | "zoneId" | "totalCapacity" | "ticketTypeGroupId">;
-    const allocationError = validateTicketTypeAllocation(body.ticketTypeGroupId, result.subEvent.id, body.totalCapacity);
+    const body = (await request.json()) as Pick<
+      CapacityPool,
+      "name" | "zoneId" | "totalCapacity" | "ticketTypeGroupId" | "seatAssignments"
+    >;
+    const allocationError = validateAllocation(result.subEvent.id, body);
     if (allocationError) return allocationError;
     const pool: CapacityPool = {
       id: `pool-${db.capacityPools.length + 1}`,
@@ -88,10 +133,19 @@ export const capacityPoolsHandlers = [
   http.patch(`${BASE}/capacity-pools/:id`, async ({ request, params }) => {
     const result = requirePool(request, params.id as string);
     if ("error" in result) return result.error;
-    const body = (await request.json()) as { totalCapacity: number; ticketTypeGroupId?: string | null };
-    // Can't shrink capacity below what's already sold.
+    const body = (await request.json()) as {
+      totalCapacity?: number;
+      ticketTypeGroupId?: string | null;
+      seatAssignments?: SeatAssignment[];
+    };
+    // Every field is optional: the seat editor patches only the seat breakdown, while the zone
+    // editor patches only the capacity. Anything absent keeps the value it already had.
+    const totalCapacity = body.totalCapacity ?? result.pool.totalCapacity;
+    const ticketTypeGroupId = "ticketTypeGroupId" in body ? body.ticketTypeGroupId : result.pool.ticketTypeGroupId;
+    const seatAssignments = "seatAssignments" in body ? body.seatAssignments : result.pool.seatAssignments;
 
-    if (body.totalCapacity < result.pool.soldCount) {
+    // Can't shrink capacity below what's already sold.
+    if (totalCapacity < result.pool.soldCount) {
       return HttpResponse.json(
         {
           error: {
@@ -103,12 +157,17 @@ export const capacityPoolsHandlers = [
         { status: 422 }
       );
     }
-    const allocationError = validateTicketTypeAllocation(body.ticketTypeGroupId ?? result.pool.ticketTypeGroupId, result.pool.subEventId, body.totalCapacity, result.pool.id);
+
+    const seatError = validateSeatAssignments(seatAssignments, totalCapacity);
+    if (seatError) return seatError;
+
+    const candidate: PoolAllocation = { totalCapacity, ticketTypeGroupId, seatAssignments };
+    const allocationError = validateAllocation(result.pool.subEventId, candidate, result.pool.id);
     if (allocationError) return allocationError;
-    result.pool.totalCapacity = body.totalCapacity;
+
+    result.pool.totalCapacity = totalCapacity;
     if ("ticketTypeGroupId" in body) result.pool.ticketTypeGroupId = body.ticketTypeGroupId;
+    if ("seatAssignments" in body) result.pool.seatAssignments = body.seatAssignments;
     return HttpResponse.json({ data: result.pool, meta: { requestId: "req_capacity" } });
   })
 ];
-
-

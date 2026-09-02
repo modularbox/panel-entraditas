@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CapacityPool, Event, TicketType, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
@@ -8,8 +8,20 @@ import { useZonesQuery } from "./useZonesQuery";
 import { defaultZoneLayout, type ZoneLayout } from "./zoneGeometry";
 import { ZoneCanvas } from "./ZoneCanvas";
 import { ZoneEditorPanel } from "./ZoneEditorPanel";
+import { ZoneSeatEditor } from "./ZoneSeatEditor";
 import { TicketTypeAssignment, type ZoneAssignment } from "./TicketTypeAssignment";
 import { groupTicketTypes } from "./Step4TicketTypes";
+import {
+  buildSeatGrid,
+  countAssignedByGroup,
+  countUnassigned,
+  fromSeatAssignmentList,
+  pruneAssignments,
+  rowOriginForStage,
+  toSeatAssignmentList,
+  type Seat,
+  type SeatAssignments
+} from "./seatMap";
 
 export interface SeatingPlanSectionProps {
   eventId: string | null;
@@ -103,7 +115,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
 
   async function updateZone(
     id: string,
-    patch: Partial<Pick<Zone, "name" | "capacity" | "x" | "y" | "width" | "height">>
+    patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "x" | "y" | "width" | "height">>
   ) {
     setError(null);
     try {
@@ -152,50 +164,138 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
   }
 
-  const sellableZones = zones.filter((z) => SELLABLE_KINDS.includes(z.kind));
-  const groups = groupTicketTypes(ticketTypes);
-  const assignments: ZoneAssignment[] = sellableZones.map((zone) => {
+  async function saveSeatAssignments(zoneId: string, next: SeatAssignments) {
+    setError(null);
+    const pool = pools.find((p) => p.zoneId === zoneId);
+    if (!pool) return;
+    try {
+      await apiClient.patch(
+        `/capacity-pools/${pool.id}`,
+        { seatAssignments: toSeatAssignmentList(next) },
+        { token: token! }
+      );
+      await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent?.id] });
+    } catch (e) {
+      if (e instanceof AppError) setError(e.message);
+    }
+  }
+
+  const groups = useMemo(() => groupTicketTypes(ticketTypes), [ticketTypes]);
+  const sellableZones = useMemo(() => zones.filter((z) => SELLABLE_KINDS.includes(z.kind)), [zones]);
+  const stage = useMemo(() => zones.find((zone) => zone.kind === "stage") ?? null, [zones]);
+
+  // Seats are derived from each numbered zone's shape, and their ticket types come from the
+  // pool's sparse breakdown. Assignments pointing at seats that no longer exist (after a
+  // resize or a row-count change) are dropped so they stop consuming a ticket type's stock.
+  const seatGrids = useMemo(() => {
+    const grids: Record<string, Seat[]> = {};
+    for (const zone of sellableZones) {
+      if (zone.kind !== "numbered") continue;
+      grids[zone.id] = buildSeatGrid({
+        capacity: zone.capacity,
+        width: zone.width,
+        height: zone.height,
+        rows: zone.rows,
+        rowAOrigin: rowOriginForStage(zone, stage)
+      });
+    }
+    return grids;
+  }, [sellableZones, stage]);
+
+  const seatAssignmentsByZone = useMemo(() => {
+    const byZone: Record<string, SeatAssignments> = {};
+    for (const zone of sellableZones) {
+      const grid = seatGrids[zone.id];
+      if (!grid) continue;
+      const pool = pools.find((p) => p.zoneId === zone.id);
+      byZone[zone.id] = pruneAssignments(fromSeatAssignmentList(pool?.seatAssignments), grid);
+    }
+    return byZone;
+  }, [sellableZones, seatGrids, pools]);
+
+  const groupColors = useMemo(
+    () => Object.fromEntries(groups.map((group) => [group.groupId, group.color])),
+    [groups]
+  );
+
+  // A zone's whole-zone ticket type. Older events stored that link the other way round (on the
+  // ticket type's capacityPoolId), so both are resolved here and everywhere else reads this.
+  const resolveZoneGroupId = useMemo(() => {
+    return (pool: CapacityPool | undefined): string | null => {
+      if (!pool) return null;
+      if (pool.ticketTypeGroupId) return pool.ticketTypeGroupId;
+      return ticketTypes.find((t) => t.capacityPoolId === pool.id)?.groupId ?? null;
+    };
+  }, [ticketTypes]);
+
+  /** What each ticket type has taken across every zone: seats for numbered, whole capacity for standing. */
+  const takenByGroup = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const zone of sellableZones) {
+      const seatAssignments = seatAssignmentsByZone[zone.id];
+      if (seatAssignments) {
+        for (const [groupId, count] of Object.entries(countAssignedByGroup(seatAssignments))) {
+          totals[groupId] = (totals[groupId] ?? 0) + count;
+        }
+        continue;
+      }
+      const pool = pools.find((p) => p.zoneId === zone.id);
+      const groupId = resolveZoneGroupId(pool);
+      if (groupId) totals[groupId] = (totals[groupId] ?? 0) + (pool?.totalCapacity ?? zone.capacity);
+    }
+    return totals;
+  }, [sellableZones, seatAssignmentsByZone, pools, resolveZoneGroupId]);
+
+  // Standing zones keep the whole-zone assignment; numbered zones are driven by their seats.
+  const standingZones = sellableZones.filter((zone) => zone.kind === "standing");
+  const numberedZones = sellableZones.filter((zone) => zone.kind === "numbered");
+
+  const assignments: ZoneAssignment[] = standingZones.map((zone) => {
     const pool = pools.find((p) => p.zoneId === zone.id);
-    const legacyGroup = pool
-      ? groups.find((g) => ticketTypes.some((t) => t.groupId === g.groupId && t.capacityPoolId === pool.id))
-      : undefined;
-    const assignedGroupId = pool?.ticketTypeGroupId ?? legacyGroup?.groupId ?? null;
+    const assignedGroupId = resolveZoneGroupId(pool);
     const assignedGroup = groups.find((group) => group.groupId === assignedGroupId);
-    const assignedTotalForGroup = assignedGroupId
-      ? sellableZones.reduce((sum, candidateZone) => {
-          const candidatePool = pools.find((p) => p.zoneId === candidateZone.id);
-          const legacyCandidate = candidatePool
-            ? groups.find((g) => ticketTypes.some((t) => t.groupId === g.groupId && t.capacityPoolId === candidatePool.id))
-            : undefined;
-          const candidateGroupId = candidatePool?.ticketTypeGroupId ?? legacyCandidate?.groupId ?? null;
-          return candidateGroupId === assignedGroupId ? sum + candidateZone.capacity : sum;
-        }, 0)
-      : 0;
+    const assignedTotalForGroup = assignedGroupId ? takenByGroup[assignedGroupId] ?? 0 : 0;
     return {
       zone,
       assignedGroupId,
       assignedCapacity: pool?.totalCapacity ?? zone.capacity,
       groupLimit: assignedGroup?.quantityTotal ?? null,
       assignedTotalForGroup,
-      isOverCapacity: assignedGroup?.quantityTotal !== null && assignedGroup?.quantityTotal !== undefined && assignedTotalForGroup > assignedGroup.quantityTotal
+      isOverCapacity:
+        assignedGroup?.quantityTotal !== null &&
+        assignedGroup?.quantityTotal !== undefined &&
+        assignedTotalForGroup > assignedGroup.quantityTotal
     };
   });
-  const isValid = !assignments.some((a) => a.assignedGroupId === null || a.isOverCapacity);
+
+  const numberedStatuses = numberedZones.map((zone) => {
+    const seats = seatGrids[zone.id] ?? [];
+    const zoneAssignments = seatAssignmentsByZone[zone.id] ?? {};
+    const unassigned = countUnassigned(seats, zoneAssignments);
+    return { zone, seatCount: seats.length, unassigned, assigned: seats.length - unassigned };
+  });
+
+  const isValid =
+    !assignments.some((a) => a.assignedGroupId === null || a.isOverCapacity) &&
+    !numberedStatuses.some((status) => status.seatCount === 0 || status.assigned === 0);
 
   useEffect(() => {
     onValidationChange?.(isValid);
   }, [isValid, onValidationChange]);
 
+  const selectedZone = zones.find((zone) => zone.id === selectedZoneId) ?? null;
+  const selectedSeats = selectedZone ? seatGrids[selectedZone.id] : undefined;
+
   if (!eventId) {
     return (
       <p className="text-sm text-muted-foreground">
-        Guarda la información del evento para poder dibujar el plano de asientos.
+        Guarda la informaciï¿½n del evento para poder dibujar el plano de asientos.
       </p>
     );
   }
   if (!event) return null;
   if (!venueId) {
-    return <p role="alert">Este evento no tiene un recinto asociado todavía.</p>;
+    return <p role="alert">Este evento no tiene un recinto asociado todavï¿½a.</p>;
   }
 
   return (
@@ -207,6 +307,8 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
           selectedZoneId={selectedZoneId}
           onSelectZone={setSelectedZoneId}
           onZoneCommitted={(id, layout) => updateZone(id, layout)}
+          seatAssignmentsByZone={seatAssignmentsByZone}
+          groupColors={groupColors}
         />
         <ZoneEditorPanel
           zones={zones}
@@ -216,7 +318,50 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
           onDeleteZone={deleteZone}
         />
       </div>
-      {sellableZones.length > 0 && (
+
+      {selectedZone && selectedZone.kind === "numbered" && selectedSeats && selectedSeats.length > 0 && (
+        <ZoneSeatEditor
+          zone={selectedZone}
+          seats={selectedSeats}
+          assignments={seatAssignmentsByZone[selectedZone.id] ?? {}}
+          groups={groups}
+          // The stock a ticket type has left is shared with every other zone, so this zone's
+          // own seats are excluded from the "already taken" figure it is capped against.
+          assignedElsewhereByGroup={Object.fromEntries(
+            groups.map((group) => {
+              const here = countAssignedByGroup(seatAssignmentsByZone[selectedZone.id] ?? {})[group.groupId] ?? 0;
+              return [group.groupId, (takenByGroup[group.groupId] ?? 0) - here];
+            })
+          )}
+          onChange={(next) => void saveSeatAssignments(selectedZone.id, next)}
+        />
+      )}
+
+      {numberedStatuses.length > 0 && (
+        <ul aria-label="Resumen de zonas numeradas" className="flex flex-col gap-1">
+          {numberedStatuses.map(({ zone, seatCount, assigned, unassigned }) => (
+            <li key={zone.id} className="text-sm">
+              <span className="font-semibold">{zone.name}:</span>{" "}
+              {seatCount === 0 ? (
+                <span role="alert" className="font-semibold text-destructive">
+                  indica cuantas plazas tiene esta zona.
+                </span>
+              ) : assigned === 0 ? (
+                <span role="alert" className="font-semibold text-destructive">
+                  {seatCount} asientos sin ningun tipo de entrada asignado.
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  {assigned}/{seatCount} asientos asignados
+                  {unassigned > 0 && ` - ${unassigned} sin asignar (se pueden dejar sin vender)`}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {standingZones.length > 0 && (
         <TicketTypeAssignment assignments={assignments} groups={groups} onAssign={assignTicketType} />
       )}
     </div>
