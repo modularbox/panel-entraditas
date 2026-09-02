@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
@@ -42,10 +43,14 @@ export function OrganizationsListPage() {
     setConnectingId(organization.id);
     try {
       const session = await apiClient.post<SessionResponse>(`/organizations/${organization.id}/connect`, undefined, { token: token! });
-      useSessionStore.getState().setSession(session);
-      // The current admin sees a different menu than the superadmin: land on a section everyone has.
+      // Navigate to a section everyone has access to and let React commit that (flushSync) BEFORE
+      // swapping the session. navigate() alone only updates the browser's history synchronously —
+      // React Router doesn't re-render to the new route until the next tick, so without flushSync
+      // the still-mounted RequirePermission for THIS (superadmin-only) page would see the session
+      // change first, lose its permission, and redirect to /sin-acceso ahead of our own navigation.
+      flushSync(() => navigate("/eventos"));
+      useSessionStore.getState().connectAs(session);
       queryClient.clear();
-      navigate("/eventos");
     } catch (cause) {
       if (cause instanceof AppError) setError(cause.message);
     } finally {
@@ -87,7 +92,7 @@ export function OrganizationsListPage() {
       <header>
         <h1 className="font-display text-2xl font-semibold">Organizaciones</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Al pulsar &quot;Conectar&quot; cambiarás a la sesión del administrador de esa organización. Para volver, cierra sesión.
+          Al pulsar &quot;Conectar&quot; cambiarás a la sesión del administrador de esa organización. Para volver, usa &quot;Volver a superadmin&quot; en el menú.
         </p>
       </header>
       {error && <p role="alert">{error}</p>}

@@ -13,8 +13,8 @@ const BASE = "http://localhost:4000/api/v1";
 const REVENUE_STATUSES = new Set(["paid", "partially_refunded"]);
 
 const metric = (value: number, change: number, trend: "up" | "down" = change >= 0 ? "up" : "down") => ({ value, change, trend });
-// Amounts are stored in cents (order.total, refundedAmountâ€¦), so exports render them as euros.
-const formatMoney = (value: number) => `${(value / 100).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}â‚¬`;
+// Amounts are stored in cents (order.total, refundedAmount…), so exports render them as euros.
+const formatMoney = (value: number) => `${(value / 100).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€`;
 const formatDate = (value: string | null) => {
   if (!value) return "Fecha por confirmar";
   const date = new Date(value);
@@ -31,7 +31,7 @@ const statusLabels: Record<string, string> = {
 };
 const shortDate = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short" });
 const TICKET_PALETTE = ["#e4572e", "#f2c14e", "#2a9d8f", "#52606d", "#9b5de5"];
-const CHANNEL_LABELS: Record<string, string> = { web: "Web", box_office: "Taquilla", courtesy: "CortesÃ­a", panel: "Panel" };
+const CHANNEL_LABELS: Record<string, string> = { web: "Web", box_office: "Taquilla", courtesy: "Cortesía", panel: "Panel" };
 const CHANNEL_COLORS: Record<string, string> = { web: "#e4572e", box_office: "#2a9d8f", courtesy: "#f2c14e", panel: "#52606d" };
 
 interface DashboardFilters {
@@ -232,12 +232,12 @@ function toHtmlTable(title: string, rows: string[][]): string {
 }
 
 function pdfText(text: string, x: number, y: number, size = 10) {
-  const safeText = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7Eâ‚¬]/g, "").replace(/[\\()]/g, "\\$&").replaceAll("â‚¬", "\\200");
+  const safeText = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E€]/g, "").replace(/[\\()]/g, "\\$&").replaceAll("€", "\\200");
   return `BT /F1 ${size} Tf ${x} ${y} Td (${safeText}) Tj ET`;
 }
 
 function createPdf(rows: string[][], events: { label: string; status: string; date: string; sold: number; capacity: number; revenue: string }[], salesSeries: { label: string; value: number }[]): string {
-  const firstPage: string[] = ["0.98 0.97 0.95 rg", "0 0 595 842 re f", "0 0 0 rg", pdfText("ENTRADITAS / INFORME DASHBOARD", 40, 800, 18), pdfText("Datos de prueba Â· resumen comercial", 40, 780, 10), "0.89 0.34 0.18 rg", "40 748 515 2 re f", "0 0 0 rg", pdfText("Indicador", 40, 730, 10), pdfText("Valor", 260, 730, 10), pdfText("Variacion", 400, 730, 10)];
+  const firstPage: string[] = ["0.98 0.97 0.95 rg", "0 0 595 842 re f", "0 0 0 rg", pdfText("ENTRADITAS / INFORME DASHBOARD", 40, 800, 18), pdfText("Datos de prueba · resumen comercial", 40, 780, 10), "0.89 0.34 0.18 rg", "40 748 515 2 re f", "0 0 0 rg", pdfText("Indicador", 40, 730, 10), pdfText("Valor", 260, 730, 10), pdfText("Variacion", 400, 730, 10)];
   let y = 710;
   rows.slice(1, 9).forEach((row, index) => {
     if (index % 2 === 0) firstPage.push("0.93 0.92 0.89 rg", `40 ${y - 5} 515 20 re f`);
@@ -252,7 +252,7 @@ function createPdf(rows: string[][], events: { label: string; status: string; da
   firstPage.push(pdfText("Pagina 1 de 2", 500, 35, 8));
 
   const secondPage: string[] = ["0.98 0.97 0.95 rg", "0 0 595 842 re f", pdfText("GRAFICOS OPERATIVOS", 40, 800, 18), pdfText("Los valores muestran unidades y escala del periodo", 40, 780, 10)];
-  secondPage.push(pdfText("Aforo por evento Â· entradas / capacidad", 45, 735, 12), "0.2 0.2 0.2 RG", "1 w", "70 500 m 70 700 l S", "70 500 m 275 500 l S");
+  secondPage.push(pdfText("Aforo por evento · entradas / capacidad", 45, 735, 12), "0.2 0.2 0.2 RG", "1 w", "70 500 m 70 700 l S", "70 500 m 275 500 l S");
   const maxCapacity = Math.max(...events.map((event) => event.capacity), 1);
   [0, 25, 50, 75, 100].forEach((tick) => {
     const tickY = 500 + tick * 2;
@@ -298,8 +298,8 @@ export const dashboardHandlers = [
   http.get(`${BASE}/dashboard/overview`, ({ request }) => {
     const user = db.users.find((candidate) => candidate.id === getSessionUserId(request));
     const permissions = user ? resolveEffectivePermissions(user.role, user.permissionOverrides) : new Set<string>();
-    if (!user) return HttpResponse.json({ error: { code: "UNAUTHENTICATED", message: "SesiÃ³n no vÃ¡lida", requestId: "req_dashboard" } }, { status: 401 });
-    if (!permissions.has("reports:read")) return HttpResponse.json({ error: { code: "FORBIDDEN", message: "No tienes permiso para consultar mÃ©tricas", requestId: "req_dashboard" } }, { status: 403 });
+    if (!user) return HttpResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sesión no válida", requestId: "req_dashboard" } }, { status: 401 });
+    if (!permissions.has("reports:read")) return HttpResponse.json({ error: { code: "FORBIDDEN", message: "No tienes permiso para consultar métricas", requestId: "req_dashboard" } }, { status: 403 });
     const filters = parseFilters(new URL(request.url));
     const { events, revenueOrders, orderQuantities, eventMetrics, totals } = computeOverview(user, filters);
     const occupancy = events.map((event) => ({ event, ...capacityForEvent(event.id) })).filter((entry) => entry.capacity > 0);

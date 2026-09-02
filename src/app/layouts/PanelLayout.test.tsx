@@ -1,11 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ROLE_BASE_PERMISSIONS, type Permission } from "@/shared/auth/permissions";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { apiClient } from "@/shared/lib/apiClient";
 import { db, resetDb, sessions, STORAGE_KEY } from "@/mocks/state";
-import type { SessionUser } from "@/shared/auth/sessionStore";
+import type { SessionResponse, SessionUser } from "@/shared/auth/sessionStore";
 import { PanelLayout } from "./PanelLayout";
 
 const superAdminUser: SessionUser = { id: "user-superadmin", email: "superadmin@entraditas.com", fullName: "Super Admin", role: "superadmin", organizationId: null };
@@ -33,7 +34,8 @@ describe("PanelLayout navigation", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     resetDb();
-    useSessionStore.setState({ user: null, token: null, effectivePermissions: new Set(), eventScopes: [] });
+    localStorage.clear();
+    useSessionStore.setState({ user: null, token: null, effectivePermissions: new Set(), eventScopes: [], impersonatorToken: null });
   });
 
   it("shows the logged-in user's fullName below the logo", () => {
@@ -44,26 +46,28 @@ describe("PanelLayout navigation", () => {
     expect(screen.getByText("Entraditas")).toBeInTheDocument();
   });
 
-  it("shows 8 sections to a superadmin (no Equipo)", () => {
+  it("shows 6 sections to a superadmin (no Equipo)", () => {
     setRole("superadmin");
     renderLayout();
-    expect(screen.getAllByRole("link")).toHaveLength(8);
+    expect(screen.getAllByRole("link")).toHaveLength(6);
     expect(screen.getByRole("link", { name: "Organizaciones" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Usuarios" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Equipo" })).not.toBeInTheDocument();
   });
 
-  it("shows 8 sections to an admin (no Organizaciones)", () => {
+  it("shows 5 sections to an admin (no Organizaciones, no Usuarios)", () => {
     setRole("admin");
     renderLayout();
-    expect(screen.getAllByRole("link")).toHaveLength(8);
+    expect(screen.getAllByRole("link")).toHaveLength(5);
+    expect(screen.queryByRole("link", { name: "Usuarios" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Organizaciones" })).not.toBeInTheDocument();
   });
 
-  it("shows 5 sections to a user", () => {
+  it("shows 4 sections to a user", () => {
     setRole("user");
     renderLayout();
     const labels = screen.getAllByRole("link").map((el) => el.textContent).sort();
-    expect(labels).toEqual(["Control de accesos", "Dashboard", "Eventos", "Informes", "Ventas"]);
+    expect(labels).toEqual(["Control de accesos", "Dashboard", "Eventos", "Ventas"]);
   });
 
   it("shows only Eventos and Control de accesos to a subuser", () => {
@@ -85,6 +89,27 @@ describe("PanelLayout navigation", () => {
     useSessionStore.setState({ user: adminUser });
     renderLayout();
     expect(screen.queryByRole("button", { name: "Restablecer datos" })).not.toBeInTheDocument();
+  });
+
+  it("hides the return-to-superadmin button for a direct login", () => {
+    setRole("admin");
+    useSessionStore.setState({ user: adminUser });
+    renderLayout();
+    expect(screen.queryByRole("button", { name: "Volver a superadmin" })).not.toBeInTheDocument();
+  });
+
+  it("shows the return-to-superadmin button while impersonating an organization's admin, and using it restores the superadmin session", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
+    const superadminToken = useSessionStore.getState().token;
+    const session = await apiClient.post<SessionResponse>("/organizations/org-1/connect", undefined, { token: superadminToken! });
+    useSessionStore.getState().connectAs(session);
+
+    renderLayout();
+    fireEvent.click(screen.getByRole("button", { name: "Volver a superadmin" }));
+
+    await waitFor(() => expect(useSessionStore.getState().token).toBe(superadminToken));
+    expect(useSessionStore.getState().user?.role).toBe("superadmin");
+    expect(useSessionStore.getState().impersonatorToken).toBeNull();
   });
 
   it("resets the demo data from the button but keeps the superadmin logged in", () => {

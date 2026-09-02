@@ -17,6 +17,12 @@ function kpiArticle(label: string): HTMLElement {
   return article;
 }
 
+function sectionByTitle(title: string): HTMLElement {
+  const section = screen.getAllByText(title).map((el) => el.closest("section")).find((node): node is HTMLElement => node !== null);
+  if (!section) throw new Error(`Sección "${title}" no encontrada`);
+  return section;
+}
+
 describe("DashboardPage", () => {
   afterEach(() => {
     resetDb();
@@ -62,7 +68,7 @@ describe("DashboardPage", () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     const number = new Intl.NumberFormat("es-ES");
     const currencyDigits = (cents: number) =>
-      new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(cents / 100).replace(/[\s\u00A0�€]/g, "");
+      new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(cents / 100).replace(/[\s\u00A0€]/g, "");
     const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const savedTickets = db.ticketTypes.reduce((sum, ticketType) => sum + ticketType.quantitySold, 0);
     const savedRefunds = db.orders.reduce((sum, order) => sum + order.refundedAmount, 0);
@@ -84,7 +90,42 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText("Noche de Jazz").length).toBeGreaterThan(1);
     expect(screen.getAllByText("Ingresos netos").length).toBeGreaterThan(1);
     expect(screen.getByText("Origen de compradores")).toBeInTheDocument();
-    expect(screen.getByText("Embudo de conversi�n")).toBeInTheDocument();
+    expect(screen.getByText("Embudo de conversión")).toBeInTheDocument();
+  });
+
+  it("marks conversion, attendance, buyer-origin and funnel as sample data (no real analytics/scan data exists)", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    expect(within(kpiArticle("Conversión")).getByText("Datos de ejemplo")).toBeInTheDocument();
+    expect(within(kpiArticle("Asistencia")).getByText("Datos de ejemplo")).toBeInTheDocument();
+    expect(within(sectionByTitle("Origen de compradores")).getByText("Datos de ejemplo")).toBeInTheDocument();
+    expect(within(sectionByTitle("Embudo de conversión")).getByText("Datos de ejemplo")).toBeInTheDocument();
+    // Real, derived-from-orders metrics must never carry the disclaimer.
+    expect(within(kpiArticle("Ingresos brutos")).queryByText("Datos de ejemplo")).not.toBeInTheDocument();
+    expect(within(sectionByTitle("Aforo por evento")).queryByText("Datos de ejemplo")).not.toBeInTheDocument();
+  });
+
+  it("links each row of the event-detail table to that event's page", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    const link = within(screen.getByRole("table")).getByRole("link", { name: /Noche de Jazz/ });
+    expect(link).toHaveAttribute("href", "/eventos/event-1");
+  });
+
+  it("shows an empty-state message where an event has no orders or capacity pools, instead of a blank chart", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Evento"), { target: { value: "event-5" } }); // "Evento sin configurar": no orders, no capacity pools
+    // "Evento sin configurar" is in the table either way (filtered or not) — wait on another event
+    // disappearing instead, which only happens once the event-5-only fetch has actually landed.
+    await waitFor(() => expect(within(screen.getByRole("table")).queryByText("Noche de Jazz")).not.toBeInTheDocument());
+
+    expect(within(sectionByTitle("Ventas por tipo")).getByText("No hay datos para estos filtros.")).toBeInTheDocument();
+    expect(within(sectionByTitle("Canales de venta")).getByText("No hay datos para estos filtros.")).toBeInTheDocument();
+    expect(within(sectionByTitle("Aforo por evento")).getByText("No hay datos para estos filtros.")).toBeInTheDocument();
   });
 
   it("queues the selected report format", async () => {

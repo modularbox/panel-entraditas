@@ -56,4 +56,15 @@ describe("OrganizationsListPage", () => {
 
     await waitFor(() => expect(screen.getByText("Página de eventos")).toBeInTheDocument());
   });
+
+  it("Conectar remembers the superadmin's token so they can switch back later", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
+    const superadminToken = useSessionStore.getState().token;
+    renderPage();
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Conectar" })).toHaveLength(2));
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Conectar" })[0]!);
+
+    await waitFor(() => expect(useSessionStore.getState().impersonatorToken).toBe(superadminToken));
+  });
 });

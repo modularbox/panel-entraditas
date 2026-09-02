@@ -19,6 +19,8 @@ import { VentasLayout } from "@/features/sales/VentasLayout";
 import { TeamMemberFormPage } from "@/features/team/form/TeamMemberFormPage";
 import { TeamListPage } from "@/features/team/list/TeamListPage";
 import { OrganizationsListPage } from "@/features/organizations/list/OrganizationsListPage";
+import { UsersListPage } from "@/features/users/list/UsersListPage";
+import { UserDetailPage } from "@/features/users/detail/UserDetailPage";
 import { PlaceholderPage } from "@/features/placeholder/PlaceholderPage";
 import { RequirePermission } from "@/shared/auth/RequirePermission";
 import { useSessionStore } from "@/shared/auth/sessionStore";
@@ -26,7 +28,7 @@ import { AuthLayout } from "./layouts/AuthLayout";
 import { PanelLayout } from "./layouts/PanelLayout";
 import { NAV_ITEMS } from "./navItems";
 
-const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/organizaciones", "/accesos"]);
+const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/organizaciones", "/accesos", "/usuarios"]);
 
 export function AppRoutes() {
   const status = useSessionStore((s) => s.status);
@@ -91,6 +93,10 @@ export function AppRoutes() {
         </Route>
         <Route element={<RequirePermission permission="organizations:manage" />}>
           <Route path="/organizaciones" element={<OrganizationsListPage />} />
+        </Route>
+        <Route element={<RequirePermission permission="users:read" />}>
+          <Route path="/usuarios" element={<UsersListPage />} />
+          <Route path="/usuarios/:id" element={<UserDetailPage />} />
         </Route>
         <Route element={<RequirePermission permission="orders:read" />}>
           <Route path="/ventas" element={<VentasLayout />}>

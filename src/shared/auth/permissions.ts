@@ -11,7 +11,10 @@ export const PERMISSIONS = [
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
-const ALL_EXCEPT_ORG_MANAGE = PERMISSIONS.filter((permission) => permission !== "organizations:manage");
+// users:read gates the superadmin's cross-tenant "Usuarios" directory (every user, every
+// organization, connect-as-anyone) — an admin already sees their own org's people via users:manage
+// (Equipo), so it's excluded here rather than granted twice with different semantics.
+const ALL_EXCEPT_ORG_MANAGE = PERMISSIONS.filter((permission) => permission !== "organizations:manage" && permission !== "users:read");
 // Superadmin handles organizations cross-tenant but never the day-to-day team of any
 // one org; its users are managed by each admin. Keeps the "Equipo" nav gated off.
 const ALL_EXCEPT_TEAM_MANAGE = PERMISSIONS.filter((permission) => permission !== "users:manage");

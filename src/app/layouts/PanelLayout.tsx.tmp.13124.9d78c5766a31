@@ -1,5 +1,4 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { flushSync } from "react-dom";
 import { Outlet, useNavigate } from "react-router-dom";
 import { Menu } from "@/components/Menu";
 import { db, resetDb, sessions } from "@/mocks/state";
@@ -17,11 +16,10 @@ export function PanelLayout() {
   const visibleItems = NAV_ITEMS.filter((item) => has(item.permission));
 
   const handleReturnToSuperadmin = async () => {
-    // Navigate to a section everyone has access to and let React commit that (flushSync) BEFORE
-    // swapping the session — see OrganizationsListPage's connect() for why flushSync matters:
-    // without it, RequirePermission on a page the superadmin can't see (e.g. "Equipo") would react
-    // to the permission loss and redirect to /sin-acceso, racing this navigation.
-    flushSync(() => navigate("/eventos"));
+    // Navigate to a section every role has access to BEFORE swapping the session: if the swap
+    // landed first while still on the current (possibly superadmin-only) page, RequirePermission
+    // would react to the permission change and redirect to /sin-acceso, racing this navigation.
+    navigate("/eventos");
     await useSessionStore.getState().returnToSuperadmin();
     queryClient.clear();
   };

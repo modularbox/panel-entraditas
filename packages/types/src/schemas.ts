@@ -250,6 +250,20 @@ export const OrganizationListItemSchema = OrganizationSchema.extend({
 });
 export type OrganizationListItem = z.infer<typeof OrganizationListItemSchema>;
 
+// A user as shown in the superadmin's cross-tenant "Usuarios" directory (GET /directory/users),
+// carrying its organization's name for display since the raw record only has organizationId.
+export const DirectoryUserSchema = UserSchema.extend({
+  organizationName: z.string().nullable() // null for a superadmin, who isn't scoped to one organization
+});
+export type DirectoryUser = z.infer<typeof DirectoryUserSchema>;
+
+// The directory's single-user "ficha" (GET /directory/users/:id) additionally carries the
+// permissions actually in effect (role defaults plus overrides), not just the raw overrides.
+export const DirectoryUserDetailSchema = DirectoryUserSchema.extend({
+  effectivePermissions: z.array(z.string())
+});
+export type DirectoryUserDetail = z.infer<typeof DirectoryUserDetailSchema>;
+
 export const ApiErrorSchema = z.object({
   error: z.object({
     code: z.string(),

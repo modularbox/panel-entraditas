@@ -9,9 +9,10 @@ export interface MenuProps {
   user: SessionUser | null;
   onLogout: () => void;
   onResetDemoData?: () => void;
+  onReturnToSuperadmin?: () => void;
 }
 
-export function Menu({ items, user, onLogout, onResetDemoData }: MenuProps) {
+export function Menu({ items, user, onLogout, onResetDemoData, onReturnToSuperadmin }: MenuProps) {
   const location = useLocation();
 
   return (
@@ -55,6 +56,11 @@ export function Menu({ items, user, onLogout, onResetDemoData }: MenuProps) {
           })}
         </ul>
 
+        {onReturnToSuperadmin ? (
+          <Button variant="outline" onClick={onReturnToSuperadmin}>
+            Volver a superadmin
+          </Button>
+        ) : null}
         {onResetDemoData ? (
           <Button variant="outline" onClick={onResetDemoData}>
             Restablecer datos
