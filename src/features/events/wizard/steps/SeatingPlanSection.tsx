@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CapacityPool, Event, TicketType, Zone } from "@entraditas/types";
+import type { CapacityPool, Event, TemplateZone, TicketType, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { useSubEventsQuery } from "./useSubEventsQuery";
@@ -8,7 +8,9 @@ import { useZonesQuery } from "./useZonesQuery";
 import { defaultZoneLayout, type ZoneLayout } from "./zoneGeometry";
 import { ZoneCanvas } from "./ZoneCanvas";
 import { ZoneEditorPanel } from "./ZoneEditorPanel";
+import { ZoneListEditor } from "./ZoneListEditor";
 import { ZoneSeatEditor } from "./ZoneSeatEditor";
+import { PlanTemplates } from "./PlanTemplates";
 import { TicketTypeAssignment, type ZoneAssignment } from "./TicketTypeAssignment";
 import { groupTicketTypes } from "./Step4TicketTypes";
 import {
@@ -184,6 +186,25 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     await patchPool(zoneId, { accessibleSeatIds: next });
   }
 
+  async function setSeatingMode(mode: Event["seatingMode"]) {
+    setError(null);
+    try {
+      await apiClient.patch(`/events/${eventId}`, { seatingMode: mode }, { token: token! });
+      await queryClient.invalidateQueries({ queryKey: ["event", eventId] });
+    } catch (e) {
+      if (e instanceof AppError) setError(e.message);
+    }
+  }
+
+  /** Recreates a saved layout's zones in this venue. Additive: it never deletes what is there. */
+  async function applyTemplate(templateZones: TemplateZone[]) {
+    if (!venueId) return;
+    for (const zone of templateZones) {
+      await apiClient.post(`/venues/${venueId}/zones`, zone, { token: token! });
+    }
+    await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
+  }
+
   const groups = useMemo(() => groupTicketTypes(ticketTypes), [ticketTypes]);
   const sellableZones = useMemo(() => zones.filter((z) => SELLABLE_KINDS.includes(z.kind)), [zones]);
   const stage = useMemo(() => zones.find((zone) => zone.kind === "stage") ?? null, [zones]);
@@ -302,26 +323,95 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     return <p role="alert">Este evento no tiene un recinto asociado todav�a.</p>;
   }
 
+  // An event drawn before this choice existed already has zones on a plan, so it keeps the plan
+  // instead of being asked again. Only a genuinely empty event gets the chooser.
+  const mode = event.seatingMode ?? (zones.length > 0 ? "plan" : null);
+
+  // The two ways of laying out capacity are exclusive: until one is picked neither editor is
+  // shown, and picking one hides the other entirely.
+  if (mode === null) {
+    return (
+      <div className="flex flex-col gap-4">
+        {error && <p role="alert">{error}</p>}
+        <fieldset className="flex flex-col gap-3">
+          <legend className="text-sm font-semibold">Como quieres repartir el aforo</legend>
+          <div className="grid gap-3 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => void setSeatingMode("plan")}
+              className="flex flex-col gap-1 rounded-md border-2 border-foreground bg-surface p-4 text-left"
+            >
+              <span className="text-base font-semibold">Plano de asientos</span>
+              <span className="text-sm text-muted-foreground">
+                Dibujas las zonas sobre un lienzo y repartes los asientos uno a uno. Para teatros,
+                cines y recintos con butaca numerada.
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => void setSeatingMode("zones")}
+              className="flex flex-col gap-1 rounded-md border-2 border-foreground bg-surface p-4 text-left"
+            >
+              <span className="text-base font-semibold">Zonas sin plano</span>
+              <span className="text-sm text-muted-foreground">
+                Las mismas zonas y el mismo reparto por tipo de entrada, pero sin dibujar nada.
+                Para salas, conciertos de pie y aforos libres.
+              </span>
+            </button>
+          </div>
+        </fieldset>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {error && <p role="alert">{error}</p>}
-      <div className="grid gap-4 md:grid-cols-[1fr_260px]">
-        <ZoneCanvas
+
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm font-semibold">
+          {mode === "plan" ? "Plano de asientos" : "Zonas sin plano"}
+        </p>
+        <button
+          type="button"
+          onClick={() => void setSeatingMode(mode === "plan" ? "zones" : "plan")}
+          className="text-sm underline"
+        >
+          {mode === "plan" ? "Cambiar a zonas sin plano" : "Cambiar a plano de asientos"}
+        </button>
+      </div>
+
+      {mode === "plan" ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-[1fr_260px]">
+            <ZoneCanvas
+              zones={zones}
+              selectedZoneId={selectedZoneId}
+              onSelectZone={setSelectedZoneId}
+              onZoneCommitted={(id, layout) => updateZone(id, layout)}
+              seatAssignmentsByZone={seatAssignmentsByZone}
+              groupColors={groupColors}
+            />
+            <ZoneEditorPanel
+              zones={zones}
+              selectedZoneId={selectedZoneId}
+              onAddZone={addZone}
+              onUpdateZone={updateZone}
+              onDeleteZone={deleteZone}
+            />
+          </div>
+          <PlanTemplates zones={zones} onApply={applyTemplate} />
+        </>
+      ) : (
+        <ZoneListEditor
           zones={zones}
           selectedZoneId={selectedZoneId}
           onSelectZone={setSelectedZoneId}
-          onZoneCommitted={(id, layout) => updateZone(id, layout)}
-          seatAssignmentsByZone={seatAssignmentsByZone}
-          groupColors={groupColors}
-        />
-        <ZoneEditorPanel
-          zones={zones}
-          selectedZoneId={selectedZoneId}
           onAddZone={addZone}
           onUpdateZone={updateZone}
           onDeleteZone={deleteZone}
         />
-      </div>
+      )}
 
       {selectedZone && selectedZone.kind === "numbered" && selectedSeats && selectedSeats.length > 0 && (
         <ZoneSeatEditor

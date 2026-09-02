@@ -1,5 +1,5 @@
 import type {
-  CapacityPool, DiscountCode, Event, Gate, GuestList, GuestListEntry, Invitation, Order, OrderItem, Organization, Refund, SubEvent, TicketType, TicketTypePrice, User, Venue, Zone
+  CapacityPool, DiscountCode, Event, Gate, GuestList, GuestListEntry, Invitation, Order, OrderItem, Organization, Refund, SubEvent, TicketType, TicketTypePrice, User, Venue, VenuePlanTemplate, Zone
 } from "@entraditas/types";
 import seedData from "./data/db.seed.json";
 
@@ -8,6 +8,7 @@ export interface Database {
   users: User[];
   venues: Venue[];
   zones: Zone[];
+  venuePlanTemplates: VenuePlanTemplate[];
   events: Event[];
   subEvents: SubEvent[];
   capacityPools: CapacityPool[];
@@ -32,5 +33,9 @@ export const DEMO_SUBUSER_ID = "user-subuser";
 // acted as the local source of truth. Every call returns a deep clone: callers (handlers and tests)
 // mutate the returned object freely without ever touching the imported module cache.
 export function createSeedDatabase(): Database {
-  return JSON.parse(JSON.stringify(seedData)) as Database;
+  const seeded = JSON.parse(JSON.stringify(seedData)) as Database;
+  // Collections added after the seed file was written default to empty instead of undefined,
+  // so handlers can push into them without every one guarding for a missing array.
+  seeded.venuePlanTemplates ??= [];
+  return seeded;
 }

@@ -117,6 +117,10 @@ export const EventSchema = z.object({
   salesStartAt: z.string().nullable(), // null means no restriction on when sales open
   salesEndAt: z.string().nullable(), // null means no restriction on when sales close
   hasSubEvents: z.boolean(), // true for multi-date events (festivals, weekly runs) that use SubEvent
+  // How the event's capacity is laid out. "plan" draws zones on a canvas; "zones" is the same
+  // model without any geometry, for rooms where a map adds nothing. They are exclusive: picking
+  // one hides the other. null means the organiser hasn't chosen yet.
+  seatingMode: z.enum(["plan", "zones"]).nullable().optional(),
   isCompetition: z.boolean().optional(),
   // Teams of a versus event. The buyer site renders these as a match ticker, so without them
   // an organiser could flag a competition it could never actually display.
@@ -247,10 +251,18 @@ export const VenuePlanElementSchema = z.object({
 });
 export type VenuePlanElement = z.infer<typeof VenuePlanElementSchema>;
 
+/**
+ * A zone as stored inside a reusable plan template: the shape of the room without anything tied
+ * to one venue or one event. Applying a template creates real zones from these.
+ */
+export const TemplateZoneSchema = ZoneSchema.omit({ id: true, venueId: true });
+export type TemplateZone = z.infer<typeof TemplateZoneSchema>;
+
 export const VenuePlanTemplateSchema = z.object({
   id: z.string(),
+  organizationId: z.string(),
   name: z.string(),
-  elements: z.array(VenuePlanElementSchema),
+  zones: z.array(TemplateZoneSchema),
   updatedAt: z.string()
 });
 export type VenuePlanTemplate = z.infer<typeof VenuePlanTemplateSchema>;

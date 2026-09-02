@@ -14,6 +14,15 @@ function renderSection(eventId: string | null, onValidationChange?: (valid: bool
   );
 }
 
+/**
+ * A brand-new event has no zones yet, so the section asks how capacity should be laid out before
+ * showing any editor. These tests are about the drawn plan, so they take that branch.
+ */
+async function choosePlanMode() {
+  fireEvent.click(await screen.findByRole("button", { name: /Plano de asientos/ }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+}
+
 describe("SeatingPlanSection", () => {
   afterEach(() => {
     resetDb();
@@ -36,7 +45,7 @@ describe("SeatingPlanSection", () => {
   it("adds a numbered zone and auto-creates its capacity pool for the event's first function", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-1"); // venue-2 (Teatro Circo), zero zones seeded
-    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+    await choosePlanMode();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
 
@@ -62,7 +71,7 @@ describe("SeatingPlanSection", () => {
   it("deletes a zone without sales", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-1"); // venue-2 (Teatro Circo), zero zones seeded -> a freshly-added zone has no sales
-    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+    await choosePlanMode();
     fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
     await screen.findByRole("button", { name: "Nueva zona numerada" });
     const zone = db.zones.find((z) => z.name === "Nueva zona numerada")!;
@@ -192,7 +201,7 @@ describe("SeatingPlanSection", () => {
   it("adds a second zone once one already exists", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-1"); // venue-2, zero zones seeded
-    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+    await choosePlanMode();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
     await screen.findByRole("button", { name: "Nueva zona numerada" });
@@ -205,7 +214,7 @@ describe("SeatingPlanSection", () => {
   it("creates exactly one capacity pool per zone, even as zones are added", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-1");
-    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+    await choosePlanMode();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
     await screen.findByRole("button", { name: "Nueva zona numerada" });
@@ -227,6 +236,77 @@ describe("SeatingPlanSection", () => {
 
     expect(input).toHaveValue(20);
     await waitFor(() => expect(db.capacityPools.find((p) => p.id === "pool-2-grada")!.seatAssignments).toHaveLength(20));
+  });
+
+  it("asks how to lay out capacity before showing any editor on a fresh event", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1"); // venue-2, zero zones
+
+    expect(await screen.findByRole("button", { name: /Plano de asientos/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Zonas sin plano/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ Zona numerada" })).not.toBeInTheDocument();
+  });
+
+  it("shows only the drawn plan once that mode is chosen", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1");
+    await choosePlanMode();
+
+    expect(screen.getByRole("button", { name: "+ Escenario/Pantalla" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Zonas sin plano" })).not.toBeInTheDocument();
+  });
+
+  it("shows only the plain zone list when the no-plan mode is chosen", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1");
+    fireEvent.click(await screen.findByRole("button", { name: /Zonas sin plano/ }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona de pie" })).toBeInTheDocument());
+    // No canvas: the stage and gate tools only make sense on a drawn plan.
+    expect(screen.queryByRole("button", { name: "+ Escenario/Pantalla" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Ancho %")).not.toBeInTheDocument();
+  });
+
+  it("keeps an already-drawn event on the plan without asking again", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-2"); // venue-1 already has zones
+
+    expect(await screen.findByRole("button", { name: "Pista" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Plano de asientos$/ })).not.toBeInTheDocument();
+  });
+
+  it("adds zones in the no-plan mode with the same capacity model", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1");
+    fireEvent.click(await screen.findByRole("button", { name: /Zonas sin plano/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona de pie" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Zona de pie" }));
+
+    await waitFor(() => expect(db.zones.filter((z) => z.venueId === "venue-2")).toHaveLength(1));
+    const zone = db.zones.find((z) => z.venueId === "venue-2")!;
+    await waitFor(() => expect(db.capacityPools.some((p) => p.zoneId === zone.id)).toBe(true));
+  });
+
+  it("saves the drawn plan as a reusable template and applies it back", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-2"); // venue-1 has Pista + Grada
+    await screen.findByRole("button", { name: "Pista" });
+
+    fireEvent.change(screen.getByLabelText(/Guardar el plano actual como plantilla/), {
+      target: { value: "Sala Apolo estandar" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar plantilla" }));
+
+    await waitFor(() => expect(db.venuePlanTemplates).toHaveLength(1));
+    expect(db.venuePlanTemplates[0]!.zones).toHaveLength(2);
+    // A template stores the shape of the room, never a particular venue's zone ids.
+    expect(db.venuePlanTemplates[0]!.zones.every((zone) => !("id" in zone) && !("venueId" in zone))).toBe(true);
+
+    const zonesBefore = db.zones.filter((z) => z.venueId === "venue-1").length;
+    fireEvent.click(await screen.findByRole("button", { name: "Aplicar al plano" }));
+
+    await waitFor(() => expect(db.zones.filter((z) => z.venueId === "venue-1")).toHaveLength(zonesBefore + 2));
   });
 
   it("does not offer a whole-zone ticket type selector for a numbered zone", async () => {
