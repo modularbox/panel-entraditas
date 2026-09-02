@@ -354,6 +354,48 @@ estas dos, y ninguna se puede hacer solo desde este repo:
 Ademas la web tiene que cambiar para consumirlo: hoy sus eventos salen de datos mock locales
 y sus 2 codigos de descuento estan hardcodeados en `src/lib/discounts.ts`.
 
+## Analisis De api.entraditas.com (2026-09-02)
+
+Revisado `C:\Users\AXEL\Desktop\MODULARBOX\api-entraditas`. **La API NO es solo para pagos**:
+ya implementa el transporte que necesita la sincronizacion.
+
+- Node + SQLite, escucha en `127.0.0.1:8787`. Su README lo dice explicitamente:
+  "publicacion de eventos desde el panel y lectura desde la web publica".
+- `PUT /v1/events/:id` con cabecera `x-panel-api-key` -> el panel publica.
+- `GET /v1/events` -> devuelve `{ items: [...] }` con los eventos `status = 'published'`.
+- Guarda el body tal cual en `payload_json`, asi que es casi agnostica a la forma: solo
+  **valida** que existan `slug`, `title`, `status`, `category`, `venue.name`, `venue.city`,
+  `ticketTiers` (array no vacio) y, si `dateStatus` es `confirmed`, `date` y `time`.
+- Bonus importante: al pasar un evento de `to_be_announced` a `confirmed` **dispara sola** las
+  notificaciones a quien pulso la campanita (usuarios registrados e invitados por email/SMS).
+
+### Incompatibilidades Con El Contrato De Publicacion
+
+| Concepto | Contrato del panel | Lo que valida la API |
+|---|---|---|
+| Tipos de entrada | `tiers` | `ticketTiers` (nombre distinto) |
+| Fecha | `startsAt` ISO | `date` + `time` separados |
+| Dinero | centimos | la web espera euros |
+| Envoltorio de respuesta | `{data, meta}` | `{items}` |
+
+Como la API guarda el payload entero, basta con que el panel mande **ademas** los campos que
+ella valida (`ticketTiers`, `date`, `time`) para pasar la validacion sin perder el contrato rico.
+
+### Lo Que Falta Para Que Un Evento Del Panel Llegue A La Web
+
+Ya esta hecho: la web consume y fusiona (commit `c8cba60` en `web-entraditas`), y el panel
+produce el contrato (`toPublicEvent`). **Falta la pieza del medio: el panel no llama nunca a
+`PUT /v1/events/:id`.** Sin eso la API no tiene nada que servir.
+
+Antes de implementarlo hay que decidir una cosa de seguridad: `PANEL_API_KEY` esta pensada para
+llamadas servidor-a-servidor. El panel es una app de navegador, asi que **cualquiera que abra
+las devtools podria leer la clave** y publicar eventos falsos. Opciones:
+
+1. Que la publicacion la haga un backend/funcion intermedia con la clave (lo correcto).
+2. O que la API acepte el JWT de sesion del panel y valide rol en vez de una clave compartida.
+
+No se ha implementado ninguna: es una decision de Axel.
+
 ## Analisis Sincronizacion Web <-> Panel (2026-09-02)
 
 Analisis de lectura del repo `ENTRADITAS` para preparar la conexion. Nada implementado
