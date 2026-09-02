@@ -484,6 +484,33 @@ Actualmente el panel prepara/dibuja estos datos para que la web publica los cons
 
 Regla vigente: si un evento no tiene fecha confirmada, la web publica debe mostrar `Fecha por confirmar` + aviso/campanita y no compra general.
 
+### Modo De Aforo Y Plantillas (2026-09-02)
+
+- `Event.seatingMode: "plan" | "zones" | null` (nuevo). Los dos modos son **excluyentes**: un
+  evento nuevo elige primero y solo se muestra ese editor. Si es `null` pero el recinto ya
+  tiene zonas dibujadas, se asume `plan` y no se vuelve a preguntar (compatibilidad).
+- Modo `zones` (sin plano): mismo modelo completo -- zonas, aforo, filas, reparto por tipo de
+  entrada y asientos -- en una lista, sin lienzo. Las zonas creadas ahi guardan posicion por
+  defecto, asi que pasar a `plan` despues no pierde nada. No ofrece escenario ni puertas,
+  que solo tienen sentido sobre un plano dibujado.
+- `VenuePlanTemplate` **redefinido**: antes era un tipo huerfano con la forma antigua
+  (`VenuePlanElement`) y sin handlers ni UI. Ahora guarda `TemplateZone[]` (zonas sin `id` ni
+  `venueId`), es decir la forma de la sala, reutilizable en varios recintos.
+  Handlers: `GET/POST /venue-plan-templates`, `DELETE /venue-plan-templates/:id`.
+  Aplicar una plantilla es aditivo: nunca borra las zonas que ya haya.
+- Movilidad reducida ya **no es un tipo de zona**: es `CapacityPool.accessibleSeatIds`, marca
+  por asiento con casilla, pintada en azul con el simbolo de silla de ruedas. Se retiro el
+  boton de "zona accesible" (el `kind` sigue existiendo por planos antiguos).
+
+Bugs de interaccion corregidos el mismo dia:
+
+- El input de reparto por tipo estaba gobernado por el estado persistido y cada tecla lanzaba
+  un guardado asincrono, asi que revertia solo: era imposible teclear dos cifras.
+- `pointerdown` alternaba la seleccion y el `onClick` la volvia a alternar, asi que un click
+  seleccionaba y deseleccionaba al instante. Ahora `pointerdown` solo selecciona, hay umbral
+  de 4px, el click posterior a un arrastre se ignora y el lienzo lleva `touch-none`.
+  Para deseleccionar se pulsa el fondo del plano.
+
 ### Cambio De Contrato 2026-09-02 (afecta a la web publica)
 
 Dos campos nuevos, ambos opcionales y retrocompatibles (un cliente que los ignore sigue
