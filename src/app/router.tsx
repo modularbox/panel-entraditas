@@ -18,7 +18,6 @@ import { TaquillaPage } from "@/features/sales/taquilla/TaquillaPage";
 import { VentasLayout } from "@/features/sales/VentasLayout";
 import { TeamMemberFormPage } from "@/features/team/form/TeamMemberFormPage";
 import { TeamListPage } from "@/features/team/list/TeamListPage";
-import { OrganizationsListPage } from "@/features/organizations/list/OrganizationsListPage";
 import { UsersListPage } from "@/features/users/list/UsersListPage";
 import { UserDetailPage } from "@/features/users/detail/UserDetailPage";
 import { PlaceholderPage } from "@/features/placeholder/PlaceholderPage";
@@ -28,7 +27,7 @@ import { AuthLayout } from "./layouts/AuthLayout";
 import { PanelLayout } from "./layouts/PanelLayout";
 import { NAV_ITEMS } from "./navItems";
 
-const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/organizaciones", "/accesos", "/usuarios"]);
+const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/accesos", "/usuarios"]);
 
 export function AppRoutes() {
   const status = useSessionStore((s) => s.status);
@@ -90,9 +89,6 @@ export function AppRoutes() {
           <Route path="/equipo" element={<TeamListPage />} />
           <Route path="/equipo/invitar" element={<TeamMemberFormPage />} />
           <Route path="/equipo/:id/editar" element={<TeamMemberFormPage />} />
-        </Route>
-        <Route element={<RequirePermission permission="organizations:manage" />}>
-          <Route path="/organizaciones" element={<OrganizationsListPage />} />
         </Route>
         <Route element={<RequirePermission permission="users:read" />}>
           <Route path="/usuarios" element={<UsersListPage />} />

@@ -36,7 +36,21 @@ describe("UserDetailPage", () => {
     await waitFor(() => expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument());
     expect(screen.getByText("admin@entraditas.com")).toBeInTheDocument();
     expect(screen.getByText("Producciones Norte")).toBeInTheDocument();
-    expect(screen.getByText("finance:read")).toBeInTheDocument();
+    expect(screen.getByText("users:manage")).toBeInTheDocument();
+  });
+
+  it("clarifies that an org-scoped admin's 'Todos' is limited to their own organization", async () => {
+    await login();
+    renderPage("user-admin");
+    await waitFor(() => expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument());
+    expect(screen.getByText("Todos los de Producciones Norte")).toBeInTheDocument();
+  });
+
+  it("shows a plain 'Todos' for the superadmin, who isn't scoped to any organization", async () => {
+    await login();
+    renderPage("user-superadmin");
+    await waitFor(() => expect(screen.getByText("Super Admin")).toBeInTheDocument());
+    expect(screen.getByText("Todos")).toBeInTheDocument();
   });
 
   it("shows a 404 message for an unknown user id", async () => {

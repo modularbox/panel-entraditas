@@ -8,8 +8,8 @@ describe("resolveEffectivePermissions", () => {
   });
 
   it("adds a permission granted via an allow override", () => {
-    const effective = resolveEffectivePermissions("user", [{ permission: "events:publish", effect: "allow" }]);
-    expect(effective.has("events:publish")).toBe(true);
+    const effective = resolveEffectivePermissions("user", [{ permission: "users:manage", effect: "allow" }]);
+    expect(effective.has("users:manage")).toBe(true);
   });
 
   it("removes a base permission via a deny override", () => {
@@ -19,18 +19,18 @@ describe("resolveEffectivePermissions", () => {
 
   it("deny always wins over allow for the same permission", () => {
     const effective = resolveEffectivePermissions("user", [
-      { permission: "finance:read", effect: "allow" },
-      { permission: "finance:read", effect: "deny" }
+      { permission: "orders:refund", effect: "allow" },
+      { permission: "orders:refund", effect: "deny" }
     ]);
-    expect(effective.has("finance:read")).toBe(false);
+    expect(effective.has("orders:refund")).toBe(false);
   });
 
   it("subuser has a narrow default permission set", () => {
     const effective = resolveEffectivePermissions("subuser", []);
     expect(effective.has("events:read")).toBe(true);
     expect(effective.has("scan:validate")).toBe(true);
-    expect(effective.has("finance:read")).toBe(false);
-    expect(effective.has("events:publish")).toBe(false);
+    expect(effective.has("orders:refund")).toBe(false);
+    expect(effective.has("users:manage")).toBe(false);
   });
 
   it("superadmin does not manage the team", () => {
@@ -44,7 +44,7 @@ describe("hasPermission", () => {
   const effective = resolveEffectivePermissions("user", []);
 
   it("returns false when the permission is not in the effective set", () => {
-    expect(hasPermission(effective, "finance:read")).toBe(false);
+    expect(hasPermission(effective, "users:manage")).toBe(false);
   });
 
   it("returns true with no eventScopes restriction (access to every event of the org)", () => {

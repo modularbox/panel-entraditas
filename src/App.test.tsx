@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
@@ -12,8 +12,8 @@ describe("App", () => {
 });
 
 // These render <App /> with a real BrowserRouter and the actual RequirePermission-guarded routes
-// (unlike OrganizationsListPage.test.tsx/UsersListPage.test.tsx, which stub /eventos as a plain
-// unguarded route) — that's what catches the routing race a component-level test can't see.
+// (unlike UsersListPage.test.tsx, which stubs /eventos as a plain unguarded route) — that's what
+// catches the routing race a component-level test can't see.
 describe("App - Conectar routing", () => {
   afterEach(() => {
     resetDb();
@@ -21,13 +21,18 @@ describe("App - Conectar routing", () => {
     window.history.pushState({}, "", "/");
   });
 
+  function clickConectarFor(name: string) {
+    const row = screen.getByText(name).closest("tr")!;
+    fireEvent.click(within(row).getByRole("button", { name: "Conectar" }));
+  }
+
   it("lands on Eventos, not /sin-acceso, after Conectar from a superadmin-only page", async () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
-    window.history.pushState({}, "", "/organizaciones");
+    window.history.pushState({}, "", "/usuarios");
     render(<App />);
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "Conectar" }).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument());
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Conectar" })[0]!);
+    clickConectarFor("Admin de Producciones Norte");
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Eventos" })).toBeInTheDocument());
     expect(screen.queryByText("No tienes acceso a esta sección.")).not.toBeInTheDocument();
@@ -35,10 +40,10 @@ describe("App - Conectar routing", () => {
 
   it("lands back on Eventos, not /sin-acceso, when returning to superadmin from a page only the impersonated account can see", async () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
-    window.history.pushState({}, "", "/organizaciones");
+    window.history.pushState({}, "", "/usuarios");
     render(<App />);
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "Conectar" }).length).toBeGreaterThan(0));
-    fireEvent.click(screen.getAllByRole("button", { name: "Conectar" })[0]!); // now the org admin, who lacks organizations:manage
+    await waitFor(() => expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument());
+    clickConectarFor("Admin de Producciones Norte"); // now the org admin, who lacks users:read
     await waitFor(() => expect(screen.getByRole("heading", { name: "Eventos" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("link", { name: "Equipo" })); // superadmin lacks users:manage

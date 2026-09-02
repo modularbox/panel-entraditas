@@ -46,13 +46,13 @@ describe("PanelLayout navigation", () => {
     expect(screen.getByText("Entraditas")).toBeInTheDocument();
   });
 
-  it("shows 6 sections to a superadmin (no Equipo)", () => {
+  it("shows 5 sections to a superadmin (no Equipo, no Organizaciones)", () => {
     setRole("superadmin");
     renderLayout();
-    expect(screen.getAllByRole("link")).toHaveLength(6);
-    expect(screen.getByRole("link", { name: "Organizaciones" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(5);
     expect(screen.getByRole("link", { name: "Usuarios" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Equipo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Organizaciones" })).not.toBeInTheDocument();
   });
 
   it("shows 5 sections to an admin (no Organizaciones, no Usuarios)", () => {

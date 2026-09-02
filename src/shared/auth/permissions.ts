@@ -1,13 +1,16 @@
 import type { PermissionOverride, RoleSlug } from "@entraditas/types";
 
+// Kept to exactly what the app actually enforces (a route guard in router.tsx or a permission
+// check in a mocks/handlers/*.ts file) — no aspirational permissions for features that don't
+// exist. Audited 2026-09-02: dropped events:update/delete/publish, subevents:*, capacity:update,
+// tickettypes:*, orders:export, scan:reverse, finance:read/settle, roles:manage, audit:read,
+// settings:manage — none of them were ever checked anywhere outside this file and its tests.
 export const PERMISSIONS = [
   "organizations:manage",
-  "events:read", "events:create", "events:update", "events:delete", "events:publish",
-  "subevents:read", "subevents:create", "subevents:update", "subevents:delete", "capacity:update",
-  "tickettypes:read", "tickettypes:create", "tickettypes:update", "tickettypes:delete",
-  "orders:read", "orders:create", "orders:refund", "orders:export", "guestlist:read", "guestlist:manage",
-  "scan:validate", "scan:reverse", "reports:read", "reports:export", "finance:read", "finance:settle",
-  "users:read", "users:manage", "roles:manage", "audit:read", "settings:manage"
+  "events:read", "events:create",
+  "orders:read", "orders:create", "orders:refund", "guestlist:read", "guestlist:manage",
+  "scan:validate", "reports:read", "reports:export",
+  "users:read", "users:manage"
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -22,11 +25,7 @@ const ALL_EXCEPT_TEAM_MANAGE = PERMISSIONS.filter((permission) => permission !==
 export const ROLE_BASE_PERMISSIONS: Record<RoleSlug, readonly Permission[]> = {
   superadmin: ALL_EXCEPT_TEAM_MANAGE,
   admin: ALL_EXCEPT_ORG_MANAGE,
-  user: [
-    "events:read", "events:create", "events:update", "subevents:read", "subevents:create", "subevents:update",
-    "capacity:update", "tickettypes:read", "tickettypes:create", "tickettypes:update", "orders:read",
-    "guestlist:read", "guestlist:manage", "reports:read", "scan:validate"
-  ],
+  user: ["events:read", "events:create", "orders:read", "guestlist:read", "guestlist:manage", "reports:read", "scan:validate"],
   subuser: ["events:read", "scan:validate", "guestlist:read", "guestlist:manage"]
 };
 
@@ -72,18 +71,14 @@ export interface Capability {
 
 export const CAPABILITIES: Capability[] = [
   { key: "manage_organizations", label: "Gestionar organizadores", permissions: ["organizations:manage"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_no", user: "fixed_no", subuser: "fixed_no" } },
-  { key: "manage_events", label: "Crear y editar eventos", permissions: ["events:create", "events:update", "subevents:create", "subevents:update"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },
-  { key: "publish_events", label: "Publicar un evento", permissions: ["events:publish"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "configurable", subuser: "fixed_no" } },
-  { key: "manage_pricing_capacity", label: "Poner precios y aforos", permissions: ["tickettypes:create", "tickettypes:update", "capacity:update"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },
+  { key: "manage_events", label: "Crear y editar eventos", permissions: ["events:create"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },
   { key: "view_orders", label: "Ver pedidos y compradores", permissions: ["orders:read"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },
   { key: "refund_orders", label: "Devolver dinero", permissions: ["orders:refund"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "configurable", subuser: "fixed_no" } },
   { key: "sell_tickets", label: "Vender entradas en taquilla", permissions: ["orders:create"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "configurable", subuser: "configurable" } },
   { key: "scan_tickets", label: "Escanear entradas en la puerta", permissions: ["scan:validate"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "fixed_yes" } },
   { key: "manage_guestlist", label: "Gestionar invitados y cortesías", permissions: ["guestlist:read", "guestlist:manage"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "fixed_yes" } },
   { key: "view_reports", label: "Ver informes y estadísticas", permissions: ["reports:read"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },
-  { key: "view_finance", label: "Ver el dinero y las liquidaciones", permissions: ["finance:read"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_no", subuser: "fixed_no" } },
-  { key: "manage_team", label: "Dar de alta a personas del equipo", permissions: ["users:manage"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "configurable", subuser: "fixed_no" } },
-  { key: "view_audit_log", label: "Consultar el registro de actividad", permissions: ["audit:read"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_no", subuser: "fixed_no" } }
+  { key: "manage_team", label: "Dar de alta a personas del equipo", permissions: ["users:manage"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "configurable", subuser: "fixed_no" } }
 ];
 
 export function getConfigurableCapabilities(role: RoleSlug): Capability[] {

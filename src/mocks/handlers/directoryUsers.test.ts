@@ -35,7 +35,7 @@ describe("directory users handlers", () => {
     const token = await login("superadmin@entraditas.com", "superadmin1234");
     const detail = await apiClient.get<DirectoryUserDetail>("/directory/users/user-admin", { token });
     expect(detail.organizationName).toBe("Producciones Norte");
-    expect(detail.effectivePermissions).toContain("finance:read");
+    expect(detail.effectivePermissions).toContain("users:manage");
     expect(detail.effectivePermissions).not.toContain("organizations:manage");
   });
 

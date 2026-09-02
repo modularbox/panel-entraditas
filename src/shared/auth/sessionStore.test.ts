@@ -17,7 +17,7 @@ describe("useSessionStore", () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     const state = useSessionStore.getState();
     expect(state.status).toBe("authenticated");
-    expect(state.effectivePermissions.has("finance:read")).toBe(true);
+    expect(state.effectivePermissions.has("users:manage")).toBe(true);
     expect(localStorage.getItem(TOKEN_KEY)).toBe(state.token);
   });
 

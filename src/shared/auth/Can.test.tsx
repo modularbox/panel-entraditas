@@ -10,15 +10,15 @@ describe("Can", () => {
   });
 
   it("renders children when the permission is present", () => {
-    useSessionStore.setState({ effectivePermissions: new Set(["events:delete"]), eventScopes: [] });
-    render(<Can do="events:delete">Eliminar</Can>);
+    useSessionStore.setState({ effectivePermissions: new Set(["events:create"]), eventScopes: [] });
+    render(<Can do="events:create">Eliminar</Can>);
     expect(screen.getByText("Eliminar")).toBeInTheDocument();
   });
 
   it("renders the fallback when the permission is missing", () => {
     useSessionStore.setState({ effectivePermissions: new Set(), eventScopes: [] });
     render(
-      <Can do="events:delete" fallback={<span>Oculto</span>}>
+      <Can do="events:create" fallback={<span>Oculto</span>}>
         Eliminar
       </Can>
     );

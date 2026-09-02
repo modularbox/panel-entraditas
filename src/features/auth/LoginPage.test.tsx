@@ -39,7 +39,7 @@ describe("LoginPage", () => {
 
   it.each([
     ["superadmin@entraditas.com", "superadmin1234", "organizations:manage"],
-    ["admin@entraditas.com", "admin1234", "finance:read"],
+    ["admin@entraditas.com", "admin1234", "users:manage"],
     ["usuario@entraditas.com", "usuario1234", "orders:read"],
     ["subusuario@entraditas.com", "subusuario1234", "scan:validate"]
   ])("logs in %s and redirects to /eventos with the expected permission granted", async (email, password, expectedPermission) => {

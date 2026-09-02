@@ -63,16 +63,16 @@ describe("createSeedDatabase", () => {
     expect(resolveEffectivePermissions(superadmin.role, superadmin.permissionOverrides).has("organizations:manage")).toBe(true);
 
     const admin = byId(DEMO_ADMIN_ID);
-    expect(resolveEffectivePermissions(admin.role, admin.permissionOverrides).has("finance:read")).toBe(true);
+    expect(resolveEffectivePermissions(admin.role, admin.permissionOverrides).has("users:manage")).toBe(true);
 
     const user = byId(DEMO_USER_ID);
     expect(user.eventScopes).toHaveLength(2);
-    expect(resolveEffectivePermissions(user.role, user.permissionOverrides).has("events:publish")).toBe(false);
+    expect(resolveEffectivePermissions(user.role, user.permissionOverrides).has("users:manage")).toBe(false);
 
     const subuser = byId(DEMO_SUBUSER_ID);
     const subuserEffective = resolveEffectivePermissions(subuser.role, subuser.permissionOverrides);
     expect(subuserEffective.has("guestlist:manage")).toBe(true); // granted via an allow override in seed
-    expect(subuserEffective.has("finance:read")).toBe(false);
+    expect(subuserEffective.has("users:manage")).toBe(false);
   });
 
   it("seeds two schema-valid gates across different organizations", () => {

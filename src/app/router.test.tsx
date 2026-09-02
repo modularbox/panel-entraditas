@@ -53,16 +53,16 @@ describe("AppRoutes", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "Equipo" })).toBeInTheDocument());
   });
 
-  it("shows the organizations list to an authenticated superadmin", async () => {
+  it("shows the users directory to an authenticated superadmin", async () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
       user: { id: "u", email: "s@e.com", fullName: "S", role: "superadmin", organizationId: null },
-      effectivePermissions: new Set(["organizations:manage"]),
+      effectivePermissions: new Set(["users:read"]),
       eventScopes: []
     });
-    renderApp(["/organizaciones"]);
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Organizaciones" })).toBeInTheDocument());
+    renderApp(["/usuarios"]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Usuarios" })).toBeInTheDocument());
   });
 
   it("shows the orders list under Ventas to an authenticated admin", async () => {

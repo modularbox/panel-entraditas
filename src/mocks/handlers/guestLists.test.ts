@@ -92,4 +92,26 @@ describe("guestLists handlers", () => {
     const token = useSessionStore.getState().token!;
     await expect(apiClient.get("/events/event-2/guest-lists", { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
+
+  it("rejects listing guest lists without guestlist:read", async () => {
+    const token = await login();
+    db.users.find((u) => u.id === "user-admin")!.permissionOverrides = [{ permission: "guestlist:read", effect: "deny" }];
+    await expect(apiClient.get("/events/event-2/guest-lists", { token })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("rejects creating a guest list without guestlist:manage", async () => {
+    const token = await login();
+    db.users.find((u) => u.id === "user-admin")!.permissionOverrides = [{ permission: "guestlist:manage", effect: "deny" }];
+    await expect(
+      apiClient.post("/events/event-2/guest-lists", { name: "Patrocinadores", subEventId: null, quota: null }, { token })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("rejects adding an entry without guestlist:manage", async () => {
+    const token = await login();
+    db.users.find((u) => u.id === "user-admin")!.permissionOverrides = [{ permission: "guestlist:manage", effect: "deny" }];
+    await expect(
+      apiClient.post("/guest-lists/gl-2-prensa/entries", { fullName: "X", email: null, phone: null, companions: 0, notes: null }, { token })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });

@@ -19,7 +19,7 @@ describe("auth handlers", () => {
       password: "admin1234"
     });
     expect(result.user.id).toBe(DEMO_ADMIN_ID);
-    expect(result.effectivePermissions).toContain("finance:read");
+    expect(result.effectivePermissions).toContain("users:manage");
   });
 
   it("rejects an unknown email with UNAUTHENTICATED", async () => {
