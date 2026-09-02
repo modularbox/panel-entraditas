@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import type { Event, SubEvent, User, Venue } from "@entraditas/types";
+import { EVENT_CATEGORIES, type Event, type SubEvent, type User, type Venue } from "@entraditas/types";
 import { hasPermission, resolveEffectivePermissions } from "@/shared/auth/permissions";
 import { db } from "../state";
 import { getSessionUserId } from "../authContext";
@@ -30,6 +30,26 @@ export function canAccessEvent(event: Event, user: User): boolean {
   if (user.role !== "superadmin" && event.organizationId !== user.organizationId) return false;
   const effective = resolveEffectivePermissions(user.role, user.permissionOverrides);
   return hasPermission(effective, "events:read", { eventId: event.id, eventScopes: user.eventScopes });
+}
+
+/**
+ * Categories are a closed set shared with the buyer site, so the API refuses one it does not
+ * know rather than storing an event entraditas.com could never render. TypeScript alone would
+ * not catch this: request bodies arrive as raw JSON.
+ */
+function rejectUnknownCategory(category: string | undefined, requestId: string) {
+  if (category === undefined) return null;
+  if ((EVENT_CATEGORIES as readonly string[]).includes(category)) return null;
+  return HttpResponse.json(
+    {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: `Categoria no valida: ${category}. Validas: ${EVENT_CATEGORIES.join(", ")}`,
+        requestId
+      }
+    },
+    { status: 422 }
+  );
 }
 
 function slugify(title: string): string {
@@ -130,6 +150,8 @@ export const eventsHandlers = [
     const user = requireUser(request);
     if (!user) return unauthenticated("req_events_create");
     const body = (await request.json()) as EventFieldsBody & { title: string };
+    const categoryError = rejectUnknownCategory(body.category, "req_events_create");
+    if (categoryError) return categoryError;
     const startsAt = resolveStartsAt(body);
     const event: Event = {
       id: `event-created-${db.events.length + 1}`,
@@ -140,7 +162,9 @@ export const eventsHandlers = [
       gallery: body.gallery ?? [],
       title: body.title,
       description: body.description ?? "",
-      category: body.category ?? "otros",
+      // Categories are a closed set shared with the buyer site (see publicCatalog.ts). The old
+      // "otros" default could produce an event entraditas.com had no way to render.
+      category: body.category ?? "concierto",
       status: "draft",
       visibility: body.visibility ?? "private",
       location: body.location ?? body.venueName,
@@ -176,6 +200,8 @@ export const eventsHandlers = [
     const event = db.events.find((e) => e.id === params.id);
     if (!event || !canAccessEvent(event, user)) return notFound("req_events_patch");
     const body = (await request.json()) as EventFieldsBody;
+    const categoryError = rejectUnknownCategory(body.category, "req_events_patch");
+    if (categoryError) return categoryError;
     const { city, venueName, date, time, ...eventFields } = body;
     const nextVenueId = resolveVenueId(user, body);
     if (nextVenueId) eventFields.venueId = nextVenueId;

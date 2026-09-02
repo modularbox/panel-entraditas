@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { apiClient } from "@/shared/lib/apiClient";
 import { db, resetDb, demoPasswordFor } from "@/mocks/state";
-import type { Event } from "@entraditas/types";
+import { EVENT_CATEGORIES, type Event } from "@entraditas/types";
 
 async function loginAs(email: string) {
   const result = await apiClient.post<{ accessToken: string }>("/auth/login", {
@@ -105,9 +105,35 @@ describe("events handlers", () => {
     await expect(apiClient.delete("/events/event-1", { token })).rejects.toMatchObject({
       code: "VALIDATION_ERROR"
     });
-    const draft = await apiClient.post<Event>("/events", { title: "Borrador", category: "otros" }, { token });
+    const draft = await apiClient.post<Event>("/events", { title: "Borrador", category: "concierto" }, { token });
     await apiClient.delete(`/events/${draft.id}`, { token });
     expect(db.events.some((e) => e.id === draft.id)).toBe(false);
+  });
+
+  // Categories are shared with entraditas.com: one the buyer site cannot render must never
+  // reach the database, and a raw JSON body bypasses TypeScript entirely.
+  it("refuses to create an event with a category the buyer site cannot render", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    await expect(
+      apiClient.post<Event>("/events", { title: "Invalido", category: "otros" }, { token })
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.events.some((e) => e.title === "Invalido")).toBe(false);
+  });
+
+  it("refuses to change an event to an unknown category", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    await expect(apiClient.patch("/events/event-1", { category: "otros" }, { token })).rejects.toMatchObject({
+      code: "VALIDATION_ERROR"
+    });
+    expect(db.events.find((e) => e.id === "event-1")!.category).toBe("concierto");
+  });
+
+  it("accepts every category the buyer site knows how to render", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    for (const category of EVENT_CATEGORIES) {
+      const created = await apiClient.post<Event>("/events", { title: `Evento ${category}`, category }, { token });
+      expect(created.category).toBe(category);
+    }
   });
 
   it("blocks publishing an event with zero ticket types, and succeeds once it has one", async () => {

@@ -1,11 +1,12 @@
 import type { Zone } from "@entraditas/types";
 import { Button } from "@/shared/ui/button";
+import { computeRowCount } from "./seatMap";
 
 export interface ZoneEditorPanelProps {
   zones: Zone[];
   selectedZoneId: string | null;
   onAddZone: (kind: Zone["kind"]) => void;
-  onUpdateZone: (id: string, patch: Partial<Pick<Zone, "name" | "capacity" | "width" | "height">>) => void;
+  onUpdateZone: (id: string, patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "width" | "height">>) => void;
   onDeleteZone: (id: string) => void;
 }
 
@@ -36,7 +37,7 @@ export function ZoneEditorPanel({ zones, selectedZoneId, onAddZone, onUpdateZone
           // Inputs below are uncontrolled (defaultValue + onBlur). Keying on the zone's
           // values forces React to remount them when the selection or its data changes,
           // so the fields reflect the newly selected zone instead of stale typed input.
-          key={`${selectedZone.id}-${selectedZone.name}-${selectedZone.capacity}-${selectedZone.width}-${selectedZone.height}`}
+          key={`${selectedZone.id}-${selectedZone.name}-${selectedZone.capacity}-${selectedZone.rows ?? "auto"}-${selectedZone.width}-${selectedZone.height}`}
           className="flex flex-col gap-2 border-t-2 border-border pt-3"
         >
           <legend>Zona seleccionada</legend>
@@ -58,6 +59,31 @@ export function ZoneEditorPanel({ zones, selectedZoneId, onAddZone, onUpdateZone
                 defaultValue={selectedZone.capacity}
                 onBlur={(e) => onUpdateZone(selectedZone.id, { capacity: Number(e.target.value) })}
               />
+            </>
+          )}
+
+          {selectedZone.kind === "numbered" && (
+            <>
+              <label htmlFor="zone-rows">Filas</label>
+              <input
+                id="zone-rows"
+                type="number"
+                min="1"
+                max={Math.max(1, selectedZone.capacity)}
+                placeholder="Automatico"
+                defaultValue={selectedZone.rows ?? ""}
+                // Blank means "work the rows out from the zone's shape", which is what a zone
+                // starts as; a number pins the layout to the real room (12 seats over 3 rows).
+                onBlur={(e) => {
+                  const value = e.target.value.trim();
+                  onUpdateZone(selectedZone.id, { rows: value === "" ? null : Number(value) });
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {selectedZone.capacity > 0
+                  ? `${computeRowCount(selectedZone.capacity, selectedZone.width, selectedZone.height, selectedZone.rows)} filas - la fila A es la mas cercana al escenario`
+                  : "Indica la capacidad para repartir los asientos en filas"}
+              </p>
             </>
           )}
 

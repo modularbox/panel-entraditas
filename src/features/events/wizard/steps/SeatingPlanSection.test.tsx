@@ -147,4 +147,55 @@ describe("SeatingPlanSection", () => {
     await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(true));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+
+  /** Turns the seeded standing "Grada" into a 25-seat numbered zone with nothing sold yet. */
+  function seedNumberedGrada() {
+    const zone = db.zones.find((z) => z.id === "zone-grada")!;
+    zone.kind = "numbered";
+    zone.capacity = 25;
+    zone.rows = 5;
+    const pool = db.capacityPools.find((p) => p.id === "pool-2-grada")!;
+    pool.totalCapacity = 25;
+    pool.soldCount = 0;
+    pool.ticketTypeGroupId = null;
+    db.ticketTypes.find((t) => t.id === "tt-2-grada")!.capacityPoolId = null;
+  }
+
+  it("breaks a numbered zone down seat by seat and saves the breakdown on its capacity pool", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    renderSection("event-2");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+    fireEvent.change(await screen.findByLabelText("Asientos de Grada VIP en Grada"), { target: { value: "20" } });
+
+    await waitFor(() => {
+      const pool = db.capacityPools.find((p) => p.id === "pool-2-grada")!;
+      expect(pool.seatAssignments).toHaveLength(20);
+    });
+    const pool = db.capacityPools.find((p) => p.id === "pool-2-grada")!;
+    expect(pool.seatAssignments!.every((seat) => seat.ticketTypeGroupId === "tt-2-grada")).toBe(true);
+    // 25 seats with 20 taken leaves 5 the organizer can still place or leave unsold.
+    expect(await screen.findByText(/20\/25 asientos asignados - 5 sin asignar/)).toBeInTheDocument();
+  });
+
+  it("reports invalid while a numbered zone still has no seat assigned", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    const onValidationChange = vi.fn();
+    renderSection("event-2", onValidationChange);
+
+    expect(await screen.findByText(/25 asientos sin ningun tipo de entrada asignado/)).toBeInTheDocument();
+    await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(false));
+  });
+
+  it("does not offer a whole-zone ticket type selector for a numbered zone", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    renderSection("event-2");
+
+    await screen.findByRole("button", { name: "Grada" });
+    expect(screen.queryByLabelText("Tipo de entrada - Grada")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Tipo de entrada - Pista")).toBeInTheDocument();
+  });
 });

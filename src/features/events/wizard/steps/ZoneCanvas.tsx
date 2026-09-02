@@ -2,12 +2,17 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 import type { Zone } from "@entraditas/types";
 import { cn } from "@/shared/lib/cn";
 import { computeDragPosition, computeResizeSize, type ZoneLayout } from "./zoneGeometry";
+import { buildSeatGrid, rowOriginForStage, seatRows, type SeatAssignments } from "./seatMap";
 
 export interface ZoneCanvasProps {
   zones: Zone[];
   selectedZoneId: string | null;
   onSelectZone: (id: string | null) => void;
   onZoneCommitted: (id: string, layout: ZoneLayout) => void;
+  /** Per-zone seat -> ticket type map, so the plan shows how each zone is broken down. */
+  seatAssignmentsByZone?: Record<string, SeatAssignments>;
+  /** Ticket type colours, keyed by group id, used to paint the assigned seats. */
+  groupColors?: Record<string, string>;
 }
 
 interface DragState {
@@ -18,10 +23,21 @@ interface DragState {
   mode: "move" | "resize";
 }
 
-export function ZoneCanvas({ zones, selectedZoneId, onSelectZone, onZoneCommitted }: ZoneCanvasProps) {
+export function ZoneCanvas({
+  zones,
+  selectedZoneId,
+  onSelectZone,
+  onZoneCommitted,
+  seatAssignmentsByZone = {},
+  groupColors = {}
+}: ZoneCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [liveLayouts, setLiveLayouts] = useState<Record<string, ZoneLayout>>({});
   const dragRef = useRef<DragState | null>(null);
+
+  // Row A of every numbered zone is the row closest to the stage, so the plan's labels match
+  // what an usher would read in the room.
+  const stage = zones.find((zone) => zone.kind === "stage") ?? null;
 
   // Zones are positioned in percent (of the container), matching the API's stored layout.
   // While dragging/resizing we track an in-progress layout locally and only commit
@@ -74,8 +90,18 @@ export function ZoneCanvas({ zones, selectedZoneId, onSelectZone, onZoneCommitte
         const selected = zone.id === selectedZoneId;
         const sellable = zone.kind === "numbered" || zone.kind === "standing";
         const showSeats = zone.kind === "numbered" && zone.capacity > 0;
-        const seatCount = Math.min(zone.capacity, 900);
-        const columns = Math.max(2, Math.ceil(Math.sqrt(seatCount * Math.max(layout.width / Math.max(layout.height, 1), 0.5))));
+        const assignments = seatAssignmentsByZone[zone.id] ?? {};
+        const rows = showSeats
+          ? seatRows(
+              buildSeatGrid({
+                capacity: zone.capacity,
+                width: layout.width,
+                height: layout.height,
+                rows: zone.rows,
+                rowAOrigin: rowOriginForStage(layout, stage)
+              })
+            )
+          : [];
         return (
           <button
             key={zone.id}
@@ -101,18 +127,31 @@ export function ZoneCanvas({ zones, selectedZoneId, onSelectZone, onZoneCommitte
             )}
           >
             {showSeats && (
-              <span
-                aria-hidden="true"
-                className="absolute inset-2 grid content-center gap-0.5 opacity-35"
-                style={{ gridTemplateColumns: `repeat(${columns}, minmax(2px, 1fr))` }}
-              >
-                {Array.from({ length: seatCount }, (_, index) => (
-                  <span key={index} className="aspect-square min-h-1 rounded-full bg-current" />
+              // A faithful mini-map of the real seats: one element per seat, laid out row by row
+              // and painted with its ticket type, so the plan shows the breakdown at a glance.
+              <span aria-hidden="true" className="absolute inset-1 flex flex-col justify-center gap-px">
+                {rows.map((row) => (
+                  <span key={row[0]!.rowLabel} className="flex flex-1 items-stretch justify-center gap-px">
+                    {row.map((seat) => {
+                      const groupId = assignments[seat.id];
+                      const color = groupId ? groupColors[groupId] : undefined;
+                      return (
+                        <span
+                          key={seat.id}
+                          style={color ? { backgroundColor: color } : undefined}
+                          className={cn(
+                            "min-h-[3px] w-full max-w-[12px] flex-1 rounded-[1px] border border-black/20",
+                            !color && "bg-background/45"
+                          )}
+                        />
+                      );
+                    })}
+                  </span>
                 ))}
               </span>
             )}
-            <span className="relative z-10">{zone.name}</span>
-            {sellable && <span className="relative z-10">{zone.capacity} plazas</span>}
+            <span className="relative z-10 rounded-sm bg-black/25 px-1">{zone.name}</span>
+            {sellable && <span className="relative z-10 rounded-sm bg-black/25 px-1">{zone.capacity} plazas</span>}
             {selected && (
               <span
                 role="presentation"

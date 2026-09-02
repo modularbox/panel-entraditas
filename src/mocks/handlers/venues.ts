@@ -62,7 +62,7 @@ export const venuesHandlers = [
     if (!user) return unauthenticated("req_zones_create");
     const venue = db.venues.find((v) => v.id === params.venueId);
     if (!venue || !canAccessVenue(venue, user)) return notFound("req_zones_create");
-    const body = (await request.json()) as Partial<Pick<Zone, "kind" | "x" | "y" | "width" | "height">> &
+    const body = (await request.json()) as Partial<Pick<Zone, "kind" | "rows" | "x" | "y" | "width" | "height">> &
       Pick<Zone, "name" | "capacity">;
     const zone: Zone = {
       id: `zone-${db.zones.length + 1}`,
@@ -70,6 +70,7 @@ export const venuesHandlers = [
       name: body.name,
       capacity: body.capacity,
       kind: body.kind ?? "standing",
+      rows: body.rows ?? null,
       x: body.x ?? 0,
       y: body.y ?? 0,
       width: body.width ?? 20,
@@ -82,7 +83,9 @@ export const venuesHandlers = [
   http.patch(`${BASE}/zones/:id`, async ({ request, params }) => {
     const result = requireZone(request, params.id as string);
     if ("error" in result) return result.error;
-    const body = (await request.json()) as Partial<Pick<Zone, "name" | "kind" | "capacity" | "x" | "y" | "width" | "height">>;
+    const body = (await request.json()) as Partial<
+      Pick<Zone, "name" | "kind" | "capacity" | "rows" | "x" | "y" | "width" | "height">
+    >;
     if (body.capacity !== undefined) {
       const oversold = db.capacityPools.find((p) => p.zoneId === result.zone.id && p.soldCount > body.capacity!);
       if (oversold) {

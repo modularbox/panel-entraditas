@@ -1,4 +1,5 @@
 ﻿import { z } from "zod";
+import { EventCategorySchema } from "./publicCatalog";
 
 export const RoleSlugSchema = z.enum(["superadmin", "admin", "user", "subuser"]);
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
@@ -49,6 +50,11 @@ export const VenueSchema = z.object({
   organizationId: z.string(),
   name: z.string(),
   city: z.string(),
+  // The buyer site shows the full address and locates the venue on a map, so the panel has to
+  // be able to capture them. Optional because venues created before this existed have neither.
+  province: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+  coordinates: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(),
   totalCapacity: z.number().int().positive()
 });
 export type Venue = z.infer<typeof VenueSchema>;
@@ -59,6 +65,10 @@ export const ZoneSchema = z.object({
   name: z.string(),
   kind: z.enum(["numbered", "standing", "stage", "accessible", "gate"]),
   capacity: z.number().int().nonnegative(),
+  // Physical row count of a numbered zone. The individual seats (and their A1/B7 labels) are
+  // derived from capacity + rows rather than stored, so the venue's zone stays a small record.
+  // null means "work it out from the zone's shape".
+  rows: z.number().int().positive().nullable().optional(),
   x: z.number().min(0).max(100),
   y: z.number().min(0).max(100),
   width: z.number().min(1).max(100),
@@ -89,7 +99,15 @@ export const EventSchema = z.object({
   gallery: z.array(z.string()).optional(),
   title: z.string(),
   description: z.string(),
-  category: z.string(),
+  // Long body shown on the buyer site's event page. Falls back to `description` when empty.
+  longDescription: z.string().optional(),
+  // Closed set shared with the buyer site: the panel must not be able to publish a category
+  // the buyer site cannot render. See publicCatalog.ts.
+  category: EventCategorySchema,
+  tags: z.array(z.string()).optional(),
+  // Surfaces the event in the buyer site's "destacados". Organiser-set, admin-overridable.
+  featured: z.boolean().optional(),
+  durationMinutes: z.number().int().positive().nullable().optional(),
   status: EventStatusSchema,
   visibility: z.enum(["public", "unlisted", "private"]),
   location: z.string().optional(),
@@ -100,6 +118,18 @@ export const EventSchema = z.object({
   salesEndAt: z.string().nullable(), // null means no restriction on when sales close
   hasSubEvents: z.boolean(), // true for multi-date events (festivals, weekly runs) that use SubEvent
   isCompetition: z.boolean().optional(),
+  // Teams of a versus event. The buyer site renders these as a match ticker, so without them
+  // an organiser could flag a competition it could never actually display.
+  matchup: z
+    .object({
+      competition: z.string(),
+      home: z.string(),
+      away: z.string(),
+      homeLogo: z.string().nullable().optional(),
+      awayLogo: z.string().nullable().optional()
+    })
+    .nullable()
+    .optional(),
   datePending: z.boolean().optional(),
   notifyWhenDateConfirmed: z.boolean().optional(),
   serviceFeeType: z.enum(["none", "percent", "fixed"]).optional(),
@@ -121,6 +151,14 @@ export const SubEventSchema = z.object({
 });
 export type SubEvent = z.infer<typeof SubEventSchema>;
 
+// Which ticket type an individual seat of a numbered zone is sold as. Seats are identified by
+// the label derived from the zone's layout ("A-1"), not by a stored row.
+export const SeatAssignmentSchema = z.object({
+  seatId: z.string(),
+  ticketTypeGroupId: z.string()
+});
+export type SeatAssignment = z.infer<typeof SeatAssignmentSchema>;
+
 export const CapacityPoolSchema = z.object({
   id: z.string(),
   subEventId: z.string(),
@@ -129,7 +167,12 @@ export const CapacityPoolSchema = z.object({
   totalCapacity: z.number().int().nonnegative(),
   soldCount: z.number().int().nonnegative(),
   heldCount: z.number().int().nonnegative(),
-  ticketTypeGroupId: z.string().nullable().optional()
+  // Zone-wide ticket type: the whole zone sells as this one. Used by standing zones, and as the
+  // fallback for numbered zones that haven't been broken down seat by seat.
+  ticketTypeGroupId: z.string().nullable().optional(),
+  // Per-seat breakdown for numbered zones. Sparse: only assigned seats appear, so a zone can
+  // legitimately have seats left with no ticket type on them.
+  seatAssignments: z.array(SeatAssignmentSchema).optional()
 });
 export type CapacityPool = z.infer<typeof CapacityPoolSchema>;
 
