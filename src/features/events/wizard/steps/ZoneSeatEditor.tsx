@@ -29,10 +29,9 @@ export interface ZoneSeatEditorProps {
   onAccessibleChange?: (next: string[]) => void;
 }
 
+const UNASSIGNED_LABEL = "sin asignar";
 /** Reduced-mobility seats are drawn in blue and marked with the wheelchair symbol. */
 const ACCESSIBLE_COLOR = "#2563eb";
-
-const UNASSIGNED_LABEL = "sin asignar";
 
 export function ZoneSeatEditor({
   zone,
@@ -44,53 +43,89 @@ export function ZoneSeatEditor({
   accessibleSeatIds = [],
   onAccessibleChange
 }: ZoneSeatEditorProps) {
-  const accessible = new Set(accessibleSeatIds);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(groups[0]?.groupId ?? null);
-  const [openSeatId, setOpenSeatId] = useState<string | null>(null);
+  // Seats are picked first and acted on afterwards, so one action can cover many seats at once.
+  const [selection, setSelection] = useState<string[]>([]);
   const [movingSeatId, setMovingSeatId] = useState<string | null>(null);
-  // What the organiser has typed, per ticket type, while the save is still in flight. Without
-  // this the field is driven straight from the persisted assignments, so every keystroke was
-  // overwritten by the round-trip and typing a two-digit quantity was impossible.
+  // Typed quantities are only applied on Enter or with the OK button. Saving on every keystroke
+  // fired one round trip per digit and the field fought back while you were still typing.
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
-  // Ticket types can be created and deleted while this editor is open; keep the active one real.
-  useEffect(() => {
-    if (groups.length === 0) {
-      if (activeGroupId !== null) setActiveGroupId(null);
-      return;
-    }
-    if (!groups.some((group) => group.groupId === activeGroupId)) setActiveGroupId(groups[0]!.groupId);
-  }, [groups, activeGroupId]);
-
+  const accessible = new Set(accessibleSeatIds);
+  const selected = new Set(selection);
   const rows = seatRows(seats);
   const unassigned = countUnassigned(seats, assignments);
   const groupById = new Map(groups.map((group) => [group.groupId, group]));
 
-  function handleSeatClick(seat: Seat) {
+  // Seats disappear when the zone is resized or its row count changes; drop them from the
+  // selection so an action can't target a seat that no longer exists.
+  useEffect(() => {
+    const valid = new Set(seats.map((seat) => seat.id));
+    setSelection((prev) => (prev.every((id) => valid.has(id)) ? prev : prev.filter((id) => valid.has(id))));
+  }, [seats]);
+
+  function toggleSeat(seat: Seat) {
     if (movingSeatId) {
       onChange(moveSeat(assignments, movingSeatId, seat.id));
       setMovingSeatId(null);
-      setOpenSeatId(null);
+      setSelection([]);
       return;
     }
-    if (assignments[seat.id] !== undefined) {
-      setOpenSeatId(openSeatId === seat.id ? null : seat.id);
-      return;
-    }
-    if (activeGroupId) onChange(assignSeat(assignments, seat.id, activeGroupId));
-    // Open the actions for the seat just painted too, so the reduced-mobility checkbox is
-    // reachable for any seat, not only for ones that already had a ticket type.
-    setOpenSeatId(seat.id);
+    setSelection((prev) => (prev.includes(seat.id) ? prev.filter((id) => id !== seat.id) : [...prev, seat.id]));
   }
 
-  function toggleAccessible(seatId: string, next: boolean) {
+  function toggleRow(rowSeats: Seat[]) {
+    const ids = rowSeats.map((seat) => seat.id);
+    const allSelected = ids.every((id) => selected.has(id));
+    setSelection((prev) =>
+      allSelected ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]
+    );
+  }
+
+  /** Applies a ticket type to every selected seat, stopping at what the type still has left. */
+  function assignSelection(groupId: string) {
+    const group = groupById.get(groupId);
+    const elsewhere = assignedElsewhereByGroup[groupId] ?? 0;
+    const alreadyHere = seatsForGroup(seats, assignments, groupId).length;
+    const remaining = remainingForGroup(group?.quantityTotal, elsewhere + alreadyHere);
+    let next = assignments;
+    let placed = 0;
+    for (const seatId of selection) {
+      if (next[seatId] === groupId) continue;
+      if (remaining !== null && placed >= remaining) break;
+      next = assignSeat(next, seatId, groupId);
+      placed += 1;
+    }
+    onChange(next);
+    setSelection([]);
+  }
+
+  function clearSelection() {
+    let next = assignments;
+    for (const seatId of selection) next = clearSeat(next, seatId);
+    onChange(next);
+    setSelection([]);
+  }
+
+  function setSelectionAccessible(next: boolean) {
     if (!onAccessibleChange) return;
-    const remaining = accessibleSeatIds.filter((id) => id !== seatId);
-    onAccessibleChange(next ? [...remaining, seatId] : remaining);
+    const remaining = accessibleSeatIds.filter((id) => !selection.includes(id));
+    onAccessibleChange(next ? [...remaining, ...selection] : remaining);
   }
 
-  const openSeat = openSeatId ? seats.find((seat) => seat.id === openSeatId) ?? null : null;
+  function commitQuantity(groupId: string, max: number) {
+    const raw = drafts[groupId];
+    if (raw === undefined) return;
+    const requested = Math.max(0, Math.min(Number(raw) || 0, max));
+    onChange(assignSeatCount(seats, assignments, groupId, requested));
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[groupId];
+      return next;
+    });
+  }
+
   const movingSeat = movingSeatId ? seats.find((seat) => seat.id === movingSeatId) ?? null : null;
+  const selectionAllAccessible = selection.length > 0 && selection.every((id) => accessible.has(id));
 
   return (
     <section className="flex flex-col gap-4 rounded-md border-2 border-foreground bg-surface p-4">
@@ -113,29 +148,19 @@ export function ZoneSeatEditor({
             const inThisZone = seatsForGroup(seats, assignments, group.groupId).length;
             const elsewhere = assignedElsewhereByGroup[group.groupId] ?? 0;
             const remaining = remainingForGroup(group.quantityTotal, elsewhere + inThisZone);
-            // Cap the input at whatever the zone can still fit and the ticket type can still sell.
             const roomInZone = inThisZone + unassigned;
             const max = remaining === null ? roomInZone : Math.min(roomInZone, inThisZone + remaining);
-            const isActive = activeGroupId === group.groupId;
+            const draft = drafts[group.groupId];
             return (
               <div key={group.groupId} className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  aria-pressed={isActive}
-                  aria-label={`Pintar asientos con ${group.name}`}
-                  onClick={() => setActiveGroupId(group.groupId)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md border-2 px-2 py-1 text-sm font-semibold",
-                    isActive ? "border-foreground" : "border-transparent"
-                  )}
-                >
+                <span className="flex items-center gap-2 text-sm font-semibold">
                   <span
                     aria-hidden="true"
                     className="h-4 w-4 shrink-0 rounded-sm border-2 border-foreground"
                     style={{ backgroundColor: group.color }}
                   />
                   {group.name}
-                </button>
+                </span>
                 <label htmlFor={`seat-count-${group.groupId}`} className="sr-only">
                   Asientos de {group.name} en {zone.name}
                 </label>
@@ -146,25 +171,25 @@ export function ZoneSeatEditor({
                   max={max}
                   step="1"
                   inputMode="numeric"
-                  value={drafts[group.groupId] ?? String(inThisZone)}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    // Keep exactly what was typed on screen, but only ever place a quantity the
-                    // zone and the ticket type can both take.
-                    setDrafts((prev) => ({ ...prev, [group.groupId]: raw }));
-                    if (raw.trim() === "") return; // mid-edit, don't wipe the zone
-                    const requested = Math.max(0, Math.min(Number(raw) || 0, max));
-                    onChange(assignSeatCount(seats, assignments, group.groupId, requested));
+                  value={draft ?? String(inThisZone)}
+                  onChange={(e) => setDrafts((prev) => ({ ...prev, [group.groupId]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault(); // don't submit the wizard's form
+                    commitQuantity(group.groupId, max);
                   }}
-                  onBlur={() =>
-                    setDrafts((prev) => {
-                      const next = { ...prev };
-                      delete next[group.groupId];
-                      return next;
-                    })
-                  }
                   className="h-10 w-24 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground"
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 px-3 text-xs"
+                  aria-label={`Aplicar cantidad de ${group.name}`}
+                  disabled={draft === undefined}
+                  onClick={() => commitQuantity(group.groupId, max)}
+                >
+                  OK
+                </Button>
                 <span className="text-sm text-muted-foreground">
                   {inThisZone}/{seats.length} en esta zona
                   {group.quantityTotal !== null && (
@@ -192,17 +217,21 @@ export function ZoneSeatEditor({
       <div className="flex flex-col gap-1.5 overflow-x-auto">
         {rows.map((row) => (
           <div key={row[0]!.rowLabel} className="flex items-center gap-2">
-            <span aria-hidden="true" className="w-6 shrink-0 text-xs font-semibold text-muted-foreground">
+            <button
+              type="button"
+              aria-label={`Seleccionar la fila ${row[0]!.rowLabel}`}
+              onClick={() => toggleRow(row)}
+              className="w-6 shrink-0 rounded-sm text-xs font-semibold text-muted-foreground hover:bg-background"
+            >
               {row[0]!.rowLabel}
-            </span>
+            </button>
             <div className="flex flex-wrap gap-1">
               {row.map((seat) => {
                 const groupId = assignments[seat.id];
                 const group = groupId ? groupById.get(groupId) : undefined;
-                const isMoving = movingSeatId === seat.id;
                 const isAccessible = accessible.has(seat.id);
-                // Reduced mobility wins the colour: at the door it matters more than the tier.
                 const background = isAccessible ? ACCESSIBLE_COLOR : group?.color;
+                const isSelected = selected.has(seat.id);
                 return (
                   <button
                     key={seat.id}
@@ -210,14 +239,14 @@ export function ZoneSeatEditor({
                     aria-label={`Asiento ${seat.label} ${group ? group.name : UNASSIGNED_LABEL}${
                       isAccessible ? " movilidad reducida" : ""
                     }`}
-                    aria-pressed={openSeatId === seat.id}
-                    onClick={() => handleSeatClick(seat)}
+                    aria-pressed={isSelected}
+                    onClick={() => toggleSeat(seat)}
                     style={background ? { backgroundColor: background, borderColor: background } : undefined}
                     className={cn(
                       "h-7 w-7 rounded-t-md border-2 text-[10px] font-semibold leading-none",
                       background ? "text-white" : "border-dashed border-muted-foreground text-muted-foreground",
-                      isMoving && "ring-2 ring-accent",
-                      openSeatId === seat.id && "ring-2 ring-foreground"
+                      isSelected && "ring-2 ring-offset-1 ring-foreground",
+                      movingSeatId === seat.id && "ring-2 ring-accent"
                     )}
                   >
                     {isAccessible ? <span aria-hidden="true">&#9855;</span> : seat.number}
@@ -229,56 +258,65 @@ export function ZoneSeatEditor({
         ))}
       </div>
 
-      {openSeat && (
-        <div role="group" aria-label={`Acciones del asiento ${openSeat.label}`} className="flex flex-wrap items-center gap-2 rounded-md border-2 border-foreground bg-background p-3">
-          <span className="text-sm font-semibold">Asiento {openSeat.label}</span>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-8 px-2 text-xs"
-            onClick={() => {
-              onChange(clearSeat(assignments, openSeat.id));
-              setOpenSeatId(null);
-            }}
-          >
+      {selection.length > 0 && (
+        <div
+          role="group"
+          aria-label="Acciones sobre los asientos seleccionados"
+          className="flex flex-wrap items-center gap-2 rounded-md border-2 border-foreground bg-background p-3"
+        >
+          <span className="text-sm font-semibold">
+            {selection.length === 1
+              ? `Asiento ${seats.find((seat) => seat.id === selection[0])?.label ?? ""}`
+              : `${selection.length} asientos seleccionados`}
+          </span>
+
+          {groups.map((group) => (
+            <Button
+              key={group.groupId}
+              type="button"
+              variant="outline"
+              className="h-8 px-2 text-xs"
+              onClick={() => assignSelection(group.groupId)}
+            >
+              Asignar {group.name}
+            </Button>
+          ))}
+
+          <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={clearSelection}>
             Quitar tipo de entrada
           </Button>
-          <label htmlFor="seat-change-group" className="text-xs font-semibold">
-            Cambiar a
+
+          <label className="flex items-center gap-2 text-xs font-semibold">
+            <input
+              type="checkbox"
+              checked={selectionAllAccessible}
+              onChange={(e) => setSelectionAccessible(e.target.checked)}
+            />
+            Movilidad reducida
           </label>
-          <select
-            id="seat-change-group"
-            value={assignments[openSeat.id] ?? ""}
-            onChange={(e) => {
-              onChange(assignSeat(assignments, openSeat.id, e.target.value));
-              setOpenSeatId(null);
-            }}
-          >
-            {groups.map((group) => (
-              <option key={group.groupId} value={group.groupId}>
-                {group.name}
-              </option>
-            ))}
-          </select>
+
           <Button
             type="button"
             variant="outline"
             className="h-8 px-2 text-xs"
+            // Moving is a one-to-one swap, so it only makes sense for a single seat.
+            disabled={selection.length !== 1}
             onClick={() => {
-              setMovingSeatId(openSeat.id);
-              setOpenSeatId(null);
+              setMovingSeatId(selection[0]!);
+              setSelection([]);
             }}
           >
             Mover a otro asiento
           </Button>
-          <label className="flex items-center gap-2 text-xs font-semibold">
-            <input
-              type="checkbox"
-              checked={accessible.has(openSeat.id)}
-              onChange={(e) => toggleAccessible(openSeat.id, e.target.checked)}
-            />
-            Movilidad reducida
-          </label>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="h-8 px-2 text-xs"
+            onClick={() => setSelection([])}
+          >
+            Limpiar seleccion
+          </Button>
         </div>
       )}
     </section>

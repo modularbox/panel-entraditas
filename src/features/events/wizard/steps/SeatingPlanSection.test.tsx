@@ -176,7 +176,9 @@ describe("SeatingPlanSection", () => {
     renderSection("event-2");
 
     fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
-    fireEvent.change(await screen.findByLabelText("Asientos de Grada VIP en Grada"), { target: { value: "20" } });
+    const input = await screen.findByLabelText("Asientos de Grada VIP en Grada");
+    fireEvent.change(input, { target: { value: "20" } });
+    fireEvent.keyDown(input, { key: "Enter" });
 
     await waitFor(() => {
       const pool = db.capacityPools.find((p) => p.id === "pool-2-grada")!;
@@ -237,7 +239,7 @@ describe("SeatingPlanSection", () => {
     await waitFor(() => expect(db.capacityPools.filter((p) => p.zoneId === zone.id)).toHaveLength(1));
   });
 
-  it("keeps the typed quantity on screen while the seat breakdown is being saved", async () => {
+  it("keeps the typed quantity on screen and only saves it once confirmed", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     seedNumberedGrada();
     renderSection("event-2");
@@ -247,8 +249,11 @@ describe("SeatingPlanSection", () => {
     // Typing "2" then "0" must end up as 20, not snap back to the last saved value each keystroke.
     fireEvent.change(input, { target: { value: "2" } });
     fireEvent.change(input, { target: { value: "20" } });
-
     expect(input).toHaveValue(20);
+    expect(db.capacityPools.find((p) => p.id === "pool-2-grada")!.seatAssignments ?? []).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar cantidad de Grada VIP" }));
+
     await waitFor(() => expect(db.capacityPools.find((p) => p.id === "pool-2-grada")!.seatAssignments).toHaveLength(20));
   });
 

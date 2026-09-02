@@ -33,6 +33,15 @@ interface DragState {
 const DRAG_THRESHOLD_PX = 6;
 const ACCESSIBLE_COLOR = "#2563eb";
 
+// Seat miniature geometry, in the SVG's own units: a seat plus the gap after it.
+const SEAT_SIZE = 0.82;
+const SEAT_STEP = 1;
+
+/** Widest row of the grid, which sets the miniature's horizontal extent. */
+function seatGridColumns(rows: { length: number }[]): number {
+  return rows.reduce((widest, row) => Math.max(widest, row.length), 1);
+}
+
 export function ZoneCanvas({
   zones,
   selectedZoneId,
@@ -187,26 +196,41 @@ export function ZoneCanvas({
             )}
           >
             {showSeats && (
-              <span aria-hidden="true" className="absolute inset-1 flex flex-col justify-center gap-px">
-                {rows.map((row) => (
-                  <span key={row[0]!.rowLabel} className="flex flex-1 items-stretch justify-center gap-px">
-                    {row.map((seat) => {
-                      const groupId = assignments[seat.id];
-                      const color = accessible.has(seat.id) ? ACCESSIBLE_COLOR : groupId ? groupColors[groupId] : undefined;
-                      return (
-                        <span
-                          key={seat.id}
-                          style={color ? { backgroundColor: color } : undefined}
-                          className={cn(
-                            "min-h-[3px] w-full max-w-[12px] flex-1 rounded-[1px] border border-black/20",
-                            !color && "bg-background/45"
-                          )}
-                        />
-                      );
-                    })}
-                  </span>
-                ))}
-              </span>
+              // Drawn as SVG rather than flexed boxes: a viewBox keeps every seat square and the
+              // whole block centred whatever the zone's proportions, which is what made the
+              // miniature look distorted when a zone was wide and short (or tall and narrow).
+              <svg
+                aria-hidden="true"
+                viewBox={`0 0 ${seatGridColumns(rows) * SEAT_STEP} ${rows.length * SEAT_STEP}`}
+                preserveAspectRatio="xMidYMid meet"
+                className="absolute inset-1"
+              >
+                {rows.map((row, rowIndex) => {
+                  // Short rows (the remainder of an uneven split) sit centred under the long ones.
+                  const offset = (seatGridColumns(rows) - row.length) / 2;
+                  return row.map((seat, colIndex) => {
+                    const groupId = assignments[seat.id];
+                    const color = accessible.has(seat.id)
+                      ? ACCESSIBLE_COLOR
+                      : groupId
+                        ? groupColors[groupId]
+                        : undefined;
+                    return (
+                      <rect
+                        key={seat.id}
+                        x={(offset + colIndex) * SEAT_STEP}
+                        y={rowIndex * SEAT_STEP}
+                        width={SEAT_SIZE}
+                        height={SEAT_SIZE}
+                        rx={SEAT_SIZE / 5}
+                        fill={color ?? "rgba(255,255,255,0.45)"}
+                        stroke="rgba(0,0,0,0.2)"
+                        strokeWidth={0.1}
+                      />
+                    );
+                  });
+                })}
+              </svg>
             )}
             <span className="relative z-10 rounded-sm bg-black/25 px-1">{zone.name}</span>
             {sellable && <span className="relative z-10 rounded-sm bg-black/25 px-1">{zone.capacity} plazas</span>}
