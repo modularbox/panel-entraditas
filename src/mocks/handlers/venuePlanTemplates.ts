@@ -48,7 +48,7 @@ export const venuePlanTemplatesHandlers = [
   http.post(`${BASE}/venue-plan-templates`, async ({ request }) => {
     const user = requireUser(request);
     if (!user) return unauthenticated("req_plan_templates_create");
-    const body = (await request.json()) as { name?: string; zones?: TemplateZone[] };
+    const body = (await request.json()) as { name?: string; mode?: VenuePlanTemplate["mode"]; zones?: TemplateZone[] };
     const name = body.name?.trim();
     if (!name) return validation("Ponle un nombre a la plantilla", "req_plan_templates_create");
     if (!body.zones || body.zones.length === 0) {
@@ -56,6 +56,7 @@ export const venuePlanTemplatesHandlers = [
     }
     const template: VenuePlanTemplate = {
       id: `plan-template-${db.venuePlanTemplates.length + 1}`,
+      mode: body.mode === "zones" ? "zones" : "plan",
       // A superadmin acts on behalf of the organisation it is editing, so fall back to the
       // first one rather than storing a template nobody can see.
       organizationId: user.organizationId ?? db.organizations[0]!.id,

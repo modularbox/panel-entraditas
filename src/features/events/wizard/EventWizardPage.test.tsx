@@ -38,9 +38,9 @@ describe("EventWizardPage", () => {
     expect(screen.getByText(/Paso 1 de 5/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "2. Varias funciones" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "3. Tipos de entrada" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "4. Plano de asientos" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "4. Zonas" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "5. Publicar evento" })).toBeDisabled();
-    expect(screen.queryByRole("region", { name: "Plano de asientos" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Zonas" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Anterior" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled();
   });
@@ -62,7 +62,7 @@ describe("EventWizardPage", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" })).toBeEnabled());
 
     next();
-    expect(screen.getByRole("region", { name: "Plano de asientos" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Zonas" })).toBeInTheDocument();
 
     next();
     expect(screen.getByRole("region", { name: "Publicar evento" })).toBeInTheDocument();
@@ -122,8 +122,8 @@ describe("EventWizardPage", () => {
 
     next(); // -> Tipos de entrada
     await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" })).toBeEnabled());
-    next(); // -> Plano de asientos
-    expect(screen.getByRole("region", { name: "Plano de asientos" })).toBeInTheDocument();
+    next(); // -> Zonas
+    expect(screen.getByRole("region", { name: "Zonas" })).toBeInTheDocument();
 
     await screen.findByRole("alert");
     expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled();

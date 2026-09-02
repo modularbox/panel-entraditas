@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { Zone } from "@entraditas/types";
 import { cn } from "@/shared/lib/cn";
 import { computeDragPosition, computeResizeSize, type ZoneLayout } from "./zoneGeometry";
@@ -13,10 +13,15 @@ export interface ZoneCanvasProps {
   seatAssignmentsByZone?: Record<string, SeatAssignments>;
   /** Ticket type colours, keyed by group id, used to paint the assigned seats. */
   groupColors?: Record<string, string>;
+  /** Seats reserved for reduced mobility, per zone. Drawn in blue. */
+  accessibleSeatsByZone?: Record<string, string[]>;
+  /** Drawing height in pixels, so a big room can be given more space to work in. */
+  heightPx?: number;
 }
 
 interface DragState {
   zoneId: string;
+  pointerId: number;
   startX: number;
   startY: number;
   origin: ZoneLayout;
@@ -24,8 +29,9 @@ interface DragState {
   moved: boolean;
 }
 
-/** Movement under this many pixels counts as a click, not a drag. */
-const DRAG_THRESHOLD_PX = 4;
+/** Movement under this many pixels counts as a tap, not a drag. Fingers are never still. */
+const DRAG_THRESHOLD_PX = 6;
+const ACCESSIBLE_COLOR = "#2563eb";
 
 export function ZoneCanvas({
   zones,
@@ -33,31 +39,85 @@ export function ZoneCanvas({
   onSelectZone,
   onZoneCommitted,
   seatAssignmentsByZone = {},
-  groupColors = {}
+  groupColors = {},
+  accessibleSeatsByZone = {},
+  heightPx = 384
 }: ZoneCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [liveLayouts, setLiveLayouts] = useState<Record<string, ZoneLayout>>({});
   const dragRef = useRef<DragState | null>(null);
   const draggedRef = useRef(false);
+  // Committing from the window listener needs the latest layout without re-subscribing on every
+  // pointer move, so the in-progress layout is mirrored in a ref.
+  const liveRef = useRef<Record<string, ZoneLayout>>({});
+  liveRef.current = liveLayouts;
 
-  // Row A of every numbered zone is the row closest to the stage, so the plan's labels match
-  // what an usher would read in the room.
   const stage = zones.find((zone) => zone.kind === "stage") ?? null;
 
-  // Zones are positioned in percent (of the container), matching the API's stored layout.
-  // While dragging/resizing we track an in-progress layout locally and only commit
-  // (persist) it on pointer up, falling back to the zone's saved layout otherwise.
   function layoutFor(zone: Zone): ZoneLayout {
     return liveLayouts[zone.id] ?? zone;
   }
 
-  // Pointer down only ever *selects*. It used to toggle, and since the button's onClick toggled
-  // again straight after, a plain click selected and instantly deselected the zone.
+  /**
+   * The drag runs on window listeners rather than on the canvas element.
+   *
+   * On a touchscreen the browser retargets and cancels pointer events freely once a gesture
+   * starts, so listening on the element meant moves and ups went missing and a tap could end up
+   * selecting and then immediately deselecting. Window listeners plus pointer capture keep the
+   * whole gesture in one place no matter what the browser does with the original target.
+   */
+  useEffect(() => {
+    function handleMove(e: PointerEvent) {
+      const drag = dragRef.current;
+      const container = containerRef.current;
+      if (!drag || drag.pointerId !== e.pointerId || !container) return;
+      const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < DRAG_THRESHOLD_PX) {
+        return;
+      }
+      drag.moved = true;
+      e.preventDefault();
+      const deltaXPercent = ((e.clientX - drag.startX) / rect.width) * 100;
+      const deltaYPercent = ((e.clientY - drag.startY) / rect.height) * 100;
+      const next: ZoneLayout =
+        drag.mode === "move"
+          ? { ...drag.origin, ...computeDragPosition(drag.origin, deltaXPercent, deltaYPercent) }
+          : { ...drag.origin, ...computeResizeSize(drag.origin, deltaXPercent, deltaYPercent) };
+      setLiveLayouts((prev) => ({ ...prev, [drag.zoneId]: next }));
+    }
+
+    function handleUp(e: PointerEvent) {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      dragRef.current = null;
+      // A real drag must swallow the click the browser fires afterwards, or letting go would be
+      // read as a fresh tap. A tap that never moved leaves the selection made on pointer down.
+      draggedRef.current = drag.moved;
+      if (!drag.moved) return;
+      const layout = liveRef.current[drag.zoneId];
+      if (layout) onZoneCommitted(drag.zoneId, layout);
+    }
+
+    window.addEventListener("pointermove", handleMove, { passive: false });
+    window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+    };
+  }, [onZoneCommitted]);
+
   function handlePointerDown(zone: Zone, mode: "move" | "resize", e: ReactPointerEvent) {
     e.stopPropagation();
+    // Selecting here (never toggling) is what makes a touch tap reliable: the selection is done
+    // by the time any synthesized click arrives.
     onSelectZone(zone.id);
+    draggedRef.current = false;
     dragRef.current = {
       zoneId: zone.id,
+      pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
       origin: layoutFor(zone),
@@ -67,42 +127,8 @@ export function ZoneCanvas({
     e.currentTarget.setPointerCapture?.(e.pointerId);
   }
 
-  function handlePointerMove(e: ReactPointerEvent) {
-    const drag = dragRef.current;
-    const container = containerRef.current;
-    if (!drag || !container) return;
-    const rect = container.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    // A few pixels of slop so the shake of a finger or a mouse press doesn't register as a drag
-    // and swallow the click that was meant to select the zone.
-    if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < DRAG_THRESHOLD_PX) {
-      return;
-    }
-    drag.moved = true;
-    // Convert the pointer's raw pixel movement since drag start into a delta expressed
-    // as a percentage of the container size, since zone layout is stored in percent.
-    const deltaXPercent = ((e.clientX - drag.startX) / rect.width) * 100;
-    const deltaYPercent = ((e.clientY - drag.startY) / rect.height) * 100;
-    const next: ZoneLayout =
-      drag.mode === "move"
-        ? { ...drag.origin, ...computeDragPosition(drag.origin, deltaXPercent, deltaYPercent) }
-        : { ...drag.origin, ...computeResizeSize(drag.origin, deltaXPercent, deltaYPercent) };
-    setLiveLayouts((prev) => ({ ...prev, [drag.zoneId]: next }));
-  }
-
-  function handlePointerUp() {
-    const drag = dragRef.current;
-    dragRef.current = null;
-    if (!drag) return;
-    // The click that follows a real drag must not be treated as a selection gesture, or letting
-    // go of a zone would deselect the one you just moved.
-    draggedRef.current = drag.moved;
-    if (!drag.moved) return;
-    const layout = liveLayouts[drag.zoneId];
-    if (layout) onZoneCommitted(drag.zoneId, layout);
-  }
-
-  function handleZoneClick(zone: Zone) {
+  function handleZoneClick(zone: Zone, e: ReactPointerEvent | React.MouseEvent) {
+    e.stopPropagation();
     if (draggedRef.current) {
       draggedRef.current = false;
       return;
@@ -113,13 +139,10 @@ export function ZoneCanvas({
   return (
     <div
       ref={containerRef}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-      // Pressing the empty part of the plan clears the selection: zones themselves never
-      // deselect on click any more, so this is the way out.
-      onClick={() => onSelectZone(null)}
-      className="relative h-96 w-full touch-none overflow-hidden rounded-md border-2 border-foreground bg-[#f4ead9]"
+      style={{ height: `${heightPx}px` }}
+      // touch-none on the canvas AND on every zone: without it the browser claims the gesture as
+      // a scroll and cancels the drag halfway through.
+      className="relative w-full touch-none select-none overflow-hidden rounded-md border-2 border-foreground bg-[#f4ead9]"
     >
       {zones.map((zone) => {
         const layout = layoutFor(zone);
@@ -127,6 +150,7 @@ export function ZoneCanvas({
         const sellable = zone.kind === "numbered" || zone.kind === "standing";
         const showSeats = zone.kind === "numbered" && zone.capacity > 0;
         const assignments = seatAssignmentsByZone[zone.id] ?? {};
+        const accessible = new Set(accessibleSeatsByZone[zone.id] ?? []);
         const rows = showSeats
           ? seatRows(
               buildSeatGrid({
@@ -144,10 +168,7 @@ export function ZoneCanvas({
             type="button"
             aria-pressed={selected}
             aria-label={zone.name}
-            onClick={(e) => {
-              e.stopPropagation(); // don't let the canvas's own click clear the selection
-              handleZoneClick(zone);
-            }}
+            onClick={(e) => handleZoneClick(zone, e)}
             onPointerDown={(e) => handlePointerDown(zone, "move", e)}
             style={{
               left: `${layout.x}%`,
@@ -156,7 +177,7 @@ export function ZoneCanvas({
               height: `${layout.height}%`
             }}
             className={cn(
-              "absolute flex flex-col items-center justify-center border-2 p-1 text-xs font-semibold",
+              "absolute flex touch-none select-none flex-col items-center justify-center border-2 p-1 text-xs font-semibold",
               zone.kind === "stage" && "border-foreground bg-foreground text-background",
               zone.kind === "accessible" && "border-dashed border-success bg-success-bg text-success",
               zone.kind === "numbered" && "border-primary bg-primary text-primary-foreground",
@@ -166,14 +187,12 @@ export function ZoneCanvas({
             )}
           >
             {showSeats && (
-              // A faithful mini-map of the real seats: one element per seat, laid out row by row
-              // and painted with its ticket type, so the plan shows the breakdown at a glance.
               <span aria-hidden="true" className="absolute inset-1 flex flex-col justify-center gap-px">
                 {rows.map((row) => (
                   <span key={row[0]!.rowLabel} className="flex flex-1 items-stretch justify-center gap-px">
                     {row.map((seat) => {
                       const groupId = assignments[seat.id];
-                      const color = groupId ? groupColors[groupId] : undefined;
+                      const color = accessible.has(seat.id) ? ACCESSIBLE_COLOR : groupId ? groupColors[groupId] : undefined;
                       return (
                         <span
                           key={seat.id}
@@ -195,7 +214,7 @@ export function ZoneCanvas({
               <span
                 role="presentation"
                 onPointerDown={(e) => handlePointerDown(zone, "resize", e)}
-                className="absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize bg-foreground"
+                className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize touch-none bg-foreground"
               />
             )}
           </button>

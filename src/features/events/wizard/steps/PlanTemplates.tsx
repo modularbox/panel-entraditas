@@ -6,8 +6,10 @@ import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 
 export interface PlanTemplatesProps {
-  /** Zones currently drawn, which is what "save as template" stores. */
+  /** Zones currently defined, which is what "save as template" stores. */
   zones: Zone[];
+  /** Templates are saved and offered per mode: a drawn plan is not reusable as a plain list. */
+  mode: NonNullable<VenuePlanTemplate["mode"]>;
   onApply: (zones: TemplateZone[]) => Promise<void> | void;
 }
 
@@ -25,10 +27,11 @@ export function usePlanTemplatesQuery() {
   });
 }
 
-export function PlanTemplates({ zones, onApply }: PlanTemplatesProps) {
+export function PlanTemplates({ zones, mode, onApply }: PlanTemplatesProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
-  const { data: templates = [] } = usePlanTemplatesQuery();
+  const { data: allTemplates = [] } = usePlanTemplatesQuery();
+  const templates = allTemplates.filter((template) => template.mode === mode);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [applyingId, setApplyingId] = useState<string | null>(null);
@@ -37,7 +40,7 @@ export function PlanTemplates({ zones, onApply }: PlanTemplatesProps) {
     mutationFn: (templateName: string) =>
       apiClient.post<VenuePlanTemplate>(
         "/venue-plan-templates",
-        { name: templateName, zones: toTemplateZones(zones) },
+        { name: templateName, mode, zones: toTemplateZones(zones) },
         { token: token! }
       ),
     onSuccess: async () => {
@@ -67,19 +70,21 @@ export function PlanTemplates({ zones, onApply }: PlanTemplatesProps) {
 
   return (
     <fieldset className="flex flex-col gap-3 rounded-md border-2 border-border bg-surface p-3">
-      <legend className="text-sm font-semibold">Plantillas de plano</legend>
+      <legend className="text-sm font-semibold">
+        {mode === "plan" ? "Plantillas de plano" : "Plantillas de zonas sin plano"}
+      </legend>
       {error && <p role="alert">{error}</p>}
 
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
           <label htmlFor="template-name" className="text-xs font-semibold">
-            Guardar el plano actual como plantilla
+            {mode === "plan" ? "Guardar el plano actual como plantilla" : "Guardar estas zonas como plantilla"}
           </label>
           <input
             id="template-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Teatro Circo - patio y anfiteatro"
+            placeholder={mode === "plan" ? "Teatro Circo - patio y anfiteatro" : "Sala Apolo - pista y grada"}
             className="h-10 w-72 rounded-md border-2 border-foreground bg-surface px-3 text-sm"
           />
         </div>
@@ -94,8 +99,9 @@ export function PlanTemplates({ zones, onApply }: PlanTemplatesProps) {
 
       {templates.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Todavia no hay plantillas guardadas. Dibuja un plano y guardalo para reutilizarlo en
-          otros eventos del mismo recinto.
+          {mode === "plan"
+            ? "Todavia no hay plantillas de plano. Dibuja uno y guardalo para reutilizarlo en otros eventos del mismo recinto."
+            : "Todavia no hay plantillas de zonas. Crea las zonas y guardalas para reutilizarlas en otros eventos."}
         </p>
       ) : (
         <ul aria-label="Plantillas guardadas" className="flex flex-col gap-2">
@@ -114,7 +120,7 @@ export function PlanTemplates({ zones, onApply }: PlanTemplatesProps) {
                 onClick={() => void applyTemplate(template)}
                 disabled={applyingId !== null}
               >
-                {applyingId === template.id ? "Aplicando..." : "Aplicar al plano"}
+                {applyingId === template.id ? "Aplicando..." : "Aplicar"}
               </Button>
               <Button
                 type="button"

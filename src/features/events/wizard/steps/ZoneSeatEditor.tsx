@@ -102,8 +102,9 @@ export function ZoneSeatEditor({
       </header>
 
       {groups.length === 0 ? (
-        <p role="alert" className="text-sm font-semibold text-destructive">
-          Crea primero un tipo de entrada para poder repartir los asientos de esta zona.
+        <p className="text-sm text-muted-foreground">
+          Los asientos ya estan numerados. Para repartirlos por tipo de entrada crea antes los
+          tipos en el paso siguiente y vuelve aqui: no hace falta hacerlo ahora.
         </p>
       ) : (
         <fieldset className="flex flex-col gap-2">

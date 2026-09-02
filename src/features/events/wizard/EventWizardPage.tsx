@@ -33,7 +33,9 @@ const ALL_STEPS: WizardStep[] = [
   { key: "info", label: "Informacion del evento", needsEventId: false },
   { key: "subeventos", label: "Varias funciones", needsEventId: true },
   { key: "tipos", label: "Tipos de entrada", needsEventId: true },
-  { key: "plano", label: "Plano de asientos", needsEventId: true },
+  // "Zonas" y no "Plano": el paso cubre tanto las zonas dibujadas sobre un plano como las
+  // zonas sin plano, y el organizador elige una de las dos dentro del propio paso.
+  { key: "plano", label: "Zonas", needsEventId: true },
   { key: "publicar", label: "Publicar evento", needsEventId: true }
 ];
 

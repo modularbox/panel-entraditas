@@ -11,6 +11,7 @@ import { ZoneEditorPanel } from "./ZoneEditorPanel";
 import { ZoneListEditor } from "./ZoneListEditor";
 import { ZoneSeatEditor } from "./ZoneSeatEditor";
 import { PlanTemplates } from "./PlanTemplates";
+import { SeatingModeChooser } from "./SeatingModeChooser";
 import { TicketTypeAssignment, type ZoneAssignment } from "./TicketTypeAssignment";
 import { groupTicketTypes } from "./Step4TicketTypes";
 import {
@@ -78,6 +79,10 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Drawing surface size. A local preference for working comfortably on a big room, not part of
+  // the event's data: the zones' percent coordinates stay valid at any canvas size.
+  const [canvasHeight, setCanvasHeight] = useState(384);
+  const [canvasWidth, setCanvasWidth] = useState(100);
 
   // The drawn plan is the source of truth: any sellable zone without a
   // matching capacity pool for this event's first function gets one
@@ -238,6 +243,14 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     return byZone;
   }, [sellableZones, seatGrids, pools]);
 
+  const accessibleSeatsByZone = useMemo(() => {
+    const byZone: Record<string, string[]> = {};
+    for (const pool of pools) {
+      if (pool.zoneId && pool.accessibleSeatIds?.length) byZone[pool.zoneId] = pool.accessibleSeatIds;
+    }
+    return byZone;
+  }, [pools]);
+
   const groupColors = useMemo(
     () => Object.fromEntries(groups.map((group) => [group.groupId, group.color])),
     [groups]
@@ -300,9 +313,11 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     return { zone, seatCount: seats.length, unassigned, assigned: seats.length - unassigned };
   });
 
+  // This step runs *before* ticket types exist in the wizard, so it can only require that every
+  // sellable zone has capacity. Tying a seat to a ticket type is done once those exist, and an
+  // over-allocation is still blocking because it means the numbers no longer add up.
   const isValid =
-    !assignments.some((a) => a.assignedGroupId === null || a.isOverCapacity) &&
-    !numberedStatuses.some((status) => status.seatCount === 0 || status.assigned === 0);
+    !assignments.some((a) => a.isOverCapacity) && !numberedStatuses.some((status) => status.seatCount === 0);
 
   useEffect(() => {
     onValidationChange?.(isValid);
@@ -327,39 +342,11 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   // instead of being asked again. Only a genuinely empty event gets the chooser.
   const mode = event.seatingMode ?? (zones.length > 0 ? "plan" : null);
 
-  // The two ways of laying out capacity are exclusive: until one is picked neither editor is
-  // shown, and picking one hides the other entirely.
   if (mode === null) {
     return (
       <div className="flex flex-col gap-4">
         {error && <p role="alert">{error}</p>}
-        <fieldset className="flex flex-col gap-3">
-          <legend className="text-sm font-semibold">Como quieres repartir el aforo</legend>
-          <div className="grid gap-3 md:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => void setSeatingMode("plan")}
-              className="flex flex-col gap-1 rounded-md border-2 border-foreground bg-surface p-4 text-left"
-            >
-              <span className="text-base font-semibold">Plano de asientos</span>
-              <span className="text-sm text-muted-foreground">
-                Dibujas las zonas sobre un lienzo y repartes los asientos uno a uno. Para teatros,
-                cines y recintos con butaca numerada.
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => void setSeatingMode("zones")}
-              className="flex flex-col gap-1 rounded-md border-2 border-foreground bg-surface p-4 text-left"
-            >
-              <span className="text-base font-semibold">Zonas sin plano</span>
-              <span className="text-sm text-muted-foreground">
-                Las mismas zonas y el mismo reparto por tipo de entrada, pero sin dibujar nada.
-                Para salas, conciertos de pie y aforos libres.
-              </span>
-            </button>
-          </div>
-        </fieldset>
+        <SeatingModeChooser mode={null} onChoose={(next) => void setSeatingMode(next)} />
       </div>
     );
   }
@@ -368,30 +355,54 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     <div className="flex flex-col gap-4">
       {error && <p role="alert">{error}</p>}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="text-sm font-semibold">
-          {mode === "plan" ? "Plano de asientos" : "Zonas sin plano"}
-        </p>
-        <button
-          type="button"
-          onClick={() => void setSeatingMode(mode === "plan" ? "zones" : "plan")}
-          className="text-sm underline"
-        >
-          {mode === "plan" ? "Cambiar a zonas sin plano" : "Cambiar a plano de asientos"}
-        </button>
-      </div>
+      <SeatingModeChooser mode={mode} onChoose={(next) => void setSeatingMode(next)} />
 
       {mode === "plan" ? (
         <>
-          <div className="grid gap-4 md:grid-cols-[1fr_260px]">
-            <ZoneCanvas
-              zones={zones}
-              selectedZoneId={selectedZoneId}
-              onSelectZone={setSelectedZoneId}
-              onZoneCommitted={(id, layout) => updateZone(id, layout)}
-              seatAssignmentsByZone={seatAssignmentsByZone}
-              groupColors={groupColors}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold">Tamano del plano</span>
+            <label htmlFor="canvas-height" className="text-xs text-muted-foreground">
+              Alto
+            </label>
+            <input
+              id="canvas-height"
+              type="range"
+              min="280"
+              max="900"
+              step="20"
+              value={canvasHeight}
+              onChange={(e) => setCanvasHeight(Number(e.target.value))}
             />
+            <label htmlFor="canvas-width" className="text-xs text-muted-foreground">
+              Ancho
+            </label>
+            <input
+              id="canvas-width"
+              type="range"
+              min="40"
+              max="100"
+              step="5"
+              value={canvasWidth}
+              onChange={(e) => setCanvasWidth(Number(e.target.value))}
+            />
+            <span className="text-xs text-muted-foreground">
+              {canvasHeight} px de alto - {canvasWidth}% de ancho
+            </span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-[1fr_260px]">
+            <div style={{ width: `${canvasWidth}%` }}>
+              <ZoneCanvas
+                zones={zones}
+                selectedZoneId={selectedZoneId}
+                onSelectZone={setSelectedZoneId}
+                onZoneCommitted={(id, layout) => updateZone(id, layout)}
+                seatAssignmentsByZone={seatAssignmentsByZone}
+                groupColors={groupColors}
+                accessibleSeatsByZone={accessibleSeatsByZone}
+                heightPx={canvasHeight}
+              />
+            </div>
             <ZoneEditorPanel
               zones={zones}
               selectedZoneId={selectedZoneId}
@@ -400,7 +411,6 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
               onDeleteZone={deleteZone}
             />
           </div>
-          <PlanTemplates zones={zones} onApply={applyTemplate} />
         </>
       ) : (
         <ZoneListEditor
@@ -411,6 +421,16 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
           onUpdateZone={updateZone}
           onDeleteZone={deleteZone}
         />
+      )}
+
+      {/* Templates work for both modes: a set of zones is reusable whether or not it is drawn. */}
+      <PlanTemplates zones={zones} mode={mode} onApply={applyTemplate} />
+
+      {selectedZone && selectedZone.kind === "numbered" && (selectedSeats?.length ?? 0) === 0 && (
+        <p className="rounded-md border-2 border-border bg-surface p-3 text-sm text-muted-foreground">
+          Indica cuantos asientos tiene "{selectedZone.name}" para dibujar sus butacas y poder
+          repartirlas por tipo de entrada.
+        </p>
       )}
 
       {selectedZone && selectedZone.kind === "numbered" && selectedSeats && selectedSeats.length > 0 && (

@@ -19,7 +19,7 @@ function renderSection(eventId: string | null, onValidationChange?: (valid: bool
  * showing any editor. These tests are about the drawn plan, so they take that branch.
  */
 async function choosePlanMode() {
-  fireEvent.click(await screen.findByRole("button", { name: /Plano de asientos/ }));
+  fireEvent.click(await screen.findByRole("button", { name: /Crear zonas con plano y asientos/ }));
   await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
 }
 
@@ -188,13 +188,27 @@ describe("SeatingPlanSection", () => {
     expect(await screen.findByText(/20\/25 asientos asignados - 5 sin asignar/)).toBeInTheDocument();
   });
 
-  it("reports invalid while a numbered zone still has no seat assigned", async () => {
+  // This step runs before ticket types exist in the wizard, so leaving seats unassigned cannot
+  // block it. Only a zone with no capacity at all does.
+  it("still lets the organizer move on while a numbered zone has no seat assigned", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     seedNumberedGrada();
     const onValidationChange = vi.fn();
     renderSection("event-2", onValidationChange);
 
     expect(await screen.findByText(/25 asientos sin ningun tipo de entrada asignado/)).toBeInTheDocument();
+    await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(true));
+  });
+
+  it("blocks the step while a sellable zone has no capacity", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    const zone = db.zones.find((z) => z.id === "zone-grada")!;
+    zone.kind = "numbered";
+    zone.capacity = 0;
+    const onValidationChange = vi.fn();
+    renderSection("event-2", onValidationChange);
+
+    await screen.findByRole("button", { name: "Pista" });
     await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(false));
   });
 
@@ -242,8 +256,8 @@ describe("SeatingPlanSection", () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-1"); // venue-2, zero zones
 
-    expect(await screen.findByRole("button", { name: /Plano de asientos/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Zonas sin plano/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Crear zonas con plano y asientos/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Crear zonas sin plano/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "+ Zona numerada" })).not.toBeInTheDocument();
   });
 
@@ -259,7 +273,7 @@ describe("SeatingPlanSection", () => {
   it("shows only the plain zone list when the no-plan mode is chosen", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-1");
-    fireEvent.click(await screen.findByRole("button", { name: /Zonas sin plano/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Crear zonas sin plano/ }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona de pie" })).toBeInTheDocument());
     // No canvas: the stage and gate tools only make sense on a drawn plan.
@@ -278,7 +292,7 @@ describe("SeatingPlanSection", () => {
   it("adds zones in the no-plan mode with the same capacity model", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-1");
-    fireEvent.click(await screen.findByRole("button", { name: /Zonas sin plano/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Crear zonas sin plano/ }));
     await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona de pie" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "+ Zona de pie" }));
@@ -304,7 +318,7 @@ describe("SeatingPlanSection", () => {
     expect(db.venuePlanTemplates[0]!.zones.every((zone) => !("id" in zone) && !("venueId" in zone))).toBe(true);
 
     const zonesBefore = db.zones.filter((z) => z.venueId === "venue-1").length;
-    fireEvent.click(await screen.findByRole("button", { name: "Aplicar al plano" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Aplicar" }));
 
     await waitFor(() => expect(db.zones.filter((z) => z.venueId === "venue-1")).toHaveLength(zonesBefore + 2));
   });

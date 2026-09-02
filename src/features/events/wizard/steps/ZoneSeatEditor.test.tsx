@@ -236,8 +236,11 @@ describe("ZoneSeatEditor", () => {
     expect(onAccessibleChange).toHaveBeenCalledWith(["C-3"]);
   });
 
-  it("asks for a ticket type first when the event has none", () => {
+  // Ticket types are created in the next step of the wizard, so having none here is normal and
+  // must not read as an error: the seats are still numbered and usable.
+  it("explains that ticket types come later when the event has none yet", () => {
     render(<Harness groups={[]} />);
-    expect(screen.getByRole("alert")).toHaveTextContent(/Crea primero un tipo de entrada/);
+    expect(screen.getByText(/crea antes los tipos en el paso siguiente/i)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

@@ -262,6 +262,9 @@ export const VenuePlanTemplateSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
   name: z.string(),
+  // Which layout mode the template was saved from. A drawn plan and a plain list of zones are
+  // not interchangeable, so each mode only offers its own templates.
+  mode: z.enum(["plan", "zones"]),
   zones: z.array(TemplateZoneSchema),
   updatedAt: z.string()
 });
