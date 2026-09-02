@@ -189,6 +189,46 @@ describe("SeatingPlanSection", () => {
     await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(false));
   });
 
+  it("adds a second zone once one already exists", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1"); // venue-2, zero zones seeded
+    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
+    await screen.findByRole("button", { name: "Nueva zona numerada" });
+    fireEvent.click(screen.getByRole("button", { name: "+ Zona de pie" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Nueva zona de pie" })).toBeInTheDocument());
+    expect(db.zones.filter((z) => z.venueId === "venue-2")).toHaveLength(2);
+  });
+
+  it("creates exactly one capacity pool per zone, even as zones are added", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1");
+    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
+    await screen.findByRole("button", { name: "Nueva zona numerada" });
+    const zone = db.zones.find((z) => z.name === "Nueva zona numerada")!;
+
+    await waitFor(() => expect(db.capacityPools.filter((p) => p.zoneId === zone.id)).toHaveLength(1));
+  });
+
+  it("keeps the typed quantity on screen while the seat breakdown is being saved", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+    const input = await screen.findByLabelText("Asientos de Grada VIP en Grada");
+
+    // Typing "2" then "0" must end up as 20, not snap back to the last saved value each keystroke.
+    fireEvent.change(input, { target: { value: "2" } });
+    fireEvent.change(input, { target: { value: "20" } });
+
+    expect(input).toHaveValue(20);
+    await waitFor(() => expect(db.capacityPools.find((p) => p.id === "pool-2-grada")!.seatAssignments).toHaveLength(20));
+  });
+
   it("does not offer a whole-zone ticket type selector for a numbered zone", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     seedNumberedGrada();

@@ -21,7 +21,11 @@ interface DragState {
   startY: number;
   origin: ZoneLayout;
   mode: "move" | "resize";
+  moved: boolean;
 }
+
+/** Movement under this many pixels counts as a click, not a drag. */
+const DRAG_THRESHOLD_PX = 4;
 
 export function ZoneCanvas({
   zones,
@@ -34,6 +38,7 @@ export function ZoneCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const [liveLayouts, setLiveLayouts] = useState<Record<string, ZoneLayout>>({});
   const dragRef = useRef<DragState | null>(null);
+  const draggedRef = useRef(false);
 
   // Row A of every numbered zone is the row closest to the stage, so the plan's labels match
   // what an usher would read in the room.
@@ -46,11 +51,20 @@ export function ZoneCanvas({
     return liveLayouts[zone.id] ?? zone;
   }
 
+  // Pointer down only ever *selects*. It used to toggle, and since the button's onClick toggled
+  // again straight after, a plain click selected and instantly deselected the zone.
   function handlePointerDown(zone: Zone, mode: "move" | "resize", e: ReactPointerEvent) {
     e.stopPropagation();
-    onSelectZone(mode === "move" && zone.id === selectedZoneId ? null : zone.id);
-    dragRef.current = { zoneId: zone.id, startX: e.clientX, startY: e.clientY, origin: layoutFor(zone), mode };
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    onSelectZone(zone.id);
+    dragRef.current = {
+      zoneId: zone.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      origin: layoutFor(zone),
+      mode,
+      moved: false
+    };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
   }
 
   function handlePointerMove(e: ReactPointerEvent) {
@@ -59,6 +73,12 @@ export function ZoneCanvas({
     if (!drag || !container) return;
     const rect = container.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
+    // A few pixels of slop so the shake of a finger or a mouse press doesn't register as a drag
+    // and swallow the click that was meant to select the zone.
+    if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < DRAG_THRESHOLD_PX) {
+      return;
+    }
+    drag.moved = true;
     // Convert the pointer's raw pixel movement since drag start into a delta expressed
     // as a percentage of the container size, since zone layout is stored in percent.
     const deltaXPercent = ((e.clientX - drag.startX) / rect.width) * 100;
@@ -74,8 +94,20 @@ export function ZoneCanvas({
     const drag = dragRef.current;
     dragRef.current = null;
     if (!drag) return;
+    // The click that follows a real drag must not be treated as a selection gesture, or letting
+    // go of a zone would deselect the one you just moved.
+    draggedRef.current = drag.moved;
+    if (!drag.moved) return;
     const layout = liveLayouts[drag.zoneId];
     if (layout) onZoneCommitted(drag.zoneId, layout);
+  }
+
+  function handleZoneClick(zone: Zone) {
+    if (draggedRef.current) {
+      draggedRef.current = false;
+      return;
+    }
+    onSelectZone(zone.id);
   }
 
   return (
@@ -83,7 +115,11 @@ export function ZoneCanvas({
       ref={containerRef}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      className="relative h-96 w-full overflow-hidden rounded-md border-2 border-foreground bg-[#f4ead9]"
+      onPointerCancel={handlePointerUp}
+      // Pressing the empty part of the plan clears the selection: zones themselves never
+      // deselect on click any more, so this is the way out.
+      onClick={() => onSelectZone(null)}
+      className="relative h-96 w-full touch-none overflow-hidden rounded-md border-2 border-foreground bg-[#f4ead9]"
     >
       {zones.map((zone) => {
         const layout = layoutFor(zone);
@@ -108,7 +144,10 @@ export function ZoneCanvas({
             type="button"
             aria-pressed={selected}
             aria-label={zone.name}
-            onClick={() => onSelectZone(selected ? null : zone.id)}
+            onClick={(e) => {
+              e.stopPropagation(); // don't let the canvas's own click clear the selection
+              handleZoneClick(zone);
+            }}
             onPointerDown={(e) => handlePointerDown(zone, "move", e)}
             style={{
               left: `${layout.x}%`,

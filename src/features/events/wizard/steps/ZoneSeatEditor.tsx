@@ -24,7 +24,13 @@ export interface ZoneSeatEditorProps {
   /** Seats of each ticket type already taken by the other zones, so this zone can't overspend the stock. */
   assignedElsewhereByGroup: Record<string, number>;
   onChange: (next: SeatAssignments) => void;
+  /** Seats reserved for reduced mobility, by seat id. */
+  accessibleSeatIds?: string[];
+  onAccessibleChange?: (next: string[]) => void;
 }
+
+/** Reduced-mobility seats are drawn in blue and marked with the wheelchair symbol. */
+const ACCESSIBLE_COLOR = "#2563eb";
 
 const UNASSIGNED_LABEL = "sin asignar";
 
@@ -34,11 +40,18 @@ export function ZoneSeatEditor({
   assignments,
   groups,
   assignedElsewhereByGroup,
-  onChange
+  onChange,
+  accessibleSeatIds = [],
+  onAccessibleChange
 }: ZoneSeatEditorProps) {
+  const accessible = new Set(accessibleSeatIds);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(groups[0]?.groupId ?? null);
   const [openSeatId, setOpenSeatId] = useState<string | null>(null);
   const [movingSeatId, setMovingSeatId] = useState<string | null>(null);
+  // What the organiser has typed, per ticket type, while the save is still in flight. Without
+  // this the field is driven straight from the persisted assignments, so every keystroke was
+  // overwritten by the round-trip and typing a two-digit quantity was impossible.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   // Ticket types can be created and deleted while this editor is open; keep the active one real.
   useEffect(() => {
@@ -65,6 +78,15 @@ export function ZoneSeatEditor({
       return;
     }
     if (activeGroupId) onChange(assignSeat(assignments, seat.id, activeGroupId));
+    // Open the actions for the seat just painted too, so the reduced-mobility checkbox is
+    // reachable for any seat, not only for ones that already had a ticket type.
+    setOpenSeatId(seat.id);
+  }
+
+  function toggleAccessible(seatId: string, next: boolean) {
+    if (!onAccessibleChange) return;
+    const remaining = accessibleSeatIds.filter((id) => id !== seatId);
+    onAccessibleChange(next ? [...remaining, seatId] : remaining);
   }
 
   const openSeat = openSeatId ? seats.find((seat) => seat.id === openSeatId) ?? null : null;
@@ -123,11 +145,23 @@ export function ZoneSeatEditor({
                   max={max}
                   step="1"
                   inputMode="numeric"
-                  value={inThisZone}
+                  value={drafts[group.groupId] ?? String(inThisZone)}
                   onChange={(e) => {
-                    const requested = Math.max(0, Math.min(Number(e.target.value) || 0, max));
+                    const raw = e.target.value;
+                    // Keep exactly what was typed on screen, but only ever place a quantity the
+                    // zone and the ticket type can both take.
+                    setDrafts((prev) => ({ ...prev, [group.groupId]: raw }));
+                    if (raw.trim() === "") return; // mid-edit, don't wipe the zone
+                    const requested = Math.max(0, Math.min(Number(raw) || 0, max));
                     onChange(assignSeatCount(seats, assignments, group.groupId, requested));
                   }}
+                  onBlur={() =>
+                    setDrafts((prev) => {
+                      const next = { ...prev };
+                      delete next[group.groupId];
+                      return next;
+                    })
+                  }
                   className="h-10 w-24 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground"
                 />
                 <span className="text-sm text-muted-foreground">
@@ -165,22 +199,27 @@ export function ZoneSeatEditor({
                 const groupId = assignments[seat.id];
                 const group = groupId ? groupById.get(groupId) : undefined;
                 const isMoving = movingSeatId === seat.id;
+                const isAccessible = accessible.has(seat.id);
+                // Reduced mobility wins the colour: at the door it matters more than the tier.
+                const background = isAccessible ? ACCESSIBLE_COLOR : group?.color;
                 return (
                   <button
                     key={seat.id}
                     type="button"
-                    aria-label={`Asiento ${seat.label} ${group ? group.name : UNASSIGNED_LABEL}`}
+                    aria-label={`Asiento ${seat.label} ${group ? group.name : UNASSIGNED_LABEL}${
+                      isAccessible ? " movilidad reducida" : ""
+                    }`}
                     aria-pressed={openSeatId === seat.id}
                     onClick={() => handleSeatClick(seat)}
-                    style={group ? { backgroundColor: group.color, borderColor: group.color } : undefined}
+                    style={background ? { backgroundColor: background, borderColor: background } : undefined}
                     className={cn(
                       "h-7 w-7 rounded-t-md border-2 text-[10px] font-semibold leading-none",
-                      group ? "text-white" : "border-dashed border-muted-foreground text-muted-foreground",
+                      background ? "text-white" : "border-dashed border-muted-foreground text-muted-foreground",
                       isMoving && "ring-2 ring-accent",
                       openSeatId === seat.id && "ring-2 ring-foreground"
                     )}
                   >
-                    {seat.number}
+                    {isAccessible ? <span aria-hidden="true">&#9855;</span> : seat.number}
                   </button>
                 );
               })}
@@ -231,6 +270,14 @@ export function ZoneSeatEditor({
           >
             Mover a otro asiento
           </Button>
+          <label className="flex items-center gap-2 text-xs font-semibold">
+            <input
+              type="checkbox"
+              checked={accessible.has(openSeat.id)}
+              onChange={(e) => toggleAccessible(openSeat.id, e.target.checked)}
+            />
+            Movilidad reducida
+          </label>
         </div>
       )}
     </section>

@@ -10,11 +10,13 @@ export interface ZoneEditorPanelProps {
   onDeleteZone: (id: string) => void;
 }
 
+// No hay boton de zona accesible: la movilidad reducida se marca asiento a asiento desde el
+// editor de asientos, porque esas plazas van repartidas dentro del patio de butacas y no en un
+// bloque aparte. El tipo "accessible" sigue existiendo para planos antiguos que ya lo usaban.
 const ADD_BUTTONS: { kind: Zone["kind"]; label: string }[] = [
   { kind: "numbered", label: "+ Zona numerada" },
   { kind: "standing", label: "+ Zona de pie" },
   { kind: "stage", label: "+ Escenario/Pantalla" },
-  { kind: "accessible", label: "+ Zona accesible" },
   { kind: "gate", label: "+ Puerta" }
 ];
 

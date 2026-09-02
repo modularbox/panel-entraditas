@@ -172,7 +172,10 @@ export const CapacityPoolSchema = z.object({
   ticketTypeGroupId: z.string().nullable().optional(),
   // Per-seat breakdown for numbered zones. Sparse: only assigned seats appear, so a zone can
   // legitimately have seats left with no ticket type on them.
-  seatAssignments: z.array(SeatAssignmentSchema).optional()
+  seatAssignments: z.array(SeatAssignmentSchema).optional(),
+  // Seats reserved for reduced mobility. A flag on the individual seat rather than a separate
+  // zone, because accessible places sit inside the normal seating, not in a block of their own.
+  accessibleSeatIds: z.array(z.string()).optional()
 });
 export type CapacityPool = z.infer<typeof CapacityPoolSchema>;
 

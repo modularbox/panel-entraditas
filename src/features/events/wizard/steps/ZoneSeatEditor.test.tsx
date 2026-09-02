@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Zone } from "@entraditas/types";
 import { buildSeatGrid, type SeatAssignments } from "./seatMap";
 import type { TicketTypeGroup } from "./Step4TicketTypes";
@@ -175,6 +175,65 @@ describe("ZoneSeatEditor", () => {
     fireEvent.change(input, { target: { value: "12" } });
 
     expect(screen.getByText(/25 plazas - 12 asignadas - 13 sin asignar/)).toBeInTheDocument();
+  });
+
+  it("marks a seat as reduced mobility from the seat's own actions", () => {
+    const onAccessibleChange = vi.fn();
+    render(
+      <ZoneSeatEditor
+        zone={ZONE}
+        seats={buildSeatGrid({ capacity: ZONE.capacity, width: ZONE.width, height: ZONE.height, rows: ZONE.rows })}
+        assignments={{ "A-1": "gratis" }}
+        groups={[GRATIS, VIP]}
+        assignedElsewhereByGroup={{}}
+        onChange={() => {}}
+        accessibleSeatIds={[]}
+        onAccessibleChange={onAccessibleChange}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Asiento A1 Entradas gratis" }));
+    fireEvent.click(screen.getByLabelText("Movilidad reducida"));
+
+    expect(onAccessibleChange).toHaveBeenCalledWith(["A-1"]);
+  });
+
+  it("labels an already reduced-mobility seat as such", () => {
+    render(
+      <ZoneSeatEditor
+        zone={ZONE}
+        seats={buildSeatGrid({ capacity: ZONE.capacity, width: ZONE.width, height: ZONE.height, rows: ZONE.rows })}
+        assignments={{ "A-1": "gratis" }}
+        groups={[GRATIS, VIP]}
+        assignedElsewhereByGroup={{}}
+        onChange={() => {}}
+        accessibleSeatIds={["A-1"]}
+        onAccessibleChange={() => {}}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Asiento A1 Entradas gratis movilidad reducida" })).toBeInTheDocument();
+  });
+
+  it("lets a free seat be marked as reduced mobility too", () => {
+    const onAccessibleChange = vi.fn();
+    render(
+      <ZoneSeatEditor
+        zone={ZONE}
+        seats={buildSeatGrid({ capacity: ZONE.capacity, width: ZONE.width, height: ZONE.height, rows: ZONE.rows })}
+        assignments={{}}
+        groups={[]}
+        assignedElsewhereByGroup={{}}
+        onChange={() => {}}
+        accessibleSeatIds={[]}
+        onAccessibleChange={onAccessibleChange}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Asiento C3 sin asignar" }));
+    fireEvent.click(screen.getByLabelText("Movilidad reducida"));
+
+    expect(onAccessibleChange).toHaveBeenCalledWith(["C-3"]);
   });
 
   it("asks for a ticket type first when the event has none", () => {

@@ -164,20 +164,24 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
   }
 
-  async function saveSeatAssignments(zoneId: string, next: SeatAssignments) {
+  async function patchPool(zoneId: string, patch: Record<string, unknown>) {
     setError(null);
     const pool = pools.find((p) => p.zoneId === zoneId);
     if (!pool) return;
     try {
-      await apiClient.patch(
-        `/capacity-pools/${pool.id}`,
-        { seatAssignments: toSeatAssignmentList(next) },
-        { token: token! }
-      );
+      await apiClient.patch(`/capacity-pools/${pool.id}`, patch, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent?.id] });
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
+  }
+
+  async function saveSeatAssignments(zoneId: string, next: SeatAssignments) {
+    await patchPool(zoneId, { seatAssignments: toSeatAssignmentList(next) });
+  }
+
+  async function saveAccessibleSeats(zoneId: string, next: string[]) {
+    await patchPool(zoneId, { accessibleSeatIds: next });
   }
 
   const groups = useMemo(() => groupTicketTypes(ticketTypes), [ticketTypes]);
@@ -334,6 +338,8 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
             })
           )}
           onChange={(next) => void saveSeatAssignments(selectedZone.id, next)}
+          accessibleSeatIds={pools.find((p) => p.zoneId === selectedZone.id)?.accessibleSeatIds ?? []}
+          onAccessibleChange={(next) => void saveAccessibleSeats(selectedZone.id, next)}
         />
       )}
 
