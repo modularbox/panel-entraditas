@@ -119,6 +119,7 @@ export function toSeatZones(zones: Zone[], pools: CapacityPool[]): PublicSeatZon
         width: zone.width,
         height: zone.height,
         rows: zone.rows,
+        rowSeats: zone.rowSeats,
         rowAOrigin: rowOriginForStage(zone, stage)
       });
       result.push({

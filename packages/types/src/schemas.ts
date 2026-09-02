@@ -69,6 +69,10 @@ export const ZoneSchema = z.object({
   // derived from capacity + rows rather than stored, so the venue's zone stays a small record.
   // null means "work it out from the zone's shape".
   rows: z.number().int().positive().nullable().optional(),
+  // Seats in each row, when the room is not a neat rectangle: [12, 11, 11, 9] for a stalls block
+  // that narrows at the back. Overrides both `rows` and the even split, and its sum becomes the
+  // zone's real capacity. null/absent means "spread `capacity` evenly over `rows`".
+  rowSeats: z.array(z.number().int().nonnegative()).nullable().optional(),
   x: z.number().min(0).max(100),
   y: z.number().min(0).max(100),
   width: z.number().min(1).max(100),

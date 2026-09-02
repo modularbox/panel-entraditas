@@ -37,7 +37,15 @@ export interface SeatGridInput {
   height: number;
   /** Explicit row count; when null/undefined the rows are derived from capacity and shape. */
   rows?: number | null;
+  /** Explicit seats per row, for rooms that are not a neat rectangle. Wins over `rows`. */
+  rowSeats?: number[] | null;
   rowAOrigin?: RowOrigin;
+}
+
+/** Capacity implied by a custom distribution, which is what the zone actually holds. */
+export function capacityOfRowSeats(rowSeats: number[] | null | undefined): number | null {
+  if (!rowSeats || rowSeats.length === 0) return null;
+  return rowSeats.reduce((sum, seats) => sum + Math.max(0, Math.floor(seats)), 0);
 }
 
 /** seatId -> ticketTypeGroupId. Only assigned seats are present. */
@@ -96,8 +104,12 @@ export function rowOriginForStage(
 /** Builds the seats of a zone in reading order (row drawn first, then left to right). */
 export function buildSeatGrid(zone: SeatGridInput): Seat[] {
   const capacity = Math.max(0, Math.min(Math.floor(zone.capacity), MAX_RENDERED_SEATS));
-  const rowCount = computeRowCount(capacity, zone.width, zone.height, zone.rows);
-  const counts = seatsPerRow(capacity, rowCount);
+  // A custom distribution describes the room exactly, so it wins over the even split entirely.
+  const custom = zone.rowSeats?.length
+    ? zone.rowSeats.map((seats) => Math.max(0, Math.floor(seats))).filter((seats) => seats > 0)
+    : null;
+  const rowCount = custom ? custom.length : computeRowCount(capacity, zone.width, zone.height, zone.rows);
+  const counts = custom ?? seatsPerRow(capacity, rowCount);
   const origin = zone.rowAOrigin ?? "top";
   const seats: Seat[] = [];
   counts.forEach((seatsInRow, rowIndex) => {

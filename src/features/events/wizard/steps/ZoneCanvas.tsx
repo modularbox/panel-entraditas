@@ -167,6 +167,7 @@ export function ZoneCanvas({
                 width: layout.width,
                 height: layout.height,
                 rows: zone.rows,
+                rowSeats: zone.rowSeats,
                 rowAOrigin: rowOriginForStage(layout, stage)
               })
             )

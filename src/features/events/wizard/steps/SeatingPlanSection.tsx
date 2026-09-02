@@ -120,9 +120,38 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
   }
 
+  /**
+   * Copies a zone's shape next to itself. The seat breakdown is deliberately NOT copied: the new
+   * zone starts with every seat free, because two blocks of the room almost never sell the same
+   * mix and silently duplicating an allocation would double-spend the ticket types' stock.
+   */
+  async function duplicateZone(id: string) {
+    if (!venueId) return;
+    setError(null);
+    const zone = zones.find((candidate) => candidate.id === id);
+    if (!zone) return;
+    const { id: _id, venueId: _venueId, name, x, y, ...rest } = zone;
+    try {
+      const created = await apiClient.post<Zone>(
+        `/venues/${venueId}/zones`,
+        {
+          ...rest,
+          name: `${name} (copia)`,
+          x: Math.min(x + 5, Math.max(0, 100 - zone.width)),
+          y: Math.min(y + 5, Math.max(0, 100 - zone.height))
+        },
+        { token: token! }
+      );
+      await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
+      setSelectedZoneId(created.id);
+    } catch (e) {
+      if (e instanceof AppError) setError(e.message);
+    }
+  }
+
   async function updateZone(
     id: string,
-    patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "x" | "y" | "width" | "height">>
+    patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "rowSeats" | "x" | "y" | "width" | "height">>
   ) {
     setError(null);
     try {
@@ -174,7 +203,16 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   async function patchPool(zoneId: string, patch: Record<string, unknown>) {
     setError(null);
     const pool = pools.find((p) => p.zoneId === zoneId);
-    if (!pool) return;
+    // Capacity pools hang off the event's first session. Without one there is nothing to write
+    // the breakdown to, and staying silent here made the whole assignment look broken.
+    if (!pool) {
+      setError(
+        firstSubEvent
+          ? "Todavia se esta preparando el aforo de esta zona. Vuelve a intentarlo en un momento."
+          : "Este evento no tiene ninguna fecha o sesion todavia, y el aforo cuelga de ella. Vuelve al paso de fechas, confirma una sesion y luego reparte los asientos."
+      );
+      return;
+    }
     try {
       await apiClient.patch(`/capacity-pools/${pool.id}`, patch, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent?.id] });
@@ -226,6 +264,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         width: zone.width,
         height: zone.height,
         rows: zone.rows,
+        rowSeats: zone.rowSeats,
         rowAOrigin: rowOriginForStage(zone, stage)
       });
     }
@@ -357,6 +396,14 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
 
       <SeatingModeChooser mode={mode} onChoose={(next) => void setSeatingMode(next)} />
 
+      {!firstSubEvent && (
+        <p role="alert" className="rounded-md border-2 border-destructive px-3 py-2 text-sm font-semibold">
+          Este evento no tiene ninguna fecha o sesion todavia. El aforo cuelga de la sesion, asi
+          que puedes dibujar las zonas pero el reparto de asientos no se guardara hasta que
+          confirmes una fecha en el paso anterior.
+        </p>
+      )}
+
       {mode === "plan" ? (
         <>
           <div className="flex flex-wrap items-center gap-3">
@@ -409,6 +456,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
               onAddZone={addZone}
               onUpdateZone={updateZone}
               onDeleteZone={deleteZone}
+              onDuplicateZone={(id) => void duplicateZone(id)}
             />
           </div>
         </>

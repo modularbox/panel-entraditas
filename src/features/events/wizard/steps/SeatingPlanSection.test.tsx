@@ -328,6 +328,58 @@ describe("SeatingPlanSection", () => {
     await waitFor(() => expect(db.zones.filter((z) => z.venueId === "venue-1")).toHaveLength(zonesBefore + 2));
   });
 
+  // An event whose date is still to be confirmed has no session yet, and capacity pools hang off
+  // the session. Without one, every seat assignment used to be dropped without a word.
+  it("says what is missing when the event has no session to hang the capacity on", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    db.subEvents = db.subEvents.filter((s) => s.eventId !== "event-2");
+    renderSection("event-2");
+
+    expect(await screen.findByText(/no tiene ninguna fecha o sesion todavia/i)).toBeInTheDocument();
+  });
+
+  it("duplicates a zone without carrying its seat breakdown over", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    db.capacityPools.find((p) => p.id === "pool-2-grada")!.seatAssignments = [
+      { seatId: "A-1", ticketTypeGroupId: "tt-2-grada" }
+    ];
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Duplicar esta zona" }));
+
+    const copy = await waitFor(() => {
+      const found = db.zones.find((z) => z.name === "Grada (copia)");
+      expect(found).toBeDefined();
+      return found!;
+    });
+    expect(copy.capacity).toBe(25);
+    expect(copy.rows).toBe(5);
+    // The copy sells nothing yet: duplicating an allocation would double-spend the ticket type.
+    await waitFor(() => {
+      const pool = db.capacityPools.find((p) => p.zoneId === copy.id);
+      expect(pool?.seatAssignments ?? []).toHaveLength(0);
+    });
+  });
+
+  it("applies a custom seats-per-row distribution and takes its capacity from it", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+
+    fireEvent.change(screen.getByLabelText("Asientos por fila"), { target: { value: "12, 11, 11, 9" } });
+    fireEvent.blur(screen.getByLabelText("Asientos por fila"));
+
+    await waitFor(() => {
+      const zone = db.zones.find((z) => z.id === "zone-grada")!;
+      expect(zone.rowSeats).toEqual([12, 11, 11, 9]);
+      expect(zone.capacity).toBe(43);
+    });
+  });
+
   it("does not offer a whole-zone ticket type selector for a numbered zone", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     seedNumberedGrada();

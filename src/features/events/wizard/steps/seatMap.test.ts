@@ -3,6 +3,7 @@ import {
   assignSeat,
   assignSeatCount,
   buildSeatGrid,
+  capacityOfRowSeats,
   clearSeat,
   computeRowCount,
   countAssignedByGroup,
@@ -91,6 +92,40 @@ describe("buildSeatGrid", () => {
 
   it("returns no seats for an empty zone", () => {
     expect(buildSeatGrid({ capacity: 0, width: 20, height: 20 })).toEqual([]);
+  });
+
+  describe("custom row distribution", () => {
+    it("follows the given seats per row instead of splitting evenly", () => {
+      const seats = buildSeatGrid({ capacity: 43, width: 20, height: 20, rowSeats: [12, 11, 11, 9] });
+      expect(seats).toHaveLength(43);
+      expect(seats.filter((seat) => seat.rowLabel === "A")).toHaveLength(12);
+      expect(seats.filter((seat) => seat.rowLabel === "D")).toHaveLength(9);
+    });
+
+    it("wins over an explicit row count", () => {
+      const seats = buildSeatGrid({ capacity: 6, width: 20, height: 20, rows: 3, rowSeats: [4, 2] });
+      expect(seatRows(seats).map((row) => row.length)).toEqual([4, 2]);
+    });
+
+    it("drops empty rows so a stray zero cannot create a phantom row", () => {
+      expect(seatRows(buildSeatGrid({ capacity: 5, width: 20, height: 20, rowSeats: [3, 0, 2] })).map((r) => r.length)).toEqual([3, 2]);
+    });
+
+    it("falls back to the even split when the distribution is empty", () => {
+      const seats = buildSeatGrid({ capacity: 6, width: 20, height: 20, rows: 2, rowSeats: [] });
+      expect(seatRows(seats).map((row) => row.length)).toEqual([3, 3]);
+    });
+  });
+});
+
+describe("capacityOfRowSeats", () => {
+  it("adds up a custom distribution", () => {
+    expect(capacityOfRowSeats([12, 11, 11, 9])).toBe(43);
+  });
+
+  it("returns null when there is no custom distribution", () => {
+    expect(capacityOfRowSeats(null)).toBeNull();
+    expect(capacityOfRowSeats([])).toBeNull();
   });
 });
 
