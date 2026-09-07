@@ -354,6 +354,41 @@ estas dos, y ninguna se puede hacer solo desde este repo:
 Ademas la web tiene que cambiar para consumirlo: hoy sus eventos salen de datos mock locales
 y sus 2 codigos de descuento estan hardcodeados en `src/lib/discounts.ts`.
 
+## Reglas Del Evento Y Pasos Nuevos Del Asistente (2026-09-04)
+
+Nuevo paso "Reglas" en el asistente: un cuestionario que el organizador responde antes de
+publicar. **Todas las preguntas son de respuesta cerrada a proposito** (si/no o una cantidad),
+para que ni el organizador redacte nada ni el sistema tenga que interpretar texto libre. Hay un
+test (`EventRulesSection.test.tsx`) que falla si alguien anade una pregunta de texto libre.
+
+Grupos: venta (min/max por pedido, tope por comprador, compra como invitado), asientos (dejar
+asientos aislados, elegir butaca, maximo de asientos seguidos), titular (nominativa, documento,
+cesion), puerta (reentrada, escaneos por entrada), reembolsos (si/no y plazo en dias) y lo que ve
+el comprador (edad minima, mostrar entradas restantes, umbral de ultimas entradas, accesible).
+
+- `EventRules` + `EVENT_RULE_DEFAULTS` en `packages/types/src/schemas.ts`. Todo opcional: lo no
+  respondido cae a su valor por defecto, asi que los eventos anteriores siguen validando.
+- El contrato publico recibe solo el subconjunto que afecta al comprador (`PublicEventRules`).
+  Lo operativo de puerta (reentrada, escaneos por entrada) NO sale.
+
+Descuentos, puertas e invitados ya existian con sus tests pero solo estaban enganchados en las
+pestanas del detalle del evento, no en el asistente: por eso no aparecian al crear uno. Ahora son
+pasos del asistente. El asistente pasa de 5 a 9 pasos (8 si el evento es de una sola funcion).
+
+### Publicacion Hacia La API
+
+`src/features/publish/toApiEventPayload.ts` adapta el evento publicado al cuerpo que valida
+`PUT /v1/events/:id`: manda el contrato COMPLETO mas los campos que la API exige con sus nombres
+(`ticketTiers` en vez de `tiers`, `date` + `time` en vez de `startsAt`). Asi la API valida lo que
+espera y la web recibe todo lo demas intacto. `missingForApi()` comprueba antes de mandar lo
+mismo que valida la API, para poder decirselo al organizador en vez de recibir un 400 opaco.
+
+**Falta la llamada en si.** No se ha cableado porque depende de una decision de seguridad sin
+resolver: la API valida al panel con `PANEL_API_KEY`, y el panel es una app de navegador, asi que
+esa clave la veria cualquiera abriendo las devtools y podria publicar eventos falsos. Hay que
+elegir antes entre (a) que publique algo en servidor que guarde la clave, o (b) que la API acepte
+el token de sesion del panel y valide el rol.
+
 ## Analisis De api.entraditas.com (2026-09-02)
 
 Revisado `C:\Users\AXEL\Desktop\MODULARBOX\api-entraditas`. **La API NO es solo para pagos**:
