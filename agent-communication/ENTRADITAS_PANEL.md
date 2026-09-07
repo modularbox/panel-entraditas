@@ -429,7 +429,11 @@ las devtools podria leer la clave** y publicar eventos falsos. Opciones:
 1. Que la publicacion la haga un backend/funcion intermedia con la clave (lo correcto).
 2. O que la API acepte el JWT de sesion del panel y valide rol en vez de una clave compartida.
 
-No se ha implementado ninguna: es una decision de Axel.
+**Resuelto (2026-09-06) con la opcion 2.** El panel inicia sesion en la API con las credenciales
+de quien entra y publica con su token; el servidor comprueba rol y organizacion, y a quien no es
+superadmin le fuerza SU organizacion aunque manipule el cuerpo. `PANEL_API_KEY` queda solo para
+llamadas de servidor a servidor, donde nunca llega a un navegador; si no esta configurada,
+ninguna clave vale.
 
 ## Analisis Sincronizacion Web <-> Panel (2026-09-02)
 
@@ -493,7 +497,11 @@ solicitud (`POST /v1/organizers/applications`) que se aprueba desde el panel.
 ## Pendientes Prioritarios
 
 - Probar visualmente el wizard completo en desktop y movil (incluido el nuevo editor de asientos).
+  Ojo: el panel **no se puede ver en el navegador integrado de Claude Code**, porque el Service
+  Worker de MSW no llega a registrarse ahi y la pagina sale en blanco. Hay que abrirlo en Chrome.
 - Desarrollar el apartado de QR (pendiente, no empezado).
+- Desplegar la API: `api.entraditas.com` resuelve a la misma IP que la web y devuelve 404, asi
+  que hasta que haya un Node escuchando ahi la web publica sigue con los eventos de ejemplo.
 - Ejecutar el plan de sincronizacion web <-> panel del analisis de arriba.
 - Mejorar drag/touch del plano si vuelve a ir mal en pantallas tactiles.
 - Implementar plantillas reutilizables de plano con API/mock formal.
@@ -564,3 +572,49 @@ Impacto para la web publica cuando exista la API:
   comprador no puede asumir "una zona = un tipo de entrada".
 - Los asientos sin `ticketTypeGroupId` no estan a la venta y deben pintarse como no
   seleccionables, no como agotados.
+
+### Base De Datos Real Y Cierre De La Cadena (2026-09-07)
+
+La API ya corre contra MySQL de verdad, no solo contra tests. Levantarla destapo dos fallos que
+ningun test unitario podia ver, porque ninguno tocaba la base de datos.
+
+**Fechas (afecta a la web publica).** La migracion de SQLite a MySQL tradujo el esquema pero no
+los valores. La API escribia `2026-09-07T13:47:06.512Z` en columnas `DATETIME` y MySQL lo
+rechazaba (`ER_TRUNCATED_WRONG_VALUE`): ningun INSERT con fecha entraba, ni siquiera el del
+primer superadmin. Ahora:
+
+- hacia la base de datos, `toDbDate()` produce `2026-09-07 13:47:06.512`, siempre en UTC;
+- hacia el navegador, `fromDbDate()` devuelve ISO-8601 con `Z`.
+
+Lo segundo importa para la web: el formato crudo de MySQL lo interpreta JavaScript como hora
+**local**, asi que sin convertir una notificacion sale desplazada segun la zona de quien la mire.
+Cualquier campo de fecha que se anada a una respuesta tiene que pasar por `fromDbDate`.
+
+**URL de la API sin protocolo.** `VITE_API_URL` valia `api.entraditas.com`. Sin protocolo el
+navegador la toma como ruta RELATIVA, asi que las peticiones iban a
+`panel.entraditas.com/api.entraditas.com/...`: la publicacion hacia la web nunca habria salido
+del panel. `normalizeApiBase` asume `https` cuando falta el protocolo.
+
+**Variables por modo.** Vite carga `.env` tambien al construir, asi que un `.env` apuntando a la
+API local acaba incrustado en el `dist` y un despliegue con ese bundle haria que la web publica
+llamase al portatil de quien construyo. Ahora hay `.env.development` (solo servidor de
+desarrollo), `.env.production` (solo build) y `.env.test` (vacia la variable, para que los tests
+corran contra los mocks pase lo que pase en la maquina).
+
+**Aprobar y publicar, ya en la interfaz.** La lista de eventos tiene una columna *Revision* con
+`Aprobar y publicar` / `Rechazar`, visible solo para superadmin y solo en eventos que estan en
+revision. Aprobar pasa el evento a publicado y acto seguido lo manda a la API publica; un fallo
+de envio NO deshace la aprobacion y se cuenta con el mensaje de `describePublishOutcome`. El
+mensaje sobrevive a la desaparicion de los botones: si no, el revisor nunca llegaba a leer si el
+evento habia salido de verdad a la web.
+
+**CORS.** En produccion mandan solo los origenes de `CORS_ORIGINS`. Fuera de produccion se acepta
+ademas cualquier origen de la propia maquina en cualquier puerto, porque Vite cambia de puerto en
+cuanto el suyo esta ocupado y una lista fija deja de valer sin avisar.
+
+**Como levantar todo en local.** En `api-entraditas`: `.\scripts\bd.ps1 init` crea una instancia
+de MySQL separada de la que hubiera instalada (puerto 3307, datos y credenciales propios),
+`npm run dev` crea las tablas al arrancar, `npm run seed` siembra las **mismas** organizaciones y
+cuentas que los mocks del panel (`admin@entraditas.com` / `admin1234`, etc.) para no tener que
+aprenderse dos juegos de credenciales, y `npm run smoke` recorre por HTTP la cadena entera contra
+MySQL real.
