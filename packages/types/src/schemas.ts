@@ -80,6 +80,91 @@ export const ZoneSchema = z.object({
 });
 export type Zone = z.infer<typeof ZoneSchema>;
 
+/**
+ * Reglas de venta y acceso que el organizador fija antes de publicar.
+ *
+ * Todas son de respuesta cerrada a proposito -- si/no o una cantidad -- para que ni el
+ * organizador tenga que redactar nada ni el sistema tenga que interpretar texto libre. Cada una
+ * se traduce despues en una comprobacion concreta (en la venta, en la puerta o en la web).
+ *
+ * Todo el bloque es opcional: los eventos creados antes de que existiera siguen validando, y
+ * cada campo cae a su valor por defecto documentado en EVENT_RULE_DEFAULTS.
+ */
+export const EventRulesSchema = z.object({
+  // --- Venta ---
+  /** Minimo de entradas que se pueden comprar de una vez. */
+  minPerOrder: z.number().int().positive().optional(),
+  /** Maximo de entradas por pedido. */
+  maxPerOrder: z.number().int().positive().optional(),
+  /** Tope de entradas por comprador en todo el evento. 0 = sin tope. */
+  maxPerCustomer: z.number().int().nonnegative().optional(),
+  /** Permitir comprar sin crear cuenta. */
+  allowGuestCheckout: z.boolean().optional(),
+
+  // --- Asientos (solo aplica a zonas numeradas) ---
+  /**
+   * Permitir que una compra deje un asiento suelto entre dos ocupados. Con false, la venta
+   * rechaza la seleccion que dejaria huecos de un solo asiento, que luego no se venden.
+   */
+  allowIsolatedSeats: z.boolean().optional(),
+  /** Dejar que el comprador elija butaca concreta; con false se asigna la mejor disponible. */
+  allowSeatSelection: z.boolean().optional(),
+  /** Maximo de asientos seguidos en un mismo pedido. 0 = sin tope. */
+  maxContiguousSeats: z.number().int().nonnegative().optional(),
+
+  // --- Titular de la entrada ---
+  /** Pedir nombre y apellidos de cada asistente, no solo del comprador. */
+  requiresAttendeeName: z.boolean().optional(),
+  /** Pedir documento de identidad de cada asistente. */
+  requiresAttendeeDocument: z.boolean().optional(),
+  /** Permitir ceder la entrada a otra persona (genera un QR nuevo e invalida el anterior). */
+  isTransferable: z.boolean().optional(),
+
+  // --- Acceso / puerta ---
+  /** Permitir salir y volver a entrar con la misma entrada. */
+  allowReentry: z.boolean().optional(),
+  /** Cuantas veces se puede escanear una entrada valida. */
+  maxScansPerTicket: z.number().int().positive().optional(),
+
+  // --- Reembolsos ---
+  isRefundable: z.boolean().optional(),
+  /** Dias antes del evento hasta los que se admite reembolso. 0 = hasta el mismo dia. */
+  refundDeadlineDays: z.number().int().nonnegative().optional(),
+
+  // --- Publico ---
+  /** Edad minima para entrar. 0 = sin restriccion. */
+  minimumAge: z.number().int().nonnegative().optional(),
+  /** Mostrar al comprador cuantas entradas quedan. */
+  showRemainingTickets: z.boolean().optional(),
+  /** A partir de cuantas entradas restantes se avisa de "ultimas entradas". 0 = no avisar. */
+  lowStockThreshold: z.number().int().nonnegative().optional(),
+  /** El recinto tiene acceso y plazas para movilidad reducida. */
+  wheelchairAccessible: z.boolean().optional()
+});
+export type EventRules = z.infer<typeof EventRulesSchema>;
+
+/** Valor que se aplica cuando el organizador no ha tocado la regla. */
+export const EVENT_RULE_DEFAULTS: Required<EventRules> = {
+  minPerOrder: 1,
+  maxPerOrder: 6,
+  maxPerCustomer: 0,
+  allowGuestCheckout: true,
+  allowIsolatedSeats: false,
+  allowSeatSelection: true,
+  maxContiguousSeats: 0,
+  requiresAttendeeName: false,
+  requiresAttendeeDocument: false,
+  isTransferable: true,
+  allowReentry: false,
+  maxScansPerTicket: 1,
+  isRefundable: true,
+  refundDeadlineDays: 7,
+  minimumAge: 0,
+  showRemainingTickets: true,
+  lowStockThreshold: 20,
+  wheelchairAccessible: false
+};
+
 export const EventStatusSchema = z.enum([
   "draft",
   "pending_review",
@@ -140,6 +225,8 @@ export const EventSchema = z.object({
     .optional(),
   datePending: z.boolean().optional(),
   notifyWhenDateConfirmed: z.boolean().optional(),
+  // Reglas de venta y acceso que responde el organizador antes de publicar.
+  rules: EventRulesSchema.optional(),
   serviceFeeType: z.enum(["none", "percent", "fixed"]).optional(),
   serviceFeeValue: z.number().nonnegative().optional(),
   createdAt: z.string(),

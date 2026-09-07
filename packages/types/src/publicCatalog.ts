@@ -131,6 +131,31 @@ export const PublicMatchupSchema = z.object({
 });
 export type PublicMatchup = z.infer<typeof PublicMatchupSchema>;
 
+/**
+ * Las reglas del organizador que el comprador necesita conocer antes de comprar. Es un
+ * subconjunto de EventRules: lo puramente operativo (reentrada, escaneos por entrada, plazo de
+ * reembolso interno) no sale de aqui porque no cambia nada de lo que ve el comprador.
+ */
+export const PublicEventRulesSchema = z.object({
+  minPerOrder: z.number().int().positive(),
+  maxPerOrder: z.number().int().positive(),
+  /** 0 = sin tope por comprador. */
+  maxPerCustomer: z.number().int().nonnegative(),
+  allowGuestCheckout: z.boolean(),
+  allowSeatSelection: z.boolean(),
+  requiresAttendeeName: z.boolean(),
+  requiresAttendeeDocument: z.boolean(),
+  isTransferable: z.boolean(),
+  isRefundable: z.boolean(),
+  /** 0 = sin edad minima. */
+  minimumAge: z.number().int().nonnegative(),
+  showRemainingTickets: z.boolean(),
+  /** 0 = no avisar de "ultimas entradas". */
+  lowStockThreshold: z.number().int().nonnegative(),
+  wheelchairAccessible: z.boolean()
+});
+export type PublicEventRules = z.infer<typeof PublicEventRulesSchema>;
+
 export const PublicEventSchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -166,6 +191,7 @@ export const PublicEventSchema = z.object({
     value: z.number().nonnegative()
   }),
   seatMap: PublicSeatMapSchema.nullable(),
+  rules: PublicEventRulesSchema,
   discountCodes: z.array(PublicDiscountCodeSchema),
   matchup: PublicMatchupSchema.nullable(),
   organizerName: z.string().nullable(),

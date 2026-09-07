@@ -1,3 +1,7 @@
+import {
+  EVENT_RULE_DEFAULTS,
+  type PublicEventRules
+} from "@entraditas/types";
 import type {
   CapacityPool,
   DiscountCode,
@@ -163,6 +167,30 @@ export function toDiscountCodes(discountCodes: DiscountCode[]): PublicDiscountCo
     }));
 }
 
+/**
+ * Reglas que el comprador necesita conocer, con los valores por defecto ya resueltos: la web
+ * publica nunca recibe un campo sin responder, asi no tiene que conocer los defaults del panel.
+ * Lo puramente operativo (reentrada, escaneos por entrada, plazo interno de reembolso) no sale.
+ */
+export function toPublicRules(event: Event): PublicEventRules {
+  const rules = { ...EVENT_RULE_DEFAULTS, ...(event.rules ?? {}) };
+  return {
+    minPerOrder: rules.minPerOrder,
+    maxPerOrder: rules.maxPerOrder,
+    maxPerCustomer: rules.maxPerCustomer,
+    allowGuestCheckout: rules.allowGuestCheckout,
+    allowSeatSelection: rules.allowSeatSelection,
+    requiresAttendeeName: rules.requiresAttendeeName,
+    requiresAttendeeDocument: rules.requiresAttendeeDocument,
+    isTransferable: rules.isTransferable,
+    isRefundable: rules.isRefundable,
+    minimumAge: rules.minimumAge,
+    showRemainingTickets: rules.showRemainingTickets,
+    lowStockThreshold: rules.lowStockThreshold,
+    wheelchairAccessible: rules.wheelchairAccessible
+  };
+}
+
 export function toSessions(subEvents: SubEvent[]): PublicSession[] {
   return [...subEvents]
     .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -218,6 +246,7 @@ export function toPublicEvent(input: PublishInput): PublicEvent {
     priceFrom: prices.length > 0 ? Math.min(...prices) : null,
     serviceFee: { type: event.serviceFeeType ?? "none", value: event.serviceFeeValue ?? 0 },
     seatMap: seatZones.length > 0 ? { zones: seatZones } : null,
+    rules: toPublicRules(event),
     discountCodes: toDiscountCodes(discountCodes),
     matchup: event.matchup
       ? {

@@ -11,6 +11,10 @@ import { Step2Schedule } from "./steps/Step2Schedule";
 import { Step4TicketTypes } from "./steps/Step4TicketTypes";
 import { Step5Publish } from "./steps/Step5Publish";
 import { SeatingPlanSection } from "./steps/SeatingPlanSection";
+import { EventRulesSection } from "./steps/EventRulesSection";
+import { DiscountCodesSection } from "./steps/DiscountCodesSection";
+import { GatesSection } from "./steps/GatesSection";
+import { GuestlistSection } from "./steps/GuestlistSection";
 
 function useEventQuery(eventId: string | null) {
   const token = useSessionStore((s) => s.token);
@@ -21,7 +25,7 @@ function useEventQuery(eventId: string | null) {
   });
 }
 
-type StepKey = "info" | "subeventos" | "plano" | "tipos" | "publicar";
+type StepKey = "info" | "subeventos" | "tipos" | "plano" | "reglas" | "descuentos" | "puertas" | "invitados" | "publicar";
 
 interface WizardStep {
   key: StepKey;
@@ -36,6 +40,10 @@ const ALL_STEPS: WizardStep[] = [
   // "Zonas" y no "Plano": el paso cubre tanto las zonas dibujadas sobre un plano como las
   // zonas sin plano, y el organizador elige una de las dos dentro del propio paso.
   { key: "plano", label: "Zonas", needsEventId: true },
+  { key: "reglas", label: "Reglas", needsEventId: true },
+  { key: "descuentos", label: "Descuentos", needsEventId: true },
+  { key: "puertas", label: "Puertas", needsEventId: true },
+  { key: "invitados", label: "Invitados", needsEventId: true },
   { key: "publicar", label: "Publicar evento", needsEventId: true }
 ];
 
@@ -137,6 +145,10 @@ export function EventWizardPage() {
         )}
         {activeStep.key === "subeventos" && <Step2Schedule eventId={eventId} onSaved={setEventId} goNext={goNext} />}
         {activeStep.key === "plano" && <SeatingPlanSection eventId={eventId} onValidationChange={setPlanoValid} />}
+        {activeStep.key === "reglas" && <EventRulesSection eventId={eventId} />}
+        {activeStep.key === "descuentos" && <DiscountCodesSection eventId={eventId} />}
+        {activeStep.key === "puertas" && <GatesSection eventId={eventId} />}
+        {activeStep.key === "invitados" && <GuestlistSection eventId={eventId} />}
         {activeStep.key === "publicar" && <Step5Publish eventId={eventId} onSaved={setEventId} />}
       </section>
     </div>
