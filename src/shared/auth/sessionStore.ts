@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { apiClient } from "@/shared/lib/apiClient";
+import { loginToApi, logoutFromApi } from "@/shared/lib/entraditasApi";
 import type { RoleSlug } from "@entraditas/types";
 
 const TOKEN_STORAGE_KEY = "entraditas.panel.devToken";
@@ -83,6 +84,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   async login(email, password) {
     const result = await apiClient.post<SessionResponse>("/auth/login", { email, password });
     get().setSession(result);
+    // Ademas se abre sesion en api.entraditas.com con las mismas credenciales, que es lo que
+    // permite publicar en la web publica sin llevar ninguna clave compartida en el navegador.
+    // Si falla (API sin configurar, caida, o la persona todavia no dada de alta alli) no se
+    // interrumpe la entrada al panel: simplemente no se podra publicar hacia fuera.
+    await loginToApi(email, password);
   },
 
   async logout() {
@@ -90,6 +96,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (token) {
       await apiClient.post("/auth/logout", undefined, { token }).catch(() => undefined);
     }
+    await logoutFromApi().catch(() => undefined);
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
     set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
