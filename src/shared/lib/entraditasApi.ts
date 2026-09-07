@@ -9,7 +9,20 @@
  * que hasta ahora contra sus mocks: publicar deja el evento en revision y no sale a la web.
  */
 
-const API_BASE = String(import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+/**
+ * Base de la API, tolerante a como se escriba en `VITE_API_URL`.
+ *
+ * Sin protocolo (`api.entraditas.com`) el navegador la tomaria como una ruta RELATIVA al propio
+ * panel, asi que las peticiones irian a `panel.entraditas.com/api.entraditas.com/...` y fallarian
+ * sin decir por que. Se asume https, que es lo unico razonable para un dominio publico.
+ */
+export function normalizeApiBase(value: string | undefined): string {
+  const trimmed = String(value || "").trim().replace(/\/+$/, "");
+  if (trimmed === "") return "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
 const TOKEN_STORAGE_KEY = "entraditas.panel.apiToken";
 
 export interface ApiStaff {
