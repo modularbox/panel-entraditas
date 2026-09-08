@@ -26,6 +26,18 @@ function requireUser(request: Request): User | null {
   return db.users.find((u) => u.id === userId) ?? null;
 }
 
+/**
+ * Quien puede cambiar el estado de un evento o borrarlo. Leerlo no basta: hasta ahora estas
+ * acciones solo comprobaban `events:read`, asi que el personal de puerta podia borrar eventos.
+ */
+function canManageEvent(user: User): boolean {
+  return user.role === "superadmin" || user.role === "admin";
+}
+
+function forbidden(requestId: string, message: string) {
+  return HttpResponse.json({ error: { code: "FORBIDDEN", message, requestId } }, { status: 403 });
+}
+
 export function canAccessEvent(event: Event, user: User): boolean {
   if (user.role !== "superadmin" && event.organizationId !== user.organizationId) return false;
   const effective = resolveEffectivePermissions(user.role, user.permissionOverrides);
@@ -222,23 +234,86 @@ maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
     if (!user) return unauthenticated("req_events_delete");
     const event = db.events.find((e) => e.id === params.id);
     if (!event || !canAccessEvent(event, user)) return notFound("req_events_delete");
-    if (event.status !== "draft") {
+    if (!canManageEvent(user)) return forbidden("req_events_delete", "Solo un admin puede eliminar un evento");
+
+    // Antes solo se podian borrar borradores, lo que obligaba a despublicar primero aunque el
+    // evento no hubiera vendido nada. Lo que de verdad no se puede borrar es un evento CON
+    // VENTAS: eso destruiria pedidos y entradas de gente que ha pagado.
+    const vendidos = db.orders.filter((order) => order.eventId === event.id);
+    if (vendidos.length > 0) {
       return HttpResponse.json(
         {
           error: {
             code: "VALIDATION_ERROR",
-            message: "Solo se puede eliminar un evento en borrador",
+            message: `No se puede eliminar: el evento tiene ${vendidos.length} pedido(s). Retiralo de la web para dejar de venderlo.`,
             requestId: "req_events_delete"
           }
         },
         { status: 409 }
       );
     }
+
+    const subEventIds = new Set(db.subEvents.filter((s) => s.eventId === event.id).map((s) => s.id));
+    const guestListIds = new Set(db.guestLists.filter((g) => g.eventId === event.id).map((g) => g.id));
     db.events = db.events.filter((e) => e.id !== event.id);
     db.subEvents = db.subEvents.filter((s) => s.eventId !== event.id);
+    db.capacityPools = db.capacityPools.filter((p) => !subEventIds.has(p.subEventId));
+    const ticketTypeIds = new Set(db.ticketTypes.filter((t) => t.eventId === event.id).map((t) => t.id));
     db.ticketTypes = db.ticketTypes.filter((t) => t.eventId !== event.id);
+    db.ticketTypePrices = db.ticketTypePrices.filter((p) => !ticketTypeIds.has(p.ticketTypeId));
     db.discountCodes = db.discountCodes.filter((d) => d.eventId !== event.id);
+    db.gates = db.gates.filter((g) => g.eventId !== event.id);
+    db.guestLists = db.guestLists.filter((g) => g.eventId !== event.id);
+    db.guestListEntries = db.guestListEntries.filter((e) => !guestListIds.has(e.guestListId));
     return HttpResponse.json({ data: {}, meta: { requestId: "req_events_delete" } });
+  }),
+
+  // Abrir y cerrar la venta son transiciones propias, no un PATCH del estado: el PATCH general
+  // deja escribir cualquier campo, asi que por ahi se podria saltar la revision poniendo
+  // "published" a mano en un borrador.
+  http.post(`${BASE}/events/:id/open-sales`, ({ request, params }) => {
+    const user = requireUser(request);
+    if (!user) return unauthenticated("req_events_open_sales");
+    const event = db.events.find((e) => e.id === params.id);
+    if (!event || !canAccessEvent(event, user)) return notFound("req_events_open_sales");
+    if (!canManageEvent(user)) return forbidden("req_events_open_sales", "Solo un admin puede abrir la venta");
+    if (event.status !== "published") {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Solo se abre la venta de un evento ya publicado",
+            requestId: "req_events_open_sales"
+          }
+        },
+        { status: 409 }
+      );
+    }
+    event.status = "on_sale";
+    return HttpResponse.json({ data: event, meta: { requestId: "req_events_open_sales" } });
+  }),
+
+  http.post(`${BASE}/events/:id/close-sales`, ({ request, params }) => {
+    const user = requireUser(request);
+    if (!user) return unauthenticated("req_events_close_sales");
+    const event = db.events.find((e) => e.id === params.id);
+    if (!event || !canAccessEvent(event, user)) return notFound("req_events_close_sales");
+    if (!canManageEvent(user)) return forbidden("req_events_close_sales", "Solo un admin puede cerrar la venta");
+    if (event.status !== "on_sale") {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "El evento no esta a la venta",
+            requestId: "req_events_close_sales"
+          }
+        },
+        { status: 409 }
+      );
+    }
+    // Sigue anunciado y visible; lo que se cierra es la compra.
+    event.status = "published";
+    return HttpResponse.json({ data: event, meta: { requestId: "req_events_close_sales" } });
   }),
 
   http.post(`${BASE}/events/:id/publish`, ({ request, params }) => {
@@ -317,6 +392,7 @@ maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
     if (!user) return unauthenticated("req_events_unpublish");
     const event = db.events.find((e) => e.id === params.id);
     if (!event || !canAccessEvent(event, user)) return notFound("req_events_unpublish");
+    if (!canManageEvent(user)) return forbidden("req_events_unpublish", "Solo un admin puede retirar un evento");
     event.status = "draft";
     event.publishedAt = null;
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_unpublish" } });

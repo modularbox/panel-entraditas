@@ -99,6 +99,16 @@ export async function publishEventToApi(eventId: string, payload: unknown): Prom
   });
 }
 
+/**
+ * Retira el evento de la web publica.
+ *
+ * Hace falta porque despublicar o borrar en el panel no tocaba entraditas.com: el evento seguia
+ * anunciandose ahi aunque en el panel ya no existiera.
+ */
+export async function removeEventFromApi(eventId: string): Promise<void> {
+  await request(`/v1/events/${encodeURIComponent(eventId)}`, { method: "DELETE" });
+}
+
 /** Si el panel puede publicar ahora mismo: hay API configurada y sesion abierta en ella. */
 export function canPublishToApi(): boolean {
   return isApiConfigured() && getApiToken() !== null;
