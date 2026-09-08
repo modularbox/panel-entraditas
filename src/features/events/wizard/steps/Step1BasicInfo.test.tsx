@@ -2,9 +2,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { demoPasswordFor, resetDb } from "@/mocks/state";
+import { db, demoPasswordFor, resetDb } from "@/mocks/state";
 import { server } from "@/mocks/server";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { useWizardStore } from "../wizardStore";
 import { Step1BasicInfo, type Step1BasicInfoProps } from "./Step1BasicInfo";
 
 function renderStep1(props: Step1BasicInfoProps) {
@@ -31,6 +32,7 @@ function fillDescription(value: string) {
 describe("Step1BasicInfo", () => {
   afterEach(() => {
     resetDb();
+    useWizardStore.setState({ eventId: null, draftRules: null });
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
@@ -62,6 +64,40 @@ describe("Step1BasicInfo", () => {
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.any(String)));
     expect(goNext).toHaveBeenCalledOnce();
+  });
+
+  it("el evento nace con las respuestas del cuestionario, que se dieron antes de crearlo", async () => {
+    // Es lo que hace posible preguntar primero: si las respuestas se guardaran despues, entre
+    // medias existiria un evento con las reglas por defecto en vez de las contestadas.
+    await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+    useWizardStore.setState({ eventId: null, draftRules: { allowIsolatedSeats: true, maxPerOrder: 2 } });
+    const onSaved = vi.fn();
+    renderStep1({ eventId: null, onSaved, goNext: vi.fn() });
+
+    fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Concierto con reglas" } });
+    fillDescription("Una descripcion valida");
+    fillRequiredLocation();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.any(String)));
+    const creado = db.events.find((event) => event.id === onSaved.mock.calls[0]![0]);
+    expect(creado?.rules).toEqual({ allowIsolatedSeats: true, maxPerOrder: 2 });
+  });
+
+  it("no arrastra respuestas del asistente al editar un evento que ya existe", async () => {
+    // Al reanudar un borrador manda lo que tenga guardado el evento, no lo que quedara en el
+    // asistente de una sesion anterior.
+    await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+    useWizardStore.setState({ eventId: "event-5", draftRules: { maxPerOrder: 99 } });
+    renderStep1({ eventId: "event-5", onSaved: vi.fn(), goNext: vi.fn() });
+
+    await waitFor(() => expect(screen.getByLabelText(/T.tulo/)).toHaveValue("Evento sin configurar"));
+    fillDescription("Descripcion editada");
+    fillRequiredLocation();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
+
+    await waitFor(() => expect(db.events.find((e) => e.id === "event-5")?.description).toContain("Descripcion editada"));
+    expect(db.events.find((e) => e.id === "event-5")?.rules?.maxPerOrder).not.toBe(99);
   });
 
   it("patches the existing draft when eventId is already set", async () => {

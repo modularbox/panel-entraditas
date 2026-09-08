@@ -9,6 +9,7 @@ import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 import { step1Schema, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";
+import { useWizardStore } from "../wizardStore";
 
 export interface Step1BasicInfoProps {
   eventId: string | null;
@@ -45,6 +46,7 @@ async function filesToDataUrls(files: FileList | null): Promise<string[]> {
 
 export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps) {
   const token = useSessionStore((s) => s.token);
+  const draftRules = useWizardStore((s) => s.draftRules);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [coverMode, setCoverMode] = useState<"upload" | "url">("upload");
   const { data: existingEvent, isError: hasLoadError } = useQuery({
@@ -132,7 +134,11 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         notifyWhenDateConfirmed: formValues.datePending ? true : formValues.notifyWhenDateConfirmed,
         serviceFeeType: formValues.serviceFeeType,
         serviceFeeValue: formValues.serviceFeeType === "none" ? 0 : formValues.serviceFeeValue ?? 0,
-        hasSubEvents: formValues.hasSubEvents
+        hasSubEvents: formValues.hasSubEvents,
+        // El cuestionario se responde antes de llegar aqui, cuando el evento todavia no existe.
+        // Sus respuestas viajan dentro de la peticion que lo crea, para que el evento nazca ya
+        // con ellas: si se guardaran despues, entre medias habria un evento sin reglas.
+        ...(eventId ? {} : draftRules ? { rules: draftRules } : {})
       };
       const event = eventId
         ? await apiClient.patch<Event>(`/events/${eventId}`, payload, { token: token! })

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { EVENT_RULE_DEFAULTS } from "@entraditas/types";
 import { db, resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { useWizardStore } from "../wizardStore";
 import { EventRulesSection, RULE_GROUPS, withRuleDefaults } from "./EventRulesSection";
 
 function renderSection(eventId: string | null) {
@@ -59,9 +60,33 @@ describe("EventRulesSection", () => {
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
-  it("asks to save the event first when there is no event yet", () => {
+  it("se puede responder antes de que el evento exista", () => {
+    // El cuestionario es el primer paso del asistente, antes de crear nada: varias respuestas
+    // cambian lo que tiene sentido montar despues.
+    useWizardStore.setState({ eventId: null, draftRules: null });
     renderSection(null);
-    expect(screen.getByText(/Guarda la informacion del evento/)).toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: "La venta impide dejar huecos de un asiento" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Se permite dejar huecos de un asiento" }));
+
+    // Sin evento contra el que guardar, la respuesta se queda en el asistente y viaja con la
+    // peticion que lo crea.
+    expect(useWizardStore.getState().draftRules?.allowIsolatedSeats).toBe(true);
+    expect(screen.getByRole("status")).toHaveTextContent(/se aplicaran al crear el evento/i);
+  });
+
+  it("recupera lo ya respondido al volver al paso", () => {
+    useWizardStore.setState({ eventId: null, draftRules: { maxPerOrder: 2, allowSeatSelection: false } });
+    renderSection(null);
+
+    expect(screen.getByLabelText("Maximo de entradas por pedido")).toHaveValue(2);
+    expect(screen.getByRole("button", { name: "El sistema asigna la butaca" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("empezar un evento nuevo olvida las respuestas del anterior", () => {
+    useWizardStore.setState({ eventId: "event-9", draftRules: { allowIsolatedSeats: true } });
+    useWizardStore.getState().reset();
+    expect(useWizardStore.getState().draftRules).toBeNull();
   });
 
   it("shows the defaults for an event that has never answered them", async () => {

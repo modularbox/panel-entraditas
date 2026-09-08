@@ -25,27 +25,36 @@ function next() {
 }
 
 describe("EventWizardPage", () => {
-  beforeEach(() => useWizardStore.setState({ eventId: null }));
+  beforeEach(() => useWizardStore.setState({ eventId: null, draftRules: null }));
   afterEach(() => {
     resetDb();
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
-  it("resets to no eventId for a new event and shows the locked next steps", () => {
+  it("empieza por las preguntas, antes de que el evento exista", () => {
     renderAt("/eventos/nuevo/editar");
     expect(screen.getByTestId("wizard-event-id")).toHaveTextContent("sin-id");
-    expect(screen.getByRole("region", { name: /Informaci.n del evento/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Preguntas previas" })).toBeInTheDocument();
     expect(screen.getByText(/Paso 1 de 9/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "2. Varias funciones" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "3. Tipos de entrada" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "4. Zonas" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "5. Reglas" })).toBeDisabled();
+  });
+
+  it("deja pasar de las preguntas a la informacion sin haber creado nada, y bloquea el resto", () => {
+    renderAt("/eventos/nuevo/editar");
+    // Estos dos primeros pasos no necesitan un evento: el cuestionario se responde antes y sus
+    // respuestas viajan con la peticion que lo crea.
+    expect(screen.getByRole("button", { name: "2. Informacion del evento" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "3. Varias funciones" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "4. Tipos de entrada" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "5. Zonas" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "6. Descuentos" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "7. Puertas" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "8. Invitados" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "9. Publicar evento" })).toBeDisabled();
-    expect(screen.queryByRole("region", { name: "Zonas" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Anterior" })).toBeDisabled();
+
+    next();
+    expect(screen.getByRole("region", { name: /Informaci.n del evento/ })).toBeInTheDocument();
+    // Sin evento guardado no se puede seguir mas alla de la informacion.
     expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled();
   });
 
@@ -54,6 +63,9 @@ describe("EventWizardPage", () => {
     renderAt("/eventos/event-5/editar"); // seeded with zero ticket types
     expect(screen.getByTestId("wizard-event-id")).toHaveTextContent("event-5");
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 8"));
+
+    next();
+    expect(screen.getByRole("region", { name: /Informaci.n del evento/ })).toBeInTheDocument();
 
     next();
     expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
@@ -68,9 +80,7 @@ describe("EventWizardPage", () => {
     next();
     expect(screen.getByRole("region", { name: "Zonas" })).toBeInTheDocument();
 
-    // Zonas -> Reglas -> Descuentos -> Puertas -> Invitados -> Publicar
-    next();
-    expect(screen.getByRole("region", { name: "Reglas" })).toBeInTheDocument();
+    // Zonas -> Descuentos -> Puertas -> Invitados -> Publicar
     next();
     expect(screen.getByRole("region", { name: "Descuentos" })).toBeInTheDocument();
     next();
@@ -88,7 +98,8 @@ describe("EventWizardPage", () => {
     renderAt("/eventos/event-5/editar"); // seeded with zero ticket types
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 8"));
 
-    next();
+    next(); // -> Informacion
+    next(); // -> Tipos de entrada
     expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled());
     expect(screen.getByRole("button", { name: "Anterior" })).toBeEnabled();
@@ -102,7 +113,8 @@ describe("EventWizardPage", () => {
     renderAt("/eventos/event-3/editar"); // seeded with hasSubEvents: true
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 9"));
 
-    next();
+    next(); // -> Informacion
+    next(); // -> Varias funciones
     expect(screen.getByRole("region", { name: "Varias funciones" })).toBeInTheDocument();
   });
 
@@ -111,6 +123,7 @@ describe("EventWizardPage", () => {
     renderAt("/eventos/event-1/editar"); // seeded with hasSubEvents: false
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 8"));
 
+    next(); // -> Informacion
     next();
     expect(screen.queryByRole("region", { name: "Varias funciones" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
@@ -122,10 +135,10 @@ describe("EventWizardPage", () => {
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 8"));
 
     next();
-    expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Informaci.n del evento/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Anterior" }));
-    expect(screen.getByRole("region", { name: /Informaci.n del evento/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Preguntas previas" })).toBeInTheDocument();
   });
 
   it("blocks advancing past the seating-plan step while a zone is over capacity, but still allows going back", async () => {
@@ -134,6 +147,7 @@ describe("EventWizardPage", () => {
     renderAt("/eventos/event-2/editar"); // venue-1 (Sala Apolo), Pista already assigned to tt-2-pista
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 8"));
 
+    next(); // -> Informacion
     next(); // -> Tipos de entrada
     await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" })).toBeEnabled());
     next(); // -> Zonas

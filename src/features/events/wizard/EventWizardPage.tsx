@@ -25,7 +25,7 @@ function useEventQuery(eventId: string | null) {
   });
 }
 
-type StepKey = "info" | "subeventos" | "tipos" | "plano" | "reglas" | "descuentos" | "puertas" | "invitados" | "publicar";
+type StepKey = "preguntas" | "info" | "subeventos" | "tipos" | "plano" | "descuentos" | "puertas" | "invitados" | "publicar";
 
 interface WizardStep {
   key: StepKey;
@@ -34,13 +34,18 @@ interface WizardStep {
 }
 
 const ALL_STEPS: WizardStep[] = [
+  // El cuestionario va PRIMERO, antes incluso de que el evento exista. Varias respuestas
+  // cambian lo que tiene sentido montar despues: si no se puede elegir butaca, sobra el
+  // selector de asientos; si no se admiten asientos aislados, la venta tiene que rechazar
+  // selecciones que dejen huecos. Preguntarlo al final obligaba a rehacer lo ya configurado.
+  // Las respuestas se guardan en el asistente y viajan con la peticion que crea el evento.
+  { key: "preguntas", label: "Preguntas previas", needsEventId: false },
   { key: "info", label: "Informacion del evento", needsEventId: false },
   { key: "subeventos", label: "Varias funciones", needsEventId: true },
   { key: "tipos", label: "Tipos de entrada", needsEventId: true },
   // "Zonas" y no "Plano": el paso cubre tanto las zonas dibujadas sobre un plano como las
   // zonas sin plano, y el organizador elige una de las dos dentro del propio paso.
   { key: "plano", label: "Zonas", needsEventId: true },
-  { key: "reglas", label: "Reglas", needsEventId: true },
   { key: "descuentos", label: "Descuentos", needsEventId: true },
   { key: "puertas", label: "Puertas", needsEventId: true },
   { key: "invitados", label: "Invitados", needsEventId: true },
@@ -145,7 +150,7 @@ export function EventWizardPage() {
         )}
         {activeStep.key === "subeventos" && <Step2Schedule eventId={eventId} onSaved={setEventId} goNext={goNext} />}
         {activeStep.key === "plano" && <SeatingPlanSection eventId={eventId} onValidationChange={setPlanoValid} />}
-        {activeStep.key === "reglas" && <EventRulesSection eventId={eventId} />}
+        {activeStep.key === "preguntas" && <EventRulesSection eventId={eventId} />}
         {activeStep.key === "descuentos" && <DiscountCodesSection eventId={eventId} />}
         {activeStep.key === "puertas" && <GatesSection eventId={eventId} />}
         {activeStep.key === "invitados" && <GuestlistSection eventId={eventId} />}

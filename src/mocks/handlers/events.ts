@@ -179,6 +179,9 @@ export const eventsHandlers = [
       notifyWhenDateConfirmed: body.notifyWhenDateConfirmed ?? !startsAt,
       serviceFeeType: body.serviceFeeType ?? "none",
       serviceFeeValue: body.serviceFeeValue ?? 0,
+      // El cuestionario se responde antes de crear el evento, asi que llega en esta misma
+      // peticion. Sin esto el evento nacia sin reglas y las respuestas se perdian.
+      ...(body.rules ? { rules: body.rules } : {}),
       createdAt: new Date().toISOString()
     };
     db.events.push(event);

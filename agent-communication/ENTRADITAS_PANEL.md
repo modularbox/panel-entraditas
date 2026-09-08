@@ -573,6 +573,35 @@ Impacto para la web publica cuando exista la API:
 - Los asientos sin `ticketTypeGroupId` no estan a la venta y deben pintarse como no
   seleccionables, no como agotados.
 
+### El Cuestionario Pasa A Ser El Primer Paso (2026-09-07)
+
+Antes se preguntaba en el paso 5, despues de montar sesiones, tipos de entrada y zonas. Era el
+orden equivocado: varias respuestas cambian lo que tiene sentido montar. Si no se puede elegir
+butaca, sobra el selector de asientos; si no se admiten asientos aislados, la venta tiene que
+rechazar selecciones que dejen huecos. Preguntarlo al final obligaba a rehacer lo ya configurado.
+
+Orden nuevo del asistente:
+
+1. **Preguntas previas** (no necesita evento)
+2. Informacion del evento (no necesita evento)
+3. Varias funciones - solo si `hasSubEvents`
+4. Tipos de entrada
+5. Zonas
+6. Descuentos
+7. Puertas
+8. Invitados
+9. Publicar evento
+
+El cuestionario se responde **antes de que el evento exista**. Como en ese momento no hay nada
+contra lo que guardar, las respuestas se quedan en `wizardStore.draftRules` y viajan dentro de la
+peticion que crea el evento (`POST /events`), no en un PATCH posterior: asi el evento nace ya con
+ellas y no existe un instante intermedio con las reglas por defecto. `reset()` las borra, para
+que un evento nuevo no herede el cuestionario del anterior.
+
+En la base de datos esto es la tabla `event_rules` (`api-entraditas/sql/entraditas.sql`), una fila
+por evento, todas las columnas de respuesta cerrada y con los mismos valores por defecto que
+`EVENT_RULE_DEFAULTS`.
+
 ### Base De Datos Real Y Cierre De La Cadena (2026-09-07)
 
 La API ya corre contra MySQL de verdad, no solo contra tests. Levantarla destapo dos fallos que

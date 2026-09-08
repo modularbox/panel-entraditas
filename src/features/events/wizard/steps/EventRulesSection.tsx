@@ -4,6 +4,7 @@ import { EVENT_RULE_DEFAULTS, type Event, type EventRules } from "@entraditas/ty
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
+import { useWizardStore } from "../wizardStore";
 
 export interface EventRulesSectionProps {
   eventId: string | null;
@@ -243,7 +244,11 @@ export function EventRulesSection({ eventId }: EventRulesSectionProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
   const { data: event } = useEventQuery(eventId);
-  const [rules, setRules] = useState<Required<EventRules>>(() => withRuleDefaults(undefined));
+  const draftRules = useWizardStore((s) => s.draftRules);
+  const setDraftRules = useWizardStore((s) => s.setDraftRules);
+  // Si se respondio antes de crear el evento, se arranca de esas respuestas y no de los valores
+  // por defecto: si no, volver a este paso borraria lo contestado.
+  const [rules, setRules] = useState<Required<EventRules>>(() => withRuleDefaults(draftRules ?? undefined));
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
@@ -260,7 +265,13 @@ export function EventRulesSection({ eventId }: EventRulesSectionProps) {
     touched.current = true;
     setRules(next);
     setError(null);
-    if (!eventId) return;
+    if (!eventId) {
+      // Todavia no hay evento contra el que guardar: las respuestas se quedan en el asistente y
+      // viajan dentro de la peticion que lo crea.
+      setDraftRules(next);
+      setSavedAt(Date.now());
+      return;
+    }
     try {
       await apiClient.patch(`/events/${eventId}`, { rules: next }, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["event", eventId] });
@@ -270,16 +281,13 @@ export function EventRulesSection({ eventId }: EventRulesSectionProps) {
     }
   }
 
-  if (!eventId) {
-    return <p className="text-sm text-muted-foreground">Guarda la informacion del evento para fijar sus reglas.</p>;
-  }
-
   return (
     <div className="flex flex-col gap-6">
       {error && <p role="alert">{error}</p>}
       <p className="text-sm text-muted-foreground">
         Todas las respuestas son si/no o una cantidad. Cada una se aplica sola en la venta, en la
         puerta o en la ficha publica: no hay nada que redactar.
+        {!eventId && " Se guardan aqui y se aplican en cuanto crees el evento en el paso siguiente."}
       </p>
 
       {RULE_GROUPS.map((group) => (
@@ -349,11 +357,11 @@ export function EventRulesSection({ eventId }: EventRulesSectionProps) {
 
       <div className="flex items-center gap-3">
         <Button type="button" onClick={() => void save(rules)}>
-          Guardar reglas
+          Guardar respuestas
         </Button>
         {savedAt !== null && (
           <span role="status" className="text-sm text-muted-foreground">
-            Reglas guardadas.
+            {eventId ? "Respuestas guardadas." : "Respuestas guardadas. Se aplicaran al crear el evento."}
           </span>
         )}
       </div>
