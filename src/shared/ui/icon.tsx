@@ -23,7 +23,10 @@ export type IconName =
   | "list"
   | "ordered-list"
   | "edit"
-  | "trash";
+  | "trash"
+  | "check"
+  | "robot"
+  | "shield";
 
 const paths: Record<IconName, ReactNode> = {
   ticket: (
@@ -115,7 +118,21 @@ const paths: Record<IconName, ReactNode> = {
   list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
   "ordered-list": <path d="M10 6h11M10 12h11M10 18h11M4 6h1v4M3.5 10h2M3 14h3l-3 4h3" />,
   edit: <path d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4" />,
-  trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+  trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
+  check: <path d="m5 12.5 5 5L19 6.5" />,
+  robot: (
+    <>
+      <rect x="4" y="8" width="16" height="12" rx="2.5" />
+      <path d="M12 4v4M9 13h.01M15 13h.01M12 4a2 2 0 0 0-1 3.7" />
+      <path d="M9 16.5h6" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3l7 2.6v5.4c0 4.6-2.8 8.1-7 10-4.2-1.9-7-5.4-7-10V5.6L12 3Z" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  )
 };
 
 export function Icon({ name, size = 18, className }: { name: IconName; size?: number; className?: string }) {

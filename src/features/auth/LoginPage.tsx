@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { Button } from "@/shared/ui/button";
+import { NotARobotCaptcha } from "@/shared/ui/notARobotCaptcha";
 import { loginSchema, type LoginFormValues } from "./loginSchema";
 
 export function LoginPage() {
@@ -11,19 +12,22 @@ export function LoginPage() {
   const navigate = useNavigate();
   const login = useSessionStore((s) => s.login);
   const [loginError, setLoginError] = useState<string | null>(null);
-  // Generated once per mount so the challenge stays stable across re-renders of this form.
-  const [challenge] = useState(() => ({ a: 1 + Math.floor(Math.random() * 9), b: 1 + Math.floor(Math.random() * 9) }));
   const {
     register,
     handleSubmit,
+    setValue,
     setError,
+    clearErrors,
+    watch,
     formState: { errors, isSubmitting }
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
 
+  const captchaVerified = watch("captchaVerified");
+
   async function onSubmit(values: LoginFormValues) {
     setLoginError(null);
-    if (Number(values.captchaAnswer) !== challenge.a + challenge.b) {
-      setError("captchaAnswer", { message: "Respuesta incorrecta" });
+    if (!values.captchaVerified) {
+      setError("captchaVerified", { message: "Marca la casilla para confirmar que no eres un robot" });
       return;
     }
     try {
@@ -87,23 +91,14 @@ export function LoginPage() {
             )}
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="captchaAnswer" className="text-sm font-medium">
-              Prueba de verificación: ¿cuánto es {challenge.a} + {challenge.b}?
-            </label>
-            <input
-              id="captchaAnswer"
-              type="text"
-              inputMode="numeric"
-              className="h-10 rounded-md border-2 border-foreground bg-background px-3 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-              {...register("captchaAnswer")}
-            />
-            {errors.captchaAnswer && (
-              <span role="alert" className="text-sm text-destructive">
-                {errors.captchaAnswer.message}
-              </span>
-            )}
-          </div>
+          <NotARobotCaptcha
+            checked={Boolean(captchaVerified)}
+            error={errors.captchaVerified?.message}
+            onChange={(next) => {
+              setValue("captchaVerified", next);
+              if (next) clearErrors("captchaVerified");
+            }}
+          />
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="acceptsTerms" className="flex items-center gap-2 text-sm font-medium">

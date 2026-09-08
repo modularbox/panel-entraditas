@@ -16,17 +16,15 @@ function renderLoginPage() {
   );
 }
 
-function solveChallenge() {
-  const label = screen.getByText(/Prueba de verificación/).textContent ?? "";
-  const match = label.match(/(\d+)\s*\+\s*(\d+)/);
-  if (!match) throw new Error("challenge not found in label");
-  return Number(match[1]) + Number(match[2]);
+async function solveChallenge() {
+  fireEvent.click(screen.getByLabelText("No soy un robot"));
+  await screen.findByText("Verificado");
 }
 
 async function fillAndSubmit(email: string, password: string) {
   fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: email } });
   fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: password } });
-  fireEvent.change(screen.getByLabelText(/Prueba de verificación/), { target: { value: String(solveChallenge()) } });
+  await solveChallenge();
   fireEvent.click(screen.getByLabelText(/Acepto los/));
   fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
 }
@@ -56,15 +54,14 @@ describe("LoginPage", () => {
     expect(screen.queryByText("Listado de eventos")).not.toBeInTheDocument();
   });
 
-  it("blocks submission with an incorrect answer to the verification test", async () => {
+  it("blocks submission until the robot checkbox is checked", async () => {
     renderLoginPage();
     fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@entraditas.com" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "admin1234" } });
-    fireEvent.change(screen.getByLabelText(/Prueba de verificación/), { target: { value: String(solveChallenge() + 1) } });
     fireEvent.click(screen.getByLabelText(/Acepto los/));
     fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
-    expect(await screen.findByText("Respuesta incorrecta")).toBeInTheDocument();
+    expect(await screen.findByText("Marca la casilla para confirmar que no eres un robot")).toBeInTheDocument();
     expect(screen.queryByText("Listado de eventos")).not.toBeInTheDocument();
   });
 
@@ -72,7 +69,7 @@ describe("LoginPage", () => {
     renderLoginPage();
     fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@entraditas.com" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "admin1234" } });
-    fireEvent.change(screen.getByLabelText(/Prueba de verificación/), { target: { value: String(solveChallenge()) } });
+await solveChallenge();
     fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
     expect(await screen.findByText("Debes aceptar los términos y condiciones")).toBeInTheDocument();

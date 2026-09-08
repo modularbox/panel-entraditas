@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db, resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useWizardStore } from "./wizardStore";
+import { useSetupStore } from "./setupStore";
 import { EventWizardPage } from "./EventWizardPage";
 
 function renderAt(path: string) {
@@ -24,25 +25,75 @@ function next() {
   fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
 }
 
+function completeQuestionnaire() {
+  fireEvent.click(screen.getByRole("button", { name: "Continuar a la configuración" }));
+}
+
 describe("EventWizardPage", () => {
-  beforeEach(() => useWizardStore.setState({ eventId: null }));
+  beforeEach(() => {
+    useWizardStore.setState({ eventId: null });
+    useSetupStore.setState({
+      completed: false,
+      category: "concierto",
+      hasSubEvents: false,
+      needsSeatingPlan: false,
+      maxTicketsPerOrder: 10,
+      maxTicketsPerCustomer: 6,
+      allowSingleSeatGaps: true,
+      hasDiscountCodes: false
+    });
+  });
   afterEach(() => {
     resetDb();
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
+    useSetupStore.getState().reset();
   });
 
-  it("resets to no eventId for a new event and shows the locked next steps", () => {
+  it("asks the setup questions before the wizard when creating a new event", () => {
     renderAt("/eventos/nuevo/editar");
     expect(screen.getByTestId("wizard-event-id")).toHaveTextContent("sin-id");
+    expect(screen.getByRole("heading", { name: "Antes de crear el evento" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "¿Qué tipo de evento es?" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "¿Tendrá varias sesiones, pases o fechas?" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "¿Necesita un plano de asientos?" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "¿Cuántas entradas se pueden comprar?" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "¿Se permiten asientos sueltos en una fila?" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "¿Habrá códigos de descuento?" })).toBeInTheDocument();
+    expect(screen.queryByText(/Paso 1 de 5/)).not.toBeInTheDocument();
+  });
+
+  it("does not ask the setup questions when resuming an existing event", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderAt("/eventos/event-5/editar");
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 4"));
+    expect(screen.queryByRole("heading", { name: "Antes de crear el evento" })).not.toBeInTheDocument();
+  });
+
+  it("starts the wizard once the setup questionnaire is completed", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderAt("/eventos/nuevo/editar");
+    completeQuestionnaire();
     expect(screen.getByRole("region", { name: /Informaci.n del evento/ })).toBeInTheDocument();
+    // Defaults in the questionnaire: single session + no seating plan -> only info, tipos and publicar.
+    expect(screen.getByText(/Paso 1 de 3/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "2. Tipos de entrada" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "3. Publicar evento" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Varias funciones" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Plano de asientos" })).not.toBeInTheDocument();
+  });
+
+  it("shows the seating-plan and multi-session steps when the questionnaire asks for them", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderAt("/eventos/nuevo/editar");
+    expect(screen.getByRole("heading", { name: "Antes de crear el evento" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Varias sesiones" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sí, plano numerado" }));
+    completeQuestionnaire();
     expect(screen.getByText(/Paso 1 de 5/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "2. Varias funciones" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "3. Tipos de entrada" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "4. Plano de asientos" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "5. Publicar evento" })).toBeDisabled();
-    expect(screen.queryByRole("region", { name: "Plano de asientos" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Anterior" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled();
   });
 
   it("unlocks further steps and lets you navigate to them once the event is saved", async () => {

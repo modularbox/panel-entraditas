@@ -7,6 +7,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
+import { useSetupStore } from "../setupStore";
 import { step1Schema, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";
 
@@ -45,6 +46,7 @@ async function filesToDataUrls(files: FileList | null): Promise<string[]> {
 
 export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps) {
   const token = useSessionStore((s) => s.token);
+  const setup = useSetupStore();
   const [saveError, setSaveError] = useState<string | null>(null);
   const [coverMode, setCoverMode] = useState<"upload" | "url">("upload");
   const { data: existingEvent, isError: hasLoadError } = useQuery({
@@ -65,7 +67,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
     defaultValues: {
       coverImageUrl: "",
       gallery: "",
-      category: "concierto",
+      category: !eventId ? (setup.category as string) : "concierto",
       title: "",
       startDate: "",
       startTime: "",
@@ -76,7 +78,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
       description: "",
       serviceFeeType: "none",
       serviceFeeValue: 0,
-      hasSubEvents: false
+      hasSubEvents: !eventId ? setup.hasSubEvents : false
     }
   });
 
@@ -132,7 +134,12 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         notifyWhenDateConfirmed: formValues.datePending ? true : formValues.notifyWhenDateConfirmed,
         serviceFeeType: formValues.serviceFeeType,
         serviceFeeValue: formValues.serviceFeeType === "none" ? 0 : formValues.serviceFeeValue ?? 0,
-        hasSubEvents: formValues.hasSubEvents
+        hasSubEvents: formValues.hasSubEvents,
+        ...(!eventId && {
+          maxTicketsPerOrder: setup.maxTicketsPerOrder,
+          maxTicketsPerCustomer: setup.maxTicketsPerCustomer,
+          allowSingleSeatGaps: setup.allowSingleSeatGaps
+        })
       };
       const event = eventId
         ? await apiClient.patch<Event>(`/events/${eventId}`, payload, { token: token! })

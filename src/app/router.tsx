@@ -79,7 +79,6 @@ export function AppRoutes() {
           <Route path="/dashboard" element={<DashboardPage />} />
         </Route>
         <Route element={<RequirePermission permission="events:create" />}>
-          <Route path="/eventos/nuevo/editar" element={<EventWizardPage />} />
           <Route path="/eventos/:id/editar" element={<EventWizardPage />} />
         </Route>
         <Route element={<RequirePermission permission="events:read" />}>

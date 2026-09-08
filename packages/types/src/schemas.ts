@@ -134,6 +134,12 @@ export const EventSchema = z.object({
   notifyWhenDateConfirmed: z.boolean().optional(),
   serviceFeeType: z.enum(["none", "percent", "fixed"]).optional(),
   serviceFeeValue: z.number().nonnegative().optional(),
+  // Límites de venta y política de asientos decididos antes de crear el evento.
+  maxTicketsPerOrder: z.number().int().positive().nullable().optional(),
+  maxTicketsPerCustomer: z.number().int().positive().nullable().optional(),
+  // false = no se permite dejar un hueco de exactamente 1 asiento libre entre grupos
+  // (ej: en una fila de 14, no se permite grupo de 6 + hueco 1 + grupo de 7).
+  allowSingleSeatGaps: z.boolean().optional(),
   createdAt: z.string(),
   publishedAt: z.string().nullable().optional() // set once the event leaves draft status
 });
