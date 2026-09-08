@@ -137,6 +137,7 @@ export const capacityPoolsHandlers = [
       totalCapacity?: number;
       ticketTypeGroupId?: string | null;
       seatAssignments?: SeatAssignment[];
+      accessibleSeatIds?: string[];
     };
     // Every field is optional: the seat editor patches only the seat breakdown, while the zone
     // editor patches only the capacity. Anything absent keeps the value it already had.
@@ -168,6 +169,7 @@ export const capacityPoolsHandlers = [
     result.pool.totalCapacity = totalCapacity;
     if ("ticketTypeGroupId" in body) result.pool.ticketTypeGroupId = body.ticketTypeGroupId;
     if ("seatAssignments" in body) result.pool.seatAssignments = body.seatAssignments;
+    if ("accessibleSeatIds" in body) result.pool.accessibleSeatIds = body.accessibleSeatIds;
     return HttpResponse.json({ data: result.pool, meta: { requestId: "req_capacity" } });
   })
 ];

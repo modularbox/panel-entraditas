@@ -304,6 +304,31 @@ describe("toPublicEvent", () => {
     expect(result.matchup).toEqual({ competition: "Liga", home: "A", away: "B", homeLogo: null, awayLogo: null });
   });
 
+  describe("event rules", () => {
+    it("publishes the defaults when the organizer answered nothing", () => {
+      const result = toPublicEvent({ event: EVENT });
+      expect(result.rules.maxPerOrder).toBe(6);
+      expect(result.rules.isRefundable).toBe(true);
+      expect(result.rules.minimumAge).toBe(0);
+    });
+
+    it("publishes the answers the organizer gave", () => {
+      const result = toPublicEvent({
+        event: { ...EVENT, rules: { minimumAge: 18, maxPerOrder: 2, showRemainingTickets: false } }
+      });
+      expect(result.rules.minimumAge).toBe(18);
+      expect(result.rules.maxPerOrder).toBe(2);
+      expect(result.rules.showRemainingTickets).toBe(false);
+    });
+
+    it("keeps door-only rules out of what the buyer sees", () => {
+      const result = toPublicEvent({ event: { ...EVENT, rules: { allowReentry: true, maxScansPerTicket: 3 } } });
+      // Reentry and scans-per-ticket are for the gate staff, not for the buyer.
+      expect(result.rules).not.toHaveProperty("allowReentry");
+      expect(result.rules).not.toHaveProperty("maxScansPerTicket");
+    });
+  });
+
   it("does not leak internal review state", () => {
     const result = toPublicEvent({ event: EVENT }) as Record<string, unknown>;
     expect(result.status).toBeUndefined();

@@ -69,12 +69,101 @@ export const ZoneSchema = z.object({
   // derived from capacity + rows rather than stored, so the venue's zone stays a small record.
   // null means "work it out from the zone's shape".
   rows: z.number().int().positive().nullable().optional(),
+  // Seats in each row, when the room is not a neat rectangle: [12, 11, 11, 9] for a stalls block
+  // that narrows at the back. Overrides both `rows` and the even split, and its sum becomes the
+  // zone's real capacity. null/absent means "spread `capacity` evenly over `rows`".
+  rowSeats: z.array(z.number().int().nonnegative()).nullable().optional(),
   x: z.number().min(0).max(100),
   y: z.number().min(0).max(100),
   width: z.number().min(1).max(100),
   height: z.number().min(1).max(100)
 });
 export type Zone = z.infer<typeof ZoneSchema>;
+
+/**
+ * Reglas de venta y acceso que el organizador fija antes de publicar.
+ *
+ * Todas son de respuesta cerrada a proposito -- si/no o una cantidad -- para que ni el
+ * organizador tenga que redactar nada ni el sistema tenga que interpretar texto libre. Cada una
+ * se traduce despues en una comprobacion concreta (en la venta, en la puerta o en la web).
+ *
+ * Todo el bloque es opcional: los eventos creados antes de que existiera siguen validando, y
+ * cada campo cae a su valor por defecto documentado en EVENT_RULE_DEFAULTS.
+ */
+export const EventRulesSchema = z.object({
+  // --- Venta ---
+  /** Minimo de entradas que se pueden comprar de una vez. */
+  minPerOrder: z.number().int().positive().optional(),
+  /** Maximo de entradas por pedido. */
+  maxPerOrder: z.number().int().positive().optional(),
+  /** Tope de entradas por comprador en todo el evento. 0 = sin tope. */
+  maxPerCustomer: z.number().int().nonnegative().optional(),
+  /** Permitir comprar sin crear cuenta. */
+  allowGuestCheckout: z.boolean().optional(),
+
+  // --- Asientos (solo aplica a zonas numeradas) ---
+  /**
+   * Permitir que una compra deje un asiento suelto entre dos ocupados. Con false, la venta
+   * rechaza la seleccion que dejaria huecos de un solo asiento, que luego no se venden.
+   */
+  allowIsolatedSeats: z.boolean().optional(),
+  /** Dejar que el comprador elija butaca concreta; con false se asigna la mejor disponible. */
+  allowSeatSelection: z.boolean().optional(),
+  /** Maximo de asientos seguidos en un mismo pedido. 0 = sin tope. */
+  maxContiguousSeats: z.number().int().nonnegative().optional(),
+
+  // --- Titular de la entrada ---
+  /** Pedir nombre y apellidos de cada asistente, no solo del comprador. */
+  requiresAttendeeName: z.boolean().optional(),
+  /** Pedir documento de identidad de cada asistente. */
+  requiresAttendeeDocument: z.boolean().optional(),
+  /** Permitir ceder la entrada a otra persona (genera un QR nuevo e invalida el anterior). */
+  isTransferable: z.boolean().optional(),
+
+  // --- Acceso / puerta ---
+  /** Permitir salir y volver a entrar con la misma entrada. */
+  allowReentry: z.boolean().optional(),
+  /** Cuantas veces se puede escanear una entrada valida. */
+  maxScansPerTicket: z.number().int().positive().optional(),
+
+  // --- Reembolsos ---
+  isRefundable: z.boolean().optional(),
+  /** Dias antes del evento hasta los que se admite reembolso. 0 = hasta el mismo dia. */
+  refundDeadlineDays: z.number().int().nonnegative().optional(),
+
+  // --- Publico ---
+  /** Edad minima para entrar. 0 = sin restriccion. */
+  minimumAge: z.number().int().nonnegative().optional(),
+  /** Mostrar al comprador cuantas entradas quedan. */
+  showRemainingTickets: z.boolean().optional(),
+  /** A partir de cuantas entradas restantes se avisa de "ultimas entradas". 0 = no avisar. */
+  lowStockThreshold: z.number().int().nonnegative().optional(),
+  /** El recinto tiene acceso y plazas para movilidad reducida. */
+  wheelchairAccessible: z.boolean().optional()
+});
+export type EventRules = z.infer<typeof EventRulesSchema>;
+
+/** Valor que se aplica cuando el organizador no ha tocado la regla. */
+export const EVENT_RULE_DEFAULTS: Required<EventRules> = {
+  minPerOrder: 1,
+  maxPerOrder: 6,
+  maxPerCustomer: 0,
+  allowGuestCheckout: true,
+  allowIsolatedSeats: false,
+  allowSeatSelection: true,
+  maxContiguousSeats: 0,
+  requiresAttendeeName: false,
+  requiresAttendeeDocument: false,
+  isTransferable: true,
+  allowReentry: false,
+  maxScansPerTicket: 1,
+  isRefundable: true,
+  refundDeadlineDays: 7,
+  minimumAge: 0,
+  showRemainingTickets: true,
+  lowStockThreshold: 20,
+  wheelchairAccessible: false
+};
 
 export const EventStatusSchema = z.enum([
   "draft",
@@ -117,6 +206,10 @@ export const EventSchema = z.object({
   salesStartAt: z.string().nullable(), // null means no restriction on when sales open
   salesEndAt: z.string().nullable(), // null means no restriction on when sales close
   hasSubEvents: z.boolean(), // true for multi-date events (festivals, weekly runs) that use SubEvent
+  // How the event's capacity is laid out. "plan" draws zones on a canvas; "zones" is the same
+  // model without any geometry, for rooms where a map adds nothing. They are exclusive: picking
+  // one hides the other. null means the organiser hasn't chosen yet.
+  seatingMode: z.enum(["plan", "zones"]).nullable().optional(),
   isCompetition: z.boolean().optional(),
   // Teams of a versus event. The buyer site renders these as a match ticker, so without them
   // an organiser could flag a competition it could never actually display.
@@ -132,6 +225,8 @@ export const EventSchema = z.object({
     .optional(),
   datePending: z.boolean().optional(),
   notifyWhenDateConfirmed: z.boolean().optional(),
+  // Reglas de venta y acceso que responde el organizador antes de publicar.
+  rules: EventRulesSchema.optional(),
   serviceFeeType: z.enum(["none", "percent", "fixed"]).optional(),
   serviceFeeValue: z.number().nonnegative().optional(),
   // Límites de venta y política de asientos decididos antes de crear el evento.
@@ -178,7 +273,10 @@ export const CapacityPoolSchema = z.object({
   ticketTypeGroupId: z.string().nullable().optional(),
   // Per-seat breakdown for numbered zones. Sparse: only assigned seats appear, so a zone can
   // legitimately have seats left with no ticket type on them.
-  seatAssignments: z.array(SeatAssignmentSchema).optional()
+  seatAssignments: z.array(SeatAssignmentSchema).optional(),
+  // Seats reserved for reduced mobility. A flag on the individual seat rather than a separate
+  // zone, because accessible places sit inside the normal seating, not in a block of their own.
+  accessibleSeatIds: z.array(z.string()).optional()
 });
 export type CapacityPool = z.infer<typeof CapacityPoolSchema>;
 
@@ -250,10 +348,21 @@ export const VenuePlanElementSchema = z.object({
 });
 export type VenuePlanElement = z.infer<typeof VenuePlanElementSchema>;
 
+/**
+ * A zone as stored inside a reusable plan template: the shape of the room without anything tied
+ * to one venue or one event. Applying a template creates real zones from these.
+ */
+export const TemplateZoneSchema = ZoneSchema.omit({ id: true, venueId: true });
+export type TemplateZone = z.infer<typeof TemplateZoneSchema>;
+
 export const VenuePlanTemplateSchema = z.object({
   id: z.string(),
+  organizationId: z.string(),
   name: z.string(),
-  elements: z.array(VenuePlanElementSchema),
+  // Which layout mode the template was saved from. A drawn plan and a plain list of zones are
+  // not interchangeable, so each mode only offers its own templates.
+  mode: z.enum(["plan", "zones"]),
+  zones: z.array(TemplateZoneSchema),
   updatedAt: z.string()
 });
 export type VenuePlanTemplate = z.infer<typeof VenuePlanTemplateSchema>;

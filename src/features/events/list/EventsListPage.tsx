@@ -7,6 +7,7 @@ import { Can } from "@/shared/auth/Can";
 import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { EventStatusBadge, EVENT_STATUS_LABEL } from "@/shared/ui/EventStatusBadge";
+import { EventReviewActions } from "./EventReviewActions";
 import { useEventsQuery } from "./useEventsQuery";
 
 const STATUS_FILTERS: Array<{ value: "" | Event["status"]; label: string }> = [
@@ -37,6 +38,13 @@ const columns = [
   columnHelper.accessor("startsAt", {
     header: "Fecha",
     cell: (info) => (info.getValue() ? dateFormatter.format(new Date(info.getValue()!)) : "Fecha por confirmar")
+  }),
+  // Solo se pinta algo para quien revisa y en los eventos que estan esperando revision; para el
+  // resto la celda queda vacia (ver EventReviewActions).
+  columnHelper.display({
+    id: "revision",
+    header: "Revisión",
+    cell: (info) => <EventReviewActions event={info.row.original} />
   })
 ];
 

@@ -2,9 +2,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { demoPasswordFor, resetDb } from "@/mocks/state";
+import { db, demoPasswordFor, resetDb } from "@/mocks/state";
 import { server } from "@/mocks/server";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { useSetupStore } from "../setupStore";
 import { Step1BasicInfo, type Step1BasicInfoProps } from "./Step1BasicInfo";
 
 function renderStep1(props: Step1BasicInfoProps) {
@@ -31,6 +32,7 @@ function fillDescription(value: string) {
 describe("Step1BasicInfo", () => {
   afterEach(() => {
     resetDb();
+    useSetupStore.getState().reset();
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
@@ -62,6 +64,40 @@ describe("Step1BasicInfo", () => {
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.any(String)));
     expect(goNext).toHaveBeenCalledOnce();
+  });
+
+  it("creates the event with the ticket limits answered in the questionnaire", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+    useSetupStore.getState().setField("maxTicketsPerOrder", 4);
+    useSetupStore.getState().setField("maxTicketsPerCustomer", 2);
+    useSetupStore.getState().setField("allowSingleSeatGaps", false);
+    const onSaved = vi.fn();
+    renderStep1({ eventId: null, onSaved, goNext: vi.fn() });
+
+    fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Concierto con limites" } });
+    fillDescription("Una descripcion valida");
+    fillRequiredLocation();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.any(String)));
+    const creado = db.events.find((event) => event.id === onSaved.mock.calls[0]![0]);
+    expect(creado?.maxTicketsPerOrder).toBe(4);
+    expect(creado?.maxTicketsPerCustomer).toBe(2);
+    expect(creado?.allowSingleSeatGaps).toBe(false);
+  });
+
+  it("does not leak questionnaire answers into an event that already exists", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+    useSetupStore.getState().setField("maxTicketsPerOrder", 99);
+    renderStep1({ eventId: "event-5", onSaved: vi.fn(), goNext: vi.fn() });
+
+    await waitFor(() => expect(screen.getByLabelText(/T.tulo/)).toHaveValue("Evento sin configurar"));
+    fillDescription("Descripcion editada");
+    fillRequiredLocation();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
+
+    await waitFor(() => expect(db.events.find((e) => e.id === "event-5")?.description).toContain("Descripcion editada"));
+    expect(db.events.find((e) => e.id === "event-5")?.maxTicketsPerOrder).not.toBe(99);
   });
 
   it("patches the existing draft when eventId is already set", async () => {

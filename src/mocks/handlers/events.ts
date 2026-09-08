@@ -179,7 +179,7 @@ export const eventsHandlers = [
       notifyWhenDateConfirmed: body.notifyWhenDateConfirmed ?? !startsAt,
       serviceFeeType: body.serviceFeeType ?? "none",
       serviceFeeValue: body.serviceFeeValue ?? 0,
-      maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
+maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
       maxTicketsPerCustomer: body.maxTicketsPerCustomer ?? null,
       allowSingleSeatGaps: body.allowSingleSeatGaps ?? true,
       createdAt: new Date().toISOString()
@@ -262,6 +262,54 @@ export const eventsHandlers = [
     event.status = "pending_review";
     event.publishedAt = null;
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_publish" } });
+  }),
+
+  // Aprobar o rechazar lo que un organizador mando a revision. Sin esto nada pasaba nunca de
+  // "pendiente de revision" a "publicado", asi que un evento creado en el panel no podia llegar
+  // a la web publica.
+  http.post(`${BASE}/events/:id/approve`, ({ request, params }) => {
+    const user = requireUser(request);
+    if (!user) return unauthenticated("req_events_approve");
+    const event = db.events.find((e) => e.id === params.id);
+    if (!event || !canAccessEvent(event, user)) return notFound("req_events_approve");
+    // Revisar es tarea de la plataforma, no del propio organizador que lo envio.
+    if (user.role !== "superadmin") {
+      return HttpResponse.json(
+        { error: { code: "FORBIDDEN", message: "Solo un superadmin puede aprobar un evento", requestId: "req_events_approve" } },
+        { status: 403 }
+      );
+    }
+    if (event.status !== "pending_review" && event.status !== "in_review") {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Solo se puede aprobar un evento que este en revision",
+            requestId: "req_events_approve"
+          }
+        },
+        { status: 409 }
+      );
+    }
+    event.status = "published";
+    event.publishedAt = new Date().toISOString();
+    return HttpResponse.json({ data: event, meta: { requestId: "req_events_approve" } });
+  }),
+
+  http.post(`${BASE}/events/:id/reject`, async ({ request, params }) => {
+    const user = requireUser(request);
+    if (!user) return unauthenticated("req_events_reject");
+    const event = db.events.find((e) => e.id === params.id);
+    if (!event || !canAccessEvent(event, user)) return notFound("req_events_reject");
+    if (user.role !== "superadmin") {
+      return HttpResponse.json(
+        { error: { code: "FORBIDDEN", message: "Solo un superadmin puede rechazar un evento", requestId: "req_events_reject" } },
+        { status: 403 }
+      );
+    }
+    event.status = "rejected";
+    event.publishedAt = null;
+    return HttpResponse.json({ data: event, meta: { requestId: "req_events_reject" } });
   }),
 
   http.post(`${BASE}/events/:id/unpublish`, ({ request, params }) => {

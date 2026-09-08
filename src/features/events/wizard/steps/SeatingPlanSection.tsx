@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CapacityPool, Event, TicketType, Zone } from "@entraditas/types";
+import type { CapacityPool, Event, TemplateZone, TicketType, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { useSubEventsQuery } from "./useSubEventsQuery";
@@ -8,7 +8,10 @@ import { useZonesQuery } from "./useZonesQuery";
 import { defaultZoneLayout, type ZoneLayout } from "./zoneGeometry";
 import { ZoneCanvas } from "./ZoneCanvas";
 import { ZoneEditorPanel } from "./ZoneEditorPanel";
+import { ZoneListEditor } from "./ZoneListEditor";
 import { ZoneSeatEditor } from "./ZoneSeatEditor";
+import { PlanTemplates } from "./PlanTemplates";
+import { SeatingModeChooser } from "./SeatingModeChooser";
 import { TicketTypeAssignment, type ZoneAssignment } from "./TicketTypeAssignment";
 import { groupTicketTypes } from "./Step4TicketTypes";
 import {
@@ -76,6 +79,10 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Drawing surface size. A local preference for working comfortably on a big room, not part of
+  // the event's data: the zones' percent coordinates stay valid at any canvas size.
+  const [canvasHeight, setCanvasHeight] = useState(384);
+  const [canvasWidth, setCanvasWidth] = useState(100);
 
   // The drawn plan is the source of truth: any sellable zone without a
   // matching capacity pool for this event's first function gets one
@@ -113,9 +120,38 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
   }
 
+  /**
+   * Copies a zone's shape next to itself. The seat breakdown is deliberately NOT copied: the new
+   * zone starts with every seat free, because two blocks of the room almost never sell the same
+   * mix and silently duplicating an allocation would double-spend the ticket types' stock.
+   */
+  async function duplicateZone(id: string) {
+    if (!venueId) return;
+    setError(null);
+    const zone = zones.find((candidate) => candidate.id === id);
+    if (!zone) return;
+    const { id: _id, venueId: _venueId, name, x, y, ...rest } = zone;
+    try {
+      const created = await apiClient.post<Zone>(
+        `/venues/${venueId}/zones`,
+        {
+          ...rest,
+          name: `${name} (copia)`,
+          x: Math.min(x + 5, Math.max(0, 100 - zone.width)),
+          y: Math.min(y + 5, Math.max(0, 100 - zone.height))
+        },
+        { token: token! }
+      );
+      await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
+      setSelectedZoneId(created.id);
+    } catch (e) {
+      if (e instanceof AppError) setError(e.message);
+    }
+  }
+
   async function updateZone(
     id: string,
-    patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "x" | "y" | "width" | "height">>
+    patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "rowSeats" | "x" | "y" | "width" | "height">>
   ) {
     setError(null);
     try {
@@ -164,20 +200,52 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
   }
 
-  async function saveSeatAssignments(zoneId: string, next: SeatAssignments) {
+  async function patchPool(zoneId: string, patch: Record<string, unknown>) {
     setError(null);
     const pool = pools.find((p) => p.zoneId === zoneId);
-    if (!pool) return;
-    try {
-      await apiClient.patch(
-        `/capacity-pools/${pool.id}`,
-        { seatAssignments: toSeatAssignmentList(next) },
-        { token: token! }
+    // Capacity pools hang off the event's first session. Without one there is nothing to write
+    // the breakdown to, and staying silent here made the whole assignment look broken.
+    if (!pool) {
+      setError(
+        firstSubEvent
+          ? "Todavia se esta preparando el aforo de esta zona. Vuelve a intentarlo en un momento."
+          : "Este evento no tiene ninguna fecha o sesion todavia, y el aforo cuelga de ella. Vuelve al paso de fechas, confirma una sesion y luego reparte los asientos."
       );
+      return;
+    }
+    try {
+      await apiClient.patch(`/capacity-pools/${pool.id}`, patch, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent?.id] });
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
+  }
+
+  async function saveSeatAssignments(zoneId: string, next: SeatAssignments) {
+    await patchPool(zoneId, { seatAssignments: toSeatAssignmentList(next) });
+  }
+
+  async function saveAccessibleSeats(zoneId: string, next: string[]) {
+    await patchPool(zoneId, { accessibleSeatIds: next });
+  }
+
+  async function setSeatingMode(mode: Event["seatingMode"]) {
+    setError(null);
+    try {
+      await apiClient.patch(`/events/${eventId}`, { seatingMode: mode }, { token: token! });
+      await queryClient.invalidateQueries({ queryKey: ["event", eventId] });
+    } catch (e) {
+      if (e instanceof AppError) setError(e.message);
+    }
+  }
+
+  /** Recreates a saved layout's zones in this venue. Additive: it never deletes what is there. */
+  async function applyTemplate(templateZones: TemplateZone[]) {
+    if (!venueId) return;
+    for (const zone of templateZones) {
+      await apiClient.post(`/venues/${venueId}/zones`, zone, { token: token! });
+    }
+    await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
   }
 
   const groups = useMemo(() => groupTicketTypes(ticketTypes), [ticketTypes]);
@@ -196,6 +264,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         width: zone.width,
         height: zone.height,
         rows: zone.rows,
+        rowSeats: zone.rowSeats,
         rowAOrigin: rowOriginForStage(zone, stage)
       });
     }
@@ -212,6 +281,14 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
     return byZone;
   }, [sellableZones, seatGrids, pools]);
+
+  const accessibleSeatsByZone = useMemo(() => {
+    const byZone: Record<string, string[]> = {};
+    for (const pool of pools) {
+      if (pool.zoneId && pool.accessibleSeatIds?.length) byZone[pool.zoneId] = pool.accessibleSeatIds;
+    }
+    return byZone;
+  }, [pools]);
 
   const groupColors = useMemo(
     () => Object.fromEntries(groups.map((group) => [group.groupId, group.color])),
@@ -275,9 +352,11 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     return { zone, seatCount: seats.length, unassigned, assigned: seats.length - unassigned };
   });
 
+  // This step runs *before* ticket types exist in the wizard, so it can only require that every
+  // sellable zone has capacity. Tying a seat to a ticket type is done once those exist, and an
+  // over-allocation is still blocking because it means the numbers no longer add up.
   const isValid =
-    !assignments.some((a) => a.assignedGroupId === null || a.isOverCapacity) &&
-    !numberedStatuses.some((status) => status.seatCount === 0 || status.assigned === 0);
+    !assignments.some((a) => a.isOverCapacity) && !numberedStatuses.some((status) => status.seatCount === 0);
 
   useEffect(() => {
     onValidationChange?.(isValid);
@@ -298,26 +377,109 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     return <p role="alert">Este evento no tiene un recinto asociado todav�a.</p>;
   }
 
+  // An event drawn before this choice existed already has zones on a plan, so it keeps the plan
+  // instead of being asked again. Only a genuinely empty event gets the chooser.
+  const mode = event.seatingMode ?? (zones.length > 0 ? "plan" : null);
+
+  if (mode === null) {
+    return (
+      <div className="flex flex-col gap-4">
+        {error && <p role="alert">{error}</p>}
+        <SeatingModeChooser mode={null} onChoose={(next) => void setSeatingMode(next)} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {error && <p role="alert">{error}</p>}
-      <div className="grid gap-4 md:grid-cols-[1fr_260px]">
-        <ZoneCanvas
+
+      <SeatingModeChooser mode={mode} onChoose={(next) => void setSeatingMode(next)} />
+
+      {!firstSubEvent && (
+        <p role="alert" className="rounded-md border-2 border-destructive px-3 py-2 text-sm font-semibold">
+          Este evento no tiene ninguna fecha o sesion todavia. El aforo cuelga de la sesion, asi
+          que puedes dibujar las zonas pero el reparto de asientos no se guardara hasta que
+          confirmes una fecha en el paso anterior.
+        </p>
+      )}
+
+      {mode === "plan" ? (
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold">Tamano del plano</span>
+            <label htmlFor="canvas-height" className="text-xs text-muted-foreground">
+              Alto
+            </label>
+            <input
+              id="canvas-height"
+              type="range"
+              min="280"
+              max="900"
+              step="20"
+              value={canvasHeight}
+              onChange={(e) => setCanvasHeight(Number(e.target.value))}
+            />
+            <label htmlFor="canvas-width" className="text-xs text-muted-foreground">
+              Ancho
+            </label>
+            <input
+              id="canvas-width"
+              type="range"
+              min="40"
+              max="100"
+              step="5"
+              value={canvasWidth}
+              onChange={(e) => setCanvasWidth(Number(e.target.value))}
+            />
+            <span className="text-xs text-muted-foreground">
+              {canvasHeight} px de alto - {canvasWidth}% de ancho
+            </span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-[1fr_260px]">
+            <div style={{ width: `${canvasWidth}%` }}>
+              <ZoneCanvas
+                zones={zones}
+                selectedZoneId={selectedZoneId}
+                onSelectZone={setSelectedZoneId}
+                onZoneCommitted={(id, layout) => updateZone(id, layout)}
+                seatAssignmentsByZone={seatAssignmentsByZone}
+                groupColors={groupColors}
+                accessibleSeatsByZone={accessibleSeatsByZone}
+                heightPx={canvasHeight}
+              />
+            </div>
+            <ZoneEditorPanel
+              zones={zones}
+              selectedZoneId={selectedZoneId}
+              onAddZone={addZone}
+              onUpdateZone={updateZone}
+              onDeleteZone={deleteZone}
+              onDuplicateZone={(id) => void duplicateZone(id)}
+            />
+          </div>
+        </>
+      ) : (
+        <ZoneListEditor
           zones={zones}
           selectedZoneId={selectedZoneId}
           onSelectZone={setSelectedZoneId}
-          onZoneCommitted={(id, layout) => updateZone(id, layout)}
-          seatAssignmentsByZone={seatAssignmentsByZone}
-          groupColors={groupColors}
-        />
-        <ZoneEditorPanel
-          zones={zones}
-          selectedZoneId={selectedZoneId}
           onAddZone={addZone}
           onUpdateZone={updateZone}
           onDeleteZone={deleteZone}
         />
-      </div>
+      )}
+
+      {/* Templates work for both modes: a set of zones is reusable whether or not it is drawn. */}
+      <PlanTemplates zones={zones} mode={mode} onApply={applyTemplate} />
+
+      {selectedZone && selectedZone.kind === "numbered" && (selectedSeats?.length ?? 0) === 0 && (
+        <p className="rounded-md border-2 border-border bg-surface p-3 text-sm text-muted-foreground">
+          Indica cuantos asientos tiene "{selectedZone.name}" para dibujar sus butacas y poder
+          repartirlas por tipo de entrada.
+        </p>
+      )}
 
       {selectedZone && selectedZone.kind === "numbered" && selectedSeats && selectedSeats.length > 0 && (
         <ZoneSeatEditor
@@ -334,6 +496,8 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
             })
           )}
           onChange={(next) => void saveSeatAssignments(selectedZone.id, next)}
+          accessibleSeatIds={pools.find((p) => p.zoneId === selectedZone.id)?.accessibleSeatIds ?? []}
+          onAccessibleChange={(next) => void saveAccessibleSeats(selectedZone.id, next)}
         />
       )}
 

@@ -354,6 +354,41 @@ estas dos, y ninguna se puede hacer solo desde este repo:
 Ademas la web tiene que cambiar para consumirlo: hoy sus eventos salen de datos mock locales
 y sus 2 codigos de descuento estan hardcodeados en `src/lib/discounts.ts`.
 
+## Reglas Del Evento Y Pasos Nuevos Del Asistente (2026-09-04)
+
+Nuevo paso "Reglas" en el asistente: un cuestionario que el organizador responde antes de
+publicar. **Todas las preguntas son de respuesta cerrada a proposito** (si/no o una cantidad),
+para que ni el organizador redacte nada ni el sistema tenga que interpretar texto libre. Hay un
+test (`EventRulesSection.test.tsx`) que falla si alguien anade una pregunta de texto libre.
+
+Grupos: venta (min/max por pedido, tope por comprador, compra como invitado), asientos (dejar
+asientos aislados, elegir butaca, maximo de asientos seguidos), titular (nominativa, documento,
+cesion), puerta (reentrada, escaneos por entrada), reembolsos (si/no y plazo en dias) y lo que ve
+el comprador (edad minima, mostrar entradas restantes, umbral de ultimas entradas, accesible).
+
+- `EventRules` + `EVENT_RULE_DEFAULTS` en `packages/types/src/schemas.ts`. Todo opcional: lo no
+  respondido cae a su valor por defecto, asi que los eventos anteriores siguen validando.
+- El contrato publico recibe solo el subconjunto que afecta al comprador (`PublicEventRules`).
+  Lo operativo de puerta (reentrada, escaneos por entrada) NO sale.
+
+Descuentos, puertas e invitados ya existian con sus tests pero solo estaban enganchados en las
+pestanas del detalle del evento, no en el asistente: por eso no aparecian al crear uno. Ahora son
+pasos del asistente. El asistente pasa de 5 a 9 pasos (8 si el evento es de una sola funcion).
+
+### Publicacion Hacia La API
+
+`src/features/publish/toApiEventPayload.ts` adapta el evento publicado al cuerpo que valida
+`PUT /v1/events/:id`: manda el contrato COMPLETO mas los campos que la API exige con sus nombres
+(`ticketTiers` en vez de `tiers`, `date` + `time` en vez de `startsAt`). Asi la API valida lo que
+espera y la web recibe todo lo demas intacto. `missingForApi()` comprueba antes de mandar lo
+mismo que valida la API, para poder decirselo al organizador en vez de recibir un 400 opaco.
+
+**Falta la llamada en si.** No se ha cableado porque depende de una decision de seguridad sin
+resolver: la API valida al panel con `PANEL_API_KEY`, y el panel es una app de navegador, asi que
+esa clave la veria cualquiera abriendo las devtools y podria publicar eventos falsos. Hay que
+elegir antes entre (a) que publique algo en servidor que guarde la clave, o (b) que la API acepte
+el token de sesion del panel y valide el rol.
+
 ## Analisis De api.entraditas.com (2026-09-02)
 
 Revisado `C:\Users\AXEL\Desktop\MODULARBOX\api-entraditas`. **La API NO es solo para pagos**:
@@ -394,7 +429,11 @@ las devtools podria leer la clave** y publicar eventos falsos. Opciones:
 1. Que la publicacion la haga un backend/funcion intermedia con la clave (lo correcto).
 2. O que la API acepte el JWT de sesion del panel y valide rol en vez de una clave compartida.
 
-No se ha implementado ninguna: es una decision de Axel.
+**Resuelto (2026-09-06) con la opcion 2.** El panel inicia sesion en la API con las credenciales
+de quien entra y publica con su token; el servidor comprueba rol y organizacion, y a quien no es
+superadmin le fuerza SU organizacion aunque manipule el cuerpo. `PANEL_API_KEY` queda solo para
+llamadas de servidor a servidor, donde nunca llega a un navegador; si no esta configurada,
+ninguna clave vale.
 
 ## Analisis Sincronizacion Web <-> Panel (2026-09-02)
 
@@ -458,7 +497,11 @@ solicitud (`POST /v1/organizers/applications`) que se aprueba desde el panel.
 ## Pendientes Prioritarios
 
 - Probar visualmente el wizard completo en desktop y movil (incluido el nuevo editor de asientos).
+  Ojo: el panel **no se puede ver en el navegador integrado de Claude Code**, porque el Service
+  Worker de MSW no llega a registrarse ahi y la pagina sale en blanco. Hay que abrirlo en Chrome.
 - Desarrollar el apartado de QR (pendiente, no empezado).
+- Desplegar la API: `api.entraditas.com` resuelve a la misma IP que la web y devuelve 404, asi
+  que hasta que haya un Node escuchando ahi la web publica sigue con los eventos de ejemplo.
 - Ejecutar el plan de sincronizacion web <-> panel del analisis de arriba.
 - Mejorar drag/touch del plano si vuelve a ir mal en pantallas tactiles.
 - Implementar plantillas reutilizables de plano con API/mock formal.
@@ -484,6 +527,33 @@ Actualmente el panel prepara/dibuja estos datos para que la web publica los cons
 
 Regla vigente: si un evento no tiene fecha confirmada, la web publica debe mostrar `Fecha por confirmar` + aviso/campanita y no compra general.
 
+### Modo De Aforo Y Plantillas (2026-09-02)
+
+- `Event.seatingMode: "plan" | "zones" | null` (nuevo). Los dos modos son **excluyentes**: un
+  evento nuevo elige primero y solo se muestra ese editor. Si es `null` pero el recinto ya
+  tiene zonas dibujadas, se asume `plan` y no se vuelve a preguntar (compatibilidad).
+- Modo `zones` (sin plano): mismo modelo completo -- zonas, aforo, filas, reparto por tipo de
+  entrada y asientos -- en una lista, sin lienzo. Las zonas creadas ahi guardan posicion por
+  defecto, asi que pasar a `plan` despues no pierde nada. No ofrece escenario ni puertas,
+  que solo tienen sentido sobre un plano dibujado.
+- `VenuePlanTemplate` **redefinido**: antes era un tipo huerfano con la forma antigua
+  (`VenuePlanElement`) y sin handlers ni UI. Ahora guarda `TemplateZone[]` (zonas sin `id` ni
+  `venueId`), es decir la forma de la sala, reutilizable en varios recintos.
+  Handlers: `GET/POST /venue-plan-templates`, `DELETE /venue-plan-templates/:id`.
+  Aplicar una plantilla es aditivo: nunca borra las zonas que ya haya.
+- Movilidad reducida ya **no es un tipo de zona**: es `CapacityPool.accessibleSeatIds`, marca
+  por asiento con casilla, pintada en azul con el simbolo de silla de ruedas. Se retiro el
+  boton de "zona accesible" (el `kind` sigue existiendo por planos antiguos).
+
+Bugs de interaccion corregidos el mismo dia:
+
+- El input de reparto por tipo estaba gobernado por el estado persistido y cada tecla lanzaba
+  un guardado asincrono, asi que revertia solo: era imposible teclear dos cifras.
+- `pointerdown` alternaba la seleccion y el `onClick` la volvia a alternar, asi que un click
+  seleccionaba y deseleccionaba al instante. Ahora `pointerdown` solo selecciona, hay umbral
+  de 4px, el click posterior a un arrastre se ignora y el lienzo lleva `touch-none`.
+  Para deseleccionar se pulsa el fondo del plano.
+
 ### Cambio De Contrato 2026-09-02 (afecta a la web publica)
 
 Dos campos nuevos, ambos opcionales y retrocompatibles (un cliente que los ignore sigue
@@ -502,3 +572,78 @@ Impacto para la web publica cuando exista la API:
   comprador no puede asumir "una zona = un tipo de entrada".
 - Los asientos sin `ticketTypeGroupId` no estan a la venta y deben pintarse como no
   seleccionables, no como agotados.
+
+### El Cuestionario Pasa A Ser El Primer Paso (2026-09-07)
+
+Antes se preguntaba en el paso 5, despues de montar sesiones, tipos de entrada y zonas. Era el
+orden equivocado: varias respuestas cambian lo que tiene sentido montar. Si no se puede elegir
+butaca, sobra el selector de asientos; si no se admiten asientos aislados, la venta tiene que
+rechazar selecciones que dejen huecos. Preguntarlo al final obligaba a rehacer lo ya configurado.
+
+Orden nuevo del asistente:
+
+1. **Preguntas previas** (no necesita evento)
+2. Informacion del evento (no necesita evento)
+3. Varias funciones - solo si `hasSubEvents`
+4. Tipos de entrada
+5. Zonas
+6. Descuentos
+7. Puertas
+8. Invitados
+9. Publicar evento
+
+El cuestionario se responde **antes de que el evento exista**. Como en ese momento no hay nada
+contra lo que guardar, las respuestas se quedan en `wizardStore.draftRules` y viajan dentro de la
+peticion que crea el evento (`POST /events`), no en un PATCH posterior: asi el evento nace ya con
+ellas y no existe un instante intermedio con las reglas por defecto. `reset()` las borra, para
+que un evento nuevo no herede el cuestionario del anterior.
+
+En la base de datos esto es la tabla `event_rules` (`api-entraditas/sql/entraditas.sql`), una fila
+por evento, todas las columnas de respuesta cerrada y con los mismos valores por defecto que
+`EVENT_RULE_DEFAULTS`.
+
+### Base De Datos Real Y Cierre De La Cadena (2026-09-07)
+
+La API ya corre contra MySQL de verdad, no solo contra tests. Levantarla destapo dos fallos que
+ningun test unitario podia ver, porque ninguno tocaba la base de datos.
+
+**Fechas (afecta a la web publica).** La migracion de SQLite a MySQL tradujo el esquema pero no
+los valores. La API escribia `2026-09-07T13:47:06.512Z` en columnas `DATETIME` y MySQL lo
+rechazaba (`ER_TRUNCATED_WRONG_VALUE`): ningun INSERT con fecha entraba, ni siquiera el del
+primer superadmin. Ahora:
+
+- hacia la base de datos, `toDbDate()` produce `2026-09-07 13:47:06.512`, siempre en UTC;
+- hacia el navegador, `fromDbDate()` devuelve ISO-8601 con `Z`.
+
+Lo segundo importa para la web: el formato crudo de MySQL lo interpreta JavaScript como hora
+**local**, asi que sin convertir una notificacion sale desplazada segun la zona de quien la mire.
+Cualquier campo de fecha que se anada a una respuesta tiene que pasar por `fromDbDate`.
+
+**URL de la API sin protocolo.** `VITE_API_URL` valia `api.entraditas.com`. Sin protocolo el
+navegador la toma como ruta RELATIVA, asi que las peticiones iban a
+`panel.entraditas.com/api.entraditas.com/...`: la publicacion hacia la web nunca habria salido
+del panel. `normalizeApiBase` asume `https` cuando falta el protocolo.
+
+**Variables por modo.** Vite carga `.env` tambien al construir, asi que un `.env` apuntando a la
+API local acaba incrustado en el `dist` y un despliegue con ese bundle haria que la web publica
+llamase al portatil de quien construyo. Ahora hay `.env.development` (solo servidor de
+desarrollo), `.env.production` (solo build) y `.env.test` (vacia la variable, para que los tests
+corran contra los mocks pase lo que pase en la maquina).
+
+**Aprobar y publicar, ya en la interfaz.** La lista de eventos tiene una columna *Revision* con
+`Aprobar y publicar` / `Rechazar`, visible solo para superadmin y solo en eventos que estan en
+revision. Aprobar pasa el evento a publicado y acto seguido lo manda a la API publica; un fallo
+de envio NO deshace la aprobacion y se cuenta con el mensaje de `describePublishOutcome`. El
+mensaje sobrevive a la desaparicion de los botones: si no, el revisor nunca llegaba a leer si el
+evento habia salido de verdad a la web.
+
+**CORS.** En produccion mandan solo los origenes de `CORS_ORIGINS`. Fuera de produccion se acepta
+ademas cualquier origen de la propia maquina en cualquier puerto, porque Vite cambia de puerto en
+cuanto el suyo esta ocupado y una lista fija deja de valer sin avisar.
+
+**Como levantar todo en local.** En `api-entraditas`: `.\scripts\bd.ps1 init` crea una instancia
+de MySQL separada de la que hubiera instalada (puerto 3307, datos y credenciales propios),
+`npm run dev` crea las tablas al arrancar, `npm run seed` siembra las **mismas** organizaciones y
+cuentas que los mocks del panel (`admin@entraditas.com` / `admin1234`, etc.) para no tener que
+aprenderse dos juegos de credenciales, y `npm run smoke` recorre por HTTP la cadena entera contra
+MySQL real.

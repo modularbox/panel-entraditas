@@ -14,6 +14,15 @@ function renderSection(eventId: string | null, onValidationChange?: (valid: bool
   );
 }
 
+/**
+ * A brand-new event has no zones yet, so the section asks how capacity should be laid out before
+ * showing any editor. These tests are about the drawn plan, so they take that branch.
+ */
+async function choosePlanMode() {
+  fireEvent.click(await screen.findByRole("button", { name: /Crear zonas con plano y asientos/ }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+}
+
 describe("SeatingPlanSection", () => {
   afterEach(() => {
     resetDb();
@@ -36,7 +45,7 @@ describe("SeatingPlanSection", () => {
   it("adds a numbered zone and auto-creates its capacity pool for the event's first function", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-1"); // venue-2 (Teatro Circo), zero zones seeded
-    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+    await choosePlanMode();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
 
@@ -62,7 +71,7 @@ describe("SeatingPlanSection", () => {
   it("deletes a zone without sales", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderSection("event-1"); // venue-2 (Teatro Circo), zero zones seeded -> a freshly-added zone has no sales
-    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona numerada" })).toBeInTheDocument());
+    await choosePlanMode();
     fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
     await screen.findByRole("button", { name: "Nueva zona numerada" });
     const zone = db.zones.find((z) => z.name === "Nueva zona numerada")!;
@@ -167,7 +176,9 @@ describe("SeatingPlanSection", () => {
     renderSection("event-2");
 
     fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
-    fireEvent.change(await screen.findByLabelText("Asientos de Grada VIP en Grada"), { target: { value: "20" } });
+    const input = await screen.findByLabelText("Asientos de Grada VIP en Grada");
+    fireEvent.change(input, { target: { value: "20" } });
+    fireEvent.keyDown(input, { key: "Enter" });
 
     await waitFor(() => {
       const pool = db.capacityPools.find((p) => p.id === "pool-2-grada")!;
@@ -179,14 +190,194 @@ describe("SeatingPlanSection", () => {
     expect(await screen.findByText(/20\/25 asientos asignados - 5 sin asignar/)).toBeInTheDocument();
   });
 
-  it("reports invalid while a numbered zone still has no seat assigned", async () => {
+  // This step runs before ticket types exist in the wizard, so leaving seats unassigned cannot
+  // block it. Only a zone with no capacity at all does.
+  it("still lets the organizer move on while a numbered zone has no seat assigned", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     seedNumberedGrada();
     const onValidationChange = vi.fn();
     renderSection("event-2", onValidationChange);
 
     expect(await screen.findByText(/25 asientos sin ningun tipo de entrada asignado/)).toBeInTheDocument();
+    await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(true));
+  });
+
+  it("blocks the step while a sellable zone has no capacity", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    const zone = db.zones.find((z) => z.id === "zone-grada")!;
+    zone.kind = "numbered";
+    zone.capacity = 0;
+    const onValidationChange = vi.fn();
+    renderSection("event-2", onValidationChange);
+
+    await screen.findByRole("button", { name: "Pista" });
     await waitFor(() => expect(onValidationChange).toHaveBeenLastCalledWith(false));
+  });
+
+  it("adds a second zone once one already exists", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1"); // venue-2, zero zones seeded
+    await choosePlanMode();
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
+    await screen.findByRole("button", { name: "Nueva zona numerada" });
+    fireEvent.click(screen.getByRole("button", { name: "+ Zona de pie" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Nueva zona de pie" })).toBeInTheDocument());
+    expect(db.zones.filter((z) => z.venueId === "venue-2")).toHaveLength(2);
+  });
+
+  it("creates exactly one capacity pool per zone, even as zones are added", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1");
+    await choosePlanMode();
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Zona numerada" }));
+    await screen.findByRole("button", { name: "Nueva zona numerada" });
+    const zone = db.zones.find((z) => z.name === "Nueva zona numerada")!;
+
+    await waitFor(() => expect(db.capacityPools.filter((p) => p.zoneId === zone.id)).toHaveLength(1));
+  });
+
+  it("keeps the typed quantity on screen and only saves it once confirmed", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+    const input = await screen.findByLabelText("Asientos de Grada VIP en Grada");
+
+    // Typing "2" then "0" must end up as 20, not snap back to the last saved value each keystroke.
+    fireEvent.change(input, { target: { value: "2" } });
+    fireEvent.change(input, { target: { value: "20" } });
+    expect(input).toHaveValue(20);
+    expect(db.capacityPools.find((p) => p.id === "pool-2-grada")!.seatAssignments ?? []).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar cantidad de Grada VIP" }));
+
+    await waitFor(() => expect(db.capacityPools.find((p) => p.id === "pool-2-grada")!.seatAssignments).toHaveLength(20));
+  });
+
+  it("asks how to lay out capacity before showing any editor on a fresh event", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1"); // venue-2, zero zones
+
+    expect(await screen.findByRole("button", { name: /Crear zonas con plano y asientos/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Crear zonas sin plano/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ Zona numerada" })).not.toBeInTheDocument();
+  });
+
+  it("shows only the drawn plan once that mode is chosen", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1");
+    await choosePlanMode();
+
+    expect(screen.getByRole("button", { name: "+ Escenario/Pantalla" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Zonas sin plano" })).not.toBeInTheDocument();
+  });
+
+  it("shows only the plain zone list when the no-plan mode is chosen", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1");
+    fireEvent.click(await screen.findByRole("button", { name: /Crear zonas sin plano/ }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona de pie" })).toBeInTheDocument());
+    // No canvas: the stage and gate tools only make sense on a drawn plan.
+    expect(screen.queryByRole("button", { name: "+ Escenario/Pantalla" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Ancho %")).not.toBeInTheDocument();
+  });
+
+  it("keeps an already-drawn event on the plan without asking again", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-2"); // venue-1 already has zones
+
+    expect(await screen.findByRole("button", { name: "Pista" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Plano de asientos$/ })).not.toBeInTheDocument();
+  });
+
+  it("adds zones in the no-plan mode with the same capacity model", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-1");
+    fireEvent.click(await screen.findByRole("button", { name: /Crear zonas sin plano/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "+ Zona de pie" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Zona de pie" }));
+
+    await waitFor(() => expect(db.zones.filter((z) => z.venueId === "venue-2")).toHaveLength(1));
+    const zone = db.zones.find((z) => z.venueId === "venue-2")!;
+    await waitFor(() => expect(db.capacityPools.some((p) => p.zoneId === zone.id)).toBe(true));
+  });
+
+  it("saves the drawn plan as a reusable template and applies it back", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderSection("event-2"); // venue-1 has Pista + Grada
+    await screen.findByRole("button", { name: "Pista" });
+
+    fireEvent.change(screen.getByLabelText(/Guardar el plano actual como plantilla/), {
+      target: { value: "Sala Apolo estandar" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar plantilla" }));
+
+    await waitFor(() => expect(db.venuePlanTemplates).toHaveLength(1));
+    expect(db.venuePlanTemplates[0]!.zones).toHaveLength(2);
+    // A template stores the shape of the room, never a particular venue's zone ids.
+    expect(db.venuePlanTemplates[0]!.zones.every((zone) => !("id" in zone) && !("venueId" in zone))).toBe(true);
+
+    const zonesBefore = db.zones.filter((z) => z.venueId === "venue-1").length;
+    fireEvent.click(await screen.findByRole("button", { name: "Aplicar" }));
+
+    await waitFor(() => expect(db.zones.filter((z) => z.venueId === "venue-1")).toHaveLength(zonesBefore + 2));
+  });
+
+  // An event whose date is still to be confirmed has no session yet, and capacity pools hang off
+  // the session. Without one, every seat assignment used to be dropped without a word.
+  it("says what is missing when the event has no session to hang the capacity on", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    db.subEvents = db.subEvents.filter((s) => s.eventId !== "event-2");
+    renderSection("event-2");
+
+    expect(await screen.findByText(/no tiene ninguna fecha o sesion todavia/i)).toBeInTheDocument();
+  });
+
+  it("duplicates a zone without carrying its seat breakdown over", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    db.capacityPools.find((p) => p.id === "pool-2-grada")!.seatAssignments = [
+      { seatId: "A-1", ticketTypeGroupId: "tt-2-grada" }
+    ];
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Duplicar esta zona" }));
+
+    const copy = await waitFor(() => {
+      const found = db.zones.find((z) => z.name === "Grada (copia)");
+      expect(found).toBeDefined();
+      return found!;
+    });
+    expect(copy.capacity).toBe(25);
+    expect(copy.rows).toBe(5);
+    // The copy sells nothing yet: duplicating an allocation would double-spend the ticket type.
+    await waitFor(() => {
+      const pool = db.capacityPools.find((p) => p.zoneId === copy.id);
+      expect(pool?.seatAssignments ?? []).toHaveLength(0);
+    });
+  });
+
+  it("applies a custom seats-per-row distribution and takes its capacity from it", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+
+    fireEvent.change(screen.getByLabelText("Asientos por fila"), { target: { value: "12, 11, 11, 9" } });
+    fireEvent.blur(screen.getByLabelText("Asientos por fila"));
+
+    await waitFor(() => {
+      const zone = db.zones.find((z) => z.id === "zone-grada")!;
+      expect(zone.rowSeats).toEqual([12, 11, 11, 9]);
+      expect(zone.capacity).toBe(43);
+    });
   });
 
   it("does not offer a whole-zone ticket type selector for a numbered zone", async () => {

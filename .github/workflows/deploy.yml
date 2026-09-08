@@ -1,5 +1,18 @@
 name: Desplegar a panel.entraditas.com
 
+# El despliegue se hacia con una accion de FTP/FTPS, pero el hosting de Entraditas responde por
+# SFTP (SSH), que es otro protocolo: por eso los push compilaban y el sitio no se actualizaba
+# nunca. Este workflow sube por SFTP.
+#
+# Requiere estos secrets del repositorio (Settings -> Secrets and variables -> Actions).
+# Solo el dueno de la cuenta puede crearlos; no pueden vivir en el repo:
+#   SFTP_USERNAME   usuario del hosting
+#   SFTP_PASSWORD   contrasena del hosting
+# Opcionales, como variables (no secretos):
+#   SFTP_HOST       por defecto panel.entraditas.com
+#   SFTP_PORT       por defecto 22
+#   SFTP_REMOTE_DIR por defecto /panel.ENTRADITAS.COM
+
 on:
   push:
     branches: [main]
@@ -9,8 +22,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      FTP_SERVER: ${{ secrets.FTP_SERVER || 'ftp.entraditas.com' }}
-      FTP_REMOTE_DIR: ${{ vars.FTP_REMOTE_DIR || 'panel.entraditas.com/' }}
+      SFTP_HOST: ${{ vars.SFTP_HOST || 'panel.entraditas.com' }}
+      SFTP_PORT: ${{ vars.SFTP_PORT || '22' }}
+      SFTP_REMOTE_DIR: ${{ vars.SFTP_REMOTE_DIR || '/panel.ENTRADITAS.COM' }}
     steps:
       - name: Descargar codigo
         uses: actions/checkout@v4
@@ -27,24 +41,32 @@ jobs:
       - name: Compilar el panel
         run: npm run build
 
-      - name: Comprobar carpeta de destino
+      # Sin credenciales la subida falla a mitad y el fallo es facil de confundir con un
+      # problema de red, asi que se comprueba antes y se dice exactamente que falta.
+      - name: Comprobar credenciales
+        env:
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
         run: |
-          if [ -z "$FTP_SERVER" ]; then
-            echo "::error::No se pudo resolver FTP_SERVER."
+          missing=""
+          [ -z "$SFTP_USERNAME" ] && missing="$missing SFTP_USERNAME"
+          [ -z "$SFTP_PASSWORD" ] && missing="$missing SFTP_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Faltan secrets del repositorio:$missing. Anadelos en Settings -> Secrets and variables -> Actions."
             exit 1
           fi
-          if [ -z "$FTP_REMOTE_DIR" ]; then
-            echo "::error::No se pudo resolver FTP_REMOTE_DIR."
-            exit 1
-          fi
-          echo "Servidor FTP: $FTP_SERVER"
-          echo "Destino FTP: $FTP_REMOTE_DIR"
+          echo "Destino: $SFTP_HOST:$SFTP_PORT$SFTP_REMOTE_DIR"
 
-      - name: Subir por FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Subir por SFTP
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
-          server: ${{ env.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./dist/
-          server-dir: ${{ env.FTP_REMOTE_DIR }}
+          server: ${{ env.SFTP_HOST }}
+          port: ${{ env.SFTP_PORT }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: ./dist/*
+          remote_path: ${{ env.SFTP_REMOTE_DIR }}
+          sftp_only: true
+
+      - name: Resumen
+        run: echo "Panel desplegado en $SFTP_HOST$SFTP_REMOTE_DIR desde el commit $GITHUB_SHA"
