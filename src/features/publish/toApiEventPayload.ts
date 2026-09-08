@@ -10,8 +10,13 @@ import type { PublicEvent } from "@entraditas/types";
  * derivados encima: la API valida lo que espera y la web recibe todo lo demas intacto.
  */
 export interface ApiEventPayload extends PublicEvent {
-  /** La API exige un estado; solo se publica lo que ya es publico. */
-  status: "published";
+  /**
+   * Estado con el que queda en la web. Solo estos dos salen publicados:
+   *   `published` esta anunciado pero sin venta abierta;
+   *   `on_sale` ademas se puede comprar.
+   * Antes iba fijo a "published" y un evento a la venta perdia ese estado al publicarse.
+   */
+  status: "published" | "on_sale";
   /** Nombre que la API valida para los tipos de entrada, con el precio en euros. */
   ticketTiers: { id: string; name: string; price: number; description: string; available: number }[];
   /** Fecha y hora separadas, obligatorias cuando `dateStatus` es "confirmed". */
@@ -38,11 +43,14 @@ export function splitStartsAt(startsAt: string | null): { date: string | null; t
   };
 }
 
-export function toApiEventPayload(event: PublicEvent): ApiEventPayload {
+export function toApiEventPayload(
+  event: PublicEvent,
+  status: ApiEventPayload["status"] = "published"
+): ApiEventPayload {
   const { date, time } = splitStartsAt(event.startsAt);
   return {
     ...event,
-    status: "published",
+    status,
     date,
     time,
     ticketTiers: event.tiers.map((tier) => ({

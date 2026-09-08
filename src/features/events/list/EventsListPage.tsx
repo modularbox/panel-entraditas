@@ -8,6 +8,7 @@ import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { EventStatusBadge, EVENT_STATUS_LABEL } from "@/shared/ui/EventStatusBadge";
 import { ConexionWebPublica } from "@/features/publish/ConexionWebPublica";
+import { SincronizarConLaWeb } from "@/features/publish/SincronizarConLaWeb";
 import { EventRowActions } from "./EventRowActions";
 import { useEventsQuery } from "./useEventsQuery";
 
@@ -78,6 +79,7 @@ export function EventsListPage() {
       {/* Aqui arriba porque de nada sirve aprobar un evento si la conexion con la web esta
           caida: mejor verlo antes de publicar que descubrirlo despues por un mensaje de error. */}
       <ConexionWebPublica />
+      <SincronizarConLaWeb eventos={events} />
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-sm font-bold">Estado</span>
