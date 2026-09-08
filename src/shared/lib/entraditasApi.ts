@@ -85,6 +85,42 @@ export async function loginToApi(email: string, password: string): Promise<ApiSt
   }
 }
 
+/**
+ * Igual que `loginToApi`, pero deja salir el error en vez de tragarselo.
+ *
+ * Existe porque las credenciales de la API NO son las del panel. El panel se autentica contra
+ * sus mocks, cuyas contrasenas de demostracion estan en el repositorio y son publicas; la API,
+ * que decide lo que sale en entraditas.com, tiene las suyas propias. Cuando alguien las escribe
+ * a mano en el formulario de conexion necesita saber por que han fallado, no un silencio.
+ */
+export async function conectarConLaApi(email: string, password: string): Promise<ApiStaff> {
+  if (!isApiConfigured()) throw new ApiUnavailableError("La API publica no esta configurada en esta compilacion.");
+  try {
+    const result = await request<{ token: string; staff: ApiStaff }>("/v1/panel/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password })
+    });
+    storeApiToken(result.token);
+    return result.staff;
+  } catch (error) {
+    storeApiToken(null);
+    throw error;
+  }
+}
+
+/** Quien esta conectado ahora mismo a la API, o null si la sesion ya no vale. */
+export async function quienSoyEnLaApi(): Promise<ApiStaff | null> {
+  if (!isApiConfigured() || !getApiToken()) return null;
+  try {
+    const result = await request<{ staff: ApiStaff }>("/v1/panel/me");
+    return result.staff;
+  } catch {
+    // El token caduco o se revoco: se limpia para que la interfaz no diga "conectado" sin serlo.
+    storeApiToken(null);
+    return null;
+  }
+}
+
 export async function logoutFromApi(): Promise<void> {
   if (!isApiConfigured() || !getApiToken()) return;
   await request("/v1/panel/auth/logout", { method: "POST" }).catch(() => undefined);
