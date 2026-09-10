@@ -130,7 +130,7 @@ export function EventRowActions({ event }: { event: Event }) {
 
   // Cambiar estados y borrar es cosa de quien administra, no de quien solo consulta. El servidor
   // lo vuelve a comprobar.
-  const canManage = role === "superadmin" || role === "admin";
+  const canManage = role === "superadmin" || role === "organizador";
   const canReview = role === "superadmin";
   const reviewable = REVIEWABLE.includes(event.status);
   const finished = hasEventFinished(event);

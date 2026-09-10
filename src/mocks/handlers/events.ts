@@ -31,7 +31,7 @@ function requireUser(request: Request): User | null {
  * acciones solo comprobaban `events:read`, asi que el personal de puerta podia borrar eventos.
  */
 function canManageEvent(user: User): boolean {
-  return user.role === "superadmin" || user.role === "admin";
+  return user.role === "superadmin" || user.role === "organizador";
 }
 
 function forbidden(requestId: string, message: string) {

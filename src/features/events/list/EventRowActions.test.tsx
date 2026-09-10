@@ -165,7 +165,7 @@ describe("EventRowActions", () => {
   });
 
   it("quien no administra no ve ninguna accion", async () => {
-    await loginAs("usuario@entraditas.com");
+    await loginAs("marta.gutierrez@entraditas.com");
     const { container } = renderActions(eventById("event-1"));
     expect(container).toBeEmptyDOMElement();
   });
