@@ -66,23 +66,56 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 /**
- * Abre sesion en la API con las mismas credenciales del panel. Se llama al iniciar sesion y su
- * fallo no debe impedir entrar al panel: mientras la API no exista o la persona no este dada de
- * alta en ella, el panel sigue funcionando contra sus mocks.
+ * Resultado de intentar entrar en la API.
+ *
+ * Hay que distinguir "me han dicho que no" de "no me han contestado", porque llevan a decisiones
+ * opuestas: un 401 es una respuesta y hay que hacerle caso, mientras que una caida de la API no
+ * puede dejar a nadie fuera de su propio panel.
  */
-export async function loginToApi(email: string, password: string): Promise<ApiStaff | null> {
-  if (!isApiConfigured()) return null;
+export type ResultadoSesionApi =
+  | { estado: "ok"; staff: ApiStaff }
+  | { estado: "rechazado"; mensaje: string }
+  | { estado: "sin-respuesta" };
+
+/**
+ * Abre sesion en la API con las credenciales escritas en el panel.
+ *
+ * Es la autenticacion que de verdad importa: decide quien puede publicar en entraditas.com. La
+ * del panel se valida contra sus mocks, cuyas contrasenas de demostracion estan en el
+ * repositorio y no protegen nada.
+ */
+export async function iniciarSesionEnLaApi(email: string, password: string): Promise<ResultadoSesionApi> {
+  if (!isApiConfigured()) return { estado: "sin-respuesta" };
+  let response: Response;
   try {
-    const result = await request<{ token: string; staff: ApiStaff }>("/v1/panel/auth/login", {
+    response = await fetch(`${API_BASE}/v1/panel/auth/login`, {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({ email, password })
     });
-    storeApiToken(result.token);
-    return result.staff;
   } catch {
-    storeApiToken(null);
-    return null;
+    // Ni siquiera hubo respuesta: sin red, DNS caido, o la API apagada.
+    return { estado: "sin-respuesta" };
   }
+
+  const payload = (await response.json().catch(() => ({}))) as { token?: string; staff?: ApiStaff; error?: string };
+  if (response.ok && payload.token && payload.staff) {
+    storeApiToken(payload.token);
+    return { estado: "ok", staff: payload.staff };
+  }
+
+  storeApiToken(null);
+  // Un 5xx es un problema del servidor, no una negativa sobre estas credenciales.
+  if (response.status >= 500) return { estado: "sin-respuesta" };
+  return { estado: "rechazado", mensaje: payload.error ?? "Correo o contraseña incorrectos." };
+}
+
+/**
+ * Igual, pero devolviendo solo si se pudo o no. Se conserva para las pantallas que ya la usaban.
+ */
+export async function loginToApi(email: string, password: string): Promise<ApiStaff | null> {
+  const resultado = await iniciarSesionEnLaApi(email, password);
+  return resultado.estado === "ok" ? resultado.staff : null;
 }
 
 /**
