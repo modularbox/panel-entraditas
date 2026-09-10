@@ -10,9 +10,9 @@ import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { useTeamQuery } from "./useTeamQuery";
 
-const ROLE_LABELS: Record<RoleSlug, string> = { superadmin: "Superadministrador", admin: "Administrador", user: "Usuario", subuser: "Subusuario" };
+const ROLE_LABELS: Record<RoleSlug, string> = { superadmin: "Superadministrador", organizador: "Organizador", suborganizador: "Suborganizador" };
 const STATUS_LABELS: Record<User["status"], string> = { active: "Activo", invited: "Invitado", disabled: "Desactivado" };
-const ROLE_ORDER: RoleSlug[] = ["superadmin", "admin", "user", "subuser"];
+const ROLE_ORDER: RoleSlug[] = ["superadmin", "organizador", "suborganizador"];
 
 const columnHelper = createColumnHelper<User>();
 const columns = [

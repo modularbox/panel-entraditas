@@ -12,7 +12,7 @@ describe("App", () => {
 });
 
 // These render <App /> with a real BrowserRouter and the actual RequirePermission-guarded routes
-// (unlike UsersListPage.test.tsx, which stubs /eventos as a plain unguarded route) — that's what
+// (unlike a component-level test, which would stub /eventos as a plain unguarded route) — that's what
 // catches the routing race a component-level test can't see.
 describe("App - Conectar routing", () => {
   afterEach(() => {
@@ -28,7 +28,7 @@ describe("App - Conectar routing", () => {
 
   it("lands on Eventos, not /sin-acceso, after Conectar from a superadmin-only page", async () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
-    window.history.pushState({}, "", "/usuarios");
+    window.history.pushState({}, "", "/organizaciones");
     render(<App />);
     await waitFor(() => expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument());
 
@@ -40,10 +40,10 @@ describe("App - Conectar routing", () => {
 
   it("lands back on Eventos, not /sin-acceso, when returning to superadmin from a page only the impersonated account can see", async () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
-    window.history.pushState({}, "", "/usuarios");
+    window.history.pushState({}, "", "/organizaciones");
     render(<App />);
     await waitFor(() => expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument());
-    clickConectarFor("Admin de Producciones Norte"); // now the org admin, who lacks users:read
+    clickConectarFor("Admin de Producciones Norte"); // now the org admin, who lacks organizations:manage
     await waitFor(() => expect(screen.getByRole("heading", { name: "Eventos" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("link", { name: "Equipo" })); // superadmin lacks users:manage

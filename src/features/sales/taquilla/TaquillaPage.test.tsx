@@ -24,7 +24,7 @@ describe("TaquillaPage", () => {
   });
 
   it("shows a permission notice instead of the form for a user without orders:create", async () => {
-    await useSessionStore.getState().login("usuario@entraditas.com", "usuario1234");
+    await useSessionStore.getState().login("marta.gutierrez@entraditas.com", "marta1234");
     renderPage();
     expect(await screen.findByText("No tienes permiso para vender entradas.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Evento")).not.toBeInTheDocument();

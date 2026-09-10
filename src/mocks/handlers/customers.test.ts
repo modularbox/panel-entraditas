@@ -58,8 +58,8 @@ describe("customers handlers", () => {
     expect(customers.map((c) => c.email)).toEqual(["hugo.serrano@example.com"]);
   });
 
-  it("returns FORBIDDEN for a subuser without orders:read", async () => {
-    const token = await loginAs("subusuario@entraditas.com");
+  it("returns FORBIDDEN for a suborganizador without orders:read", async () => {
+    const token = await loginAs("javier.ortega@entraditas.com");
     await expect(apiClient.get("/customers", { token })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 

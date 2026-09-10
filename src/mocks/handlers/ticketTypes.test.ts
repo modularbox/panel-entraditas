@@ -78,7 +78,7 @@ describe("ticket types handlers", () => {
   });
 
   it("returns NOT_FOUND when patching a ticket type from an out-of-scope event", async () => {
-    const token = await loginAs("usuario@entraditas.com"); // scoped to event-1 and event-2 only
+    const token = await loginAs("marta.gutierrez@entraditas.com"); // scoped to event-1 and event-2 only
     // event3TicketType (tt-3) belongs to event-3, which is out of scope
     await expect(
       apiClient.patch("/ticket-types/tt-3", { name: "Updated" }, { token })
@@ -86,7 +86,7 @@ describe("ticket types handlers", () => {
   });
 
   it("returns NOT_FOUND when deleting a ticket type from an out-of-scope event", async () => {
-    const token = await loginAs("usuario@entraditas.com"); // scoped to event-1 and event-2 only
+    const token = await loginAs("marta.gutierrez@entraditas.com"); // scoped to event-1 and event-2 only
     // event3TicketType (tt-3) belongs to event-3, which is out of scope
     await expect(
       apiClient.delete("/ticket-types/tt-3", { token })
@@ -94,7 +94,7 @@ describe("ticket types handlers", () => {
   });
 
   it("returns NOT_FOUND when adding a price to a ticket type from an out-of-scope event", async () => {
-    const token = await loginAs("usuario@entraditas.com"); // scoped to event-1 and event-2 only
+    const token = await loginAs("marta.gutierrez@entraditas.com"); // scoped to event-1 and event-2 only
     // event3TicketType (tt-3) belongs to event-3, which is out of scope
     await expect(
       apiClient.post(
@@ -106,7 +106,7 @@ describe("ticket types handlers", () => {
   });
 
   it("returns NOT_FOUND when reordering a group belonging to an out-of-scope event", async () => {
-    const token = await loginAs("usuario@entraditas.com"); // scoped to event-1 and event-2 only
+    const token = await loginAs("marta.gutierrez@entraditas.com"); // scoped to event-1 and event-2 only
     // tt-3 belongs to event-3, which is out of scope
     await expect(
       apiClient.post("/ticket-types/reorder", { items: [{ groupId: "tt-3", sortOrder: 5 }] }, { token })

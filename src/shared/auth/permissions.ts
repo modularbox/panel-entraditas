@@ -10,24 +10,29 @@ export const PERMISSIONS = [
   "events:read", "events:create",
   "orders:read", "orders:create", "orders:refund", "guestlist:read", "guestlist:manage",
   "scan:validate", "reports:read", "reports:export",
-  "users:read", "users:manage"
+  "users:manage"
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
-// users:read gates the superadmin's cross-tenant "Usuarios" directory (every user, every
-// organization, connect-as-anyone) — an admin already sees their own org's people via users:manage
-// (Equipo), so it's excluded here rather than granted twice with different semantics.
-const ALL_EXCEPT_ORG_MANAGE = PERMISSIONS.filter((permission) => permission !== "organizations:manage" && permission !== "users:read");
+const ALL_EXCEPT_ORG_MANAGE = PERMISSIONS.filter((permission) => permission !== "organizations:manage");
 // Superadmin handles organizations cross-tenant but never the day-to-day team of any
 // one org; its users are managed by each admin. Keeps the "Equipo" nav gated off.
 const ALL_EXCEPT_TEAM_MANAGE = PERMISSIONS.filter((permission) => permission !== "users:manage");
 
 export const ROLE_BASE_PERMISSIONS: Record<RoleSlug, readonly Permission[]> = {
   superadmin: ALL_EXCEPT_TEAM_MANAGE,
-  admin: ALL_EXCEPT_ORG_MANAGE,
-  user: ["events:read", "events:create", "orders:read", "guestlist:read", "guestlist:manage", "reports:read", "scan:validate"],
-  subuser: ["events:read", "scan:validate", "guestlist:read", "guestlist:manage"]
+  organizador: ALL_EXCEPT_ORG_MANAGE,
+  // A suborganizador starts with no access at all: everything an organizer grants it arrives as
+  // allow overrides (the "Permisos adicionales" checkboxes in Equipo), plus per-event scopes.
+  suborganizador: []
 };
+
+// A "organizador" is the organization's primary account (the one "Conectar" targets and the role
+// of the organization's owner). Someone without permissions may not be given the complet rol,
+// and only one organizador exists per organization: its team must be suborganizadores.
+// Kept as a labeled bookkeeping constant rather than sparse role names so callers read intent.
+export const ORGANIZADOR_ROLE = "organizador" as const;
+export const SUBORGANIZADOR_ROLE = "suborganizador" as const;
 
 export function resolveEffectivePermissions(role: RoleSlug, overrides: PermissionOverride[]): Set<string> {
   const effective = new Set<string>(ROLE_BASE_PERMISSIONS[role]);
@@ -45,10 +50,13 @@ export function hasPermission(effective: Set<string>, permission: string, opts?:
   return opts.eventScopes.includes(opts.eventId);
 }
 
-// Lower number = higher privilege (superadmin outranks admin outranks user outranks subuser).
-export const ROLE_LEVEL: Record<RoleSlug, number> = { superadmin: 0, admin: 1, user: 2, subuser: 3 };
+// Lower number = higher privilege (superadmin outranks organizador outranks suborganizador).
+export const ROLE_LEVEL: Record<RoleSlug, number> = { superadmin: 0, organizador: 1, suborganizador: 2 };
 export function canAssignRole(actorRole: RoleSlug, targetRole: RoleSlug): boolean {
   // An actor can only assign roles at or below their own privilege level, never a higher one.
+  // An organizador can still only assign suborganizador: there is exactly one organizador per
+  // organization, so that role is not assignable by anyone but the app itself.
+  if (targetRole === "organizador" && actorRole !== "superadmin") return false;
   return ROLE_LEVEL[actorRole] <= ROLE_LEVEL[targetRole];
 }
 export function canGrantPermission(actorEffective: Set<string>, permission: string): boolean {
@@ -70,15 +78,15 @@ export interface Capability {
 }
 
 export const CAPABILITIES: Capability[] = [
-  { key: "manage_organizations", label: "Gestionar organizadores", permissions: ["organizations:manage"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_no", user: "fixed_no", subuser: "fixed_no" } },
-  { key: "manage_events", label: "Crear y editar eventos", permissions: ["events:create"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },
-  { key: "view_orders", label: "Ver pedidos y compradores", permissions: ["orders:read"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },
-  { key: "refund_orders", label: "Devolver dinero", permissions: ["orders:refund"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "configurable", subuser: "fixed_no" } },
-  { key: "sell_tickets", label: "Vender entradas en taquilla", permissions: ["orders:create"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "configurable", subuser: "configurable" } },
-  { key: "scan_tickets", label: "Escanear entradas en la puerta", permissions: ["scan:validate"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "fixed_yes" } },
-  { key: "manage_guestlist", label: "Gestionar invitados y cortesías", permissions: ["guestlist:read", "guestlist:manage"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "fixed_yes" } },
-  { key: "view_reports", label: "Ver informes y estadísticas", permissions: ["reports:read"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "fixed_yes", subuser: "configurable" } },
-  { key: "manage_team", label: "Dar de alta a personas del equipo", permissions: ["users:manage"], accessByRole: { superadmin: "fixed_yes", admin: "fixed_yes", user: "configurable", subuser: "fixed_no" } }
+  { key: "manage_organizations", label: "Gestionar organizadores", permissions: ["organizations:manage"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_no", suborganizador: "fixed_no" } },
+  { key: "manage_events", label: "Crear y editar eventos", permissions: ["events:create"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
+  { key: "view_orders", label: "Ver pedidos y compradores", permissions: ["orders:read"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
+  { key: "refund_orders", label: "Devolver dinero", permissions: ["orders:refund"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "fixed_no" } },
+  { key: "sell_tickets", label: "Vender entradas en taquilla", permissions: ["orders:create"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
+  { key: "scan_tickets", label: "Escanear entradas en la puerta", permissions: ["scan:validate"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
+  { key: "manage_guestlist", label: "Gestionar invitados y cortesías", permissions: ["guestlist:read", "guestlist:manage"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
+  { key: "view_reports", label: "Ver informes y estadísticas", permissions: ["reports:read"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
+  { key: "manage_team", label: "Dar de alta a personas del equipo", permissions: ["users:manage"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "fixed_no" } }
 ];
 
 export function getConfigurableCapabilities(role: RoleSlug): Capability[] {

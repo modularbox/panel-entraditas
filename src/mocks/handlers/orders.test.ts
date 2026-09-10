@@ -53,14 +53,14 @@ describe("orders handlers", () => {
   });
 
   it("a user scoped to event-1 and event-2 never sees event-4 orders", async () => {
-    const token = await loginAs("usuario@entraditas.com");
+    const token = await loginAs("marta.gutierrez@entraditas.com");
     const orders = await apiClient.get<Order[]>("/orders", { token });
     expect(orders.length).toBeGreaterThan(0);
     expect(orders.every((o) => o.eventId === "event-1" || o.eventId === "event-2")).toBe(true);
   });
 
-  it("returns FORBIDDEN for a subuser, who has no orders:read by default", async () => {
-    const token = await loginAs("subusuario@entraditas.com");
+  it("returns FORBIDDEN for a suborganizador, who has no orders:read by default", async () => {
+    const token = await loginAs("javier.ortega@entraditas.com");
     await expect(apiClient.get("/orders", { token })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
@@ -147,8 +147,8 @@ describe("orders handlers - creating a box office sale", () => {
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it("returns FORBIDDEN for a user without orders:create", async () => {
-    const token = await loginAs("usuario@entraditas.com"); // role "user", orders:create not granted in seed
+  it("returns FORBIDDEN for a suborganizador without orders:create", async () => {
+    const token = await loginAs("marta.gutierrez@entraditas.com"); // role "suborganizador", orders:create not granted in seed
     await expect(
       apiClient.post(
         "/orders",
@@ -207,7 +207,7 @@ describe("orders handlers - cancelling a sale deletes it outright", () => {
   });
 
   it("returns FORBIDDEN for a user without orders:refund", async () => {
-    const token = await loginAs("usuario@entraditas.com");
+    const token = await loginAs("marta.gutierrez@entraditas.com");
     await expect(apiClient.post("/orders/order-5/cancel", undefined, { token })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 

@@ -25,9 +25,9 @@ export interface Database {
 }
 
 export const DEMO_SUPERADMIN_ID = "user-superadmin";
-export const DEMO_ADMIN_ID = "user-admin";
+export const DEMO_ORGANIZADOR_ID = "user-admin";
 export const DEMO_USER_ID = "user-limited";
-export const DEMO_SUBUSER_ID = "user-subuser";
+export const DEMO_SUBORGANIZADOR_ID = "user-subuser";
 
 // The seed lives in a plain JSON file (src/mocks/data/db.seed.json) so it can be read by hand and
 // acted as the local source of truth. Every call returns a deep clone: callers (handlers and tests)

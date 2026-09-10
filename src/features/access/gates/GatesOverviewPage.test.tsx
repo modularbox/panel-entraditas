@@ -31,7 +31,7 @@ describe("GatesOverviewPage", () => {
     expect(screen.getByText("Puerta Norte — NORTE")).toBeInTheDocument();
     expect(screen.getByText("Rock en Directo")).toBeInTheDocument();
     expect(screen.getByText("Pista")).toBeInTheDocument();
-    expect(screen.getByText("Personal de puerta")).toBeInTheDocument();
+    expect(screen.getByText("Javier Ortega López")).toBeInTheDocument();
 
     expect(screen.getByText("Entrada Principal — ENTRADA")).toBeInTheDocument();
     expect(screen.getByText("Festival del Sur")).toBeInTheDocument();
@@ -49,7 +49,7 @@ describe("GatesOverviewPage", () => {
   });
 
   it("shows an empty-state message when no gate is visible", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234"); // scoped to event-1 only
+    await useSessionStore.getState().login("javier.ortega@entraditas.com", "javier1234"); // scoped to event-1 only
     renderPage();
     expect(await screen.findByText("No hay puertas creadas todavía.")).toBeInTheDocument();
   });

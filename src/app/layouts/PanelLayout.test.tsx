@@ -10,7 +10,7 @@ import type { SessionResponse, SessionUser } from "@/shared/auth/sessionStore";
 import { PanelLayout } from "./PanelLayout";
 
 const superAdminUser: SessionUser = { id: "user-superadmin", email: "superadmin@entraditas.com", fullName: "Super Admin", role: "superadmin", organizationId: null };
-const adminUser: SessionUser = { id: "user-admin", email: "admin@entraditas.com", fullName: "Admin de Producciones Norte", role: "admin", organizationId: "org-1" };
+const adminUser: SessionUser = { id: "user-admin", email: "admin@entraditas.com", fullName: "Admin de Producciones Norte", role: "organizador", organizationId: "org-1" };
 
 function renderLayout() {
   return render(
@@ -39,39 +39,43 @@ describe("PanelLayout navigation", () => {
   });
 
   it("shows the logged-in user's fullName below the logo", () => {
-    setRole("admin");
+    setRole("organizador");
     useSessionStore.setState({ user: adminUser });
     renderLayout();
     expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument();
     expect(screen.getByText("Entraditas")).toBeInTheDocument();
   });
 
-  it("shows 5 sections to a superadmin (no Equipo, no Organizaciones)", () => {
+  it("shows 6 sections to a superadmin (no Equipo, no Usuarios)", () => {
     setRole("superadmin");
     renderLayout();
-    expect(screen.getAllByRole("link")).toHaveLength(5);
-    expect(screen.getByRole("link", { name: "Usuarios" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(6);
+    expect(screen.getByRole("link", { name: "Organizaciones" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Clientes" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Equipo" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Organizaciones" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Usuarios" })).not.toBeInTheDocument();
   });
 
-  it("shows 5 sections to an admin (no Organizaciones, no Usuarios)", () => {
-    setRole("admin");
+  it("shows 6 sections to an organizador (no Organizaciones, no Usuarios)", () => {
+    setRole("organizador");
     renderLayout();
-    expect(screen.getAllByRole("link")).toHaveLength(5);
+    expect(screen.getAllByRole("link")).toHaveLength(6);
+    expect(screen.getByRole("link", { name: "Clientes" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Usuarios" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Organizaciones" })).not.toBeInTheDocument();
   });
 
-  it("shows 4 sections to a user", () => {
-    setRole("user");
+  it("shows no sections to a suborganizador until the organizador grants access", () => {
+    setRole("suborganizador");
     renderLayout();
-    const labels = screen.getAllByRole("link").map((el) => el.textContent).sort();
-    expect(labels).toEqual(["Control de accesos", "Dashboard", "Eventos", "Ventas"]);
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 
-  it("shows only Eventos and Control de accesos to a subuser", () => {
-    setRole("subuser");
+  it("shows only the sections a suborganizador was granted (Eventos and Control de accesos)", () => {
+    useSessionStore.setState({
+      effectivePermissions: new Set<Permission>(["events:read", "scan:validate"]),
+      eventScopes: ["event-1"]
+    });
     renderLayout();
     const labels = screen.getAllByRole("link").map((el) => el.textContent).sort();
     expect(labels).toEqual(["Control de accesos", "Eventos"]);
@@ -85,20 +89,20 @@ describe("PanelLayout navigation", () => {
   });
 
   it("hides the reset data button for non-superadmin roles", () => {
-    setRole("admin");
+    setRole("organizador");
     useSessionStore.setState({ user: adminUser });
     renderLayout();
     expect(screen.queryByRole("button", { name: "Restablecer datos" })).not.toBeInTheDocument();
   });
 
   it("hides the return-to-superadmin button for a direct login", () => {
-    setRole("admin");
+    setRole("organizador");
     useSessionStore.setState({ user: adminUser });
     renderLayout();
     expect(screen.queryByRole("button", { name: "Volver a superadmin" })).not.toBeInTheDocument();
   });
 
-  it("shows the return-to-superadmin button while impersonating an organization's admin, and using it restores the superadmin session", async () => {
+  it("shows the return-to-superadmin button while impersonating an organization's organizador, and using it restores the superadmin session", async () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     const superadminToken = useSessionStore.getState().token;
     const session = await apiClient.post<SessionResponse>("/organizations/org-1/connect", undefined, { token: superadminToken! });

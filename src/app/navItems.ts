@@ -10,5 +10,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Ventas", path: "/ventas", permission: "orders:read" },
   { label: "Control de accesos", path: "/accesos", permission: "scan:validate" },
   { label: "Equipo", path: "/equipo", permission: "users:manage" },
-  { label: "Usuarios", path: "/usuarios", permission: "users:read" }
+  { label: "Clientes", path: "/clientes", permission: "orders:read" },
+  { label: "Organizaciones", path: "/organizaciones", permission: "organizations:manage" }
 ];

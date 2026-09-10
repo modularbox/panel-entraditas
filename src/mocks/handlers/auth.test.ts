@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
-import { DEMO_ADMIN_ID } from "@/mocks/db";
+import { DEMO_ORGANIZADOR_ID } from "@/mocks/db";
 import { resetDb } from "@/mocks/state";
 
 interface LoginResponse {
@@ -18,7 +18,7 @@ describe("auth handlers", () => {
       email: "admin@entraditas.com",
       password: "admin1234"
     });
-    expect(result.user.id).toBe(DEMO_ADMIN_ID);
+    expect(result.user.id).toBe(DEMO_ORGANIZADOR_ID);
     expect(result.effectivePermissions).toContain("users:manage");
   });
 
@@ -44,7 +44,7 @@ describe("auth handlers", () => {
       password: "admin1234"
     });
     const me = await apiClient.get<LoginResponse>("/auth/me", { token: login.accessToken });
-    expect(me.user.id).toBe(DEMO_ADMIN_ID);
+    expect(me.user.id).toBe(DEMO_ORGANIZADOR_ID);
 
     await apiClient.post("/auth/logout", undefined, { token: login.accessToken });
     await expect(apiClient.get("/auth/me", { token: login.accessToken })).rejects.toMatchObject({

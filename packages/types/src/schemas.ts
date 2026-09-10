@@ -1,7 +1,7 @@
 ﻿import { z } from "zod";
 import { EventCategorySchema } from "./publicCatalog";
 
-export const RoleSlugSchema = z.enum(["superadmin", "admin", "user", "subuser"]);
+export const RoleSlugSchema = z.enum(["superadmin", "organizador", "suborganizador"]);
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
 
 export const PermissionEffectSchema = z.enum(["allow", "deny"]);
@@ -23,13 +23,14 @@ export type Organization = z.infer<typeof OrganizationSchema>;
 export const UserSchema = z.object({
   id: z.string(),
   organizationId: z.string().nullable(), // null for superadmin, who isn't scoped to one organization
-  parentUserId: z.string().nullable(), // set for users/subusers created by an admin; null for top-level accounts
+  parentUserId: z.string().nullable(), // set for suborganizadores created by an organizador; null for top-level accounts
   role: RoleSlugSchema,
   email: z.string().email(),
   fullName: z.string(),
   status: z.enum(["active", "invited", "disabled"]),
   permissionOverrides: z.array(PermissionOverrideSchema),
-  eventScopes: z.array(z.string()) // event ids this user is restricted to; empty means unrestricted (admin/superadmin)
+  eventScopes: z.array(z.string()), // event ids this user is restricted to; empty means unrestricted (organizador/superadmin)
+        bankAccount: z.string().nullable().optional() // cuenta bancaria de cobro del organizador
 });
 export type User = z.infer<typeof UserSchema>;
 
@@ -395,18 +396,70 @@ export const CustomerSchema = z.object({
 export type Customer = z.infer<typeof CustomerSchema>;
 
 // An organization as shown in the superadmin's cross-tenant listing, carrying the
-// admin account that "Conectar" switches the current session to.
-export const OrganizationAdminSchema = z.object({
+// organizer account that "Conectar" switches the current session to.
+export const OrganizationOrganizerSchema = z.object({
   id: z.string(),
   fullName: z.string(),
-  email: z.string().email()
+  email: z.string().email(),
+  bankAccount: z.string().nullable().optional() // cuenta bancaria de cobro del organizador, si se conoce
 });
-export type OrganizationAdmin = z.infer<typeof OrganizationAdminSchema>;
+export type OrganizationOrganizer = z.infer<typeof OrganizationOrganizerSchema>;
 
 export const OrganizationListItemSchema = OrganizationSchema.extend({
-  admin: OrganizationAdminSchema.nullable() // null when the organization has no admin account yet
+  organizer: OrganizationOrganizerSchema.nullable() // null when the organization has no organizer account yet
 });
 export type OrganizationListItem = z.infer<typeof OrganizationListItemSchema>;
+
+// Una comisión que Entraditas cobra a la organización por gestionar sus ventas, desglosada por
+// evento y por tipo de entrada ("entrada" como término de negocio, no "ticket").
+export const OrganizationCommissionSchema = z.object({
+  eventId: z.string(),
+  eventTitle: z.string(),
+  entrada: z.string(), // nombre del tipo de entrada (General, Pista, Abono…)
+  recaudacion: z.number().int().nonnegative(), // importe total vendido en céntimos
+  comision: z.number().int().nonnegative() // comisión cobrada en céntimos
+});
+export type OrganizationCommission = z.infer<typeof OrganizationCommissionSchema>;
+
+// A los eventos a los que un suborganizador tiene acceso, para la columna "Eventos" de la ficha.
+export const OrganizationAccessibleEventSchema = z.object({
+  id: z.string(),
+  title: z.string()
+});
+export type OrganizationAccessibleEvent = z.infer<typeof OrganizationAccessibleEventSchema>;
+
+// Un suborganizador de la organización, con los eventos a los que tiene acceso.
+export const OrganizationSubOrganizerSchema = OrganizationOrganizerSchema.extend({
+  accessibleEvents: z.array(OrganizationAccessibleEventSchema)
+});
+export type OrganizationSubOrganizer = z.infer<typeof OrganizationSubOrganizerSchema>;
+
+// Persona (organizador o suborganizador) con acceso a un evento, para la columna "Usuarios".
+export const OrganizationEventUserSchema = z.object({
+  id: z.string(),
+  fullName: z.string(),
+  email: z.string().email(),
+  role: RoleSlugSchema
+});
+export type OrganizationEventUser = z.infer<typeof OrganizationEventUserSchema>;
+
+// Un evento de la organización tal como aparece en la "Tabla de eventos" de la ficha: el mismo
+// evento que en el listado, con los usuarios que tienen acceso.
+export const OrganizationEventSchema = EventSchema.extend({
+  accessUsers: z.array(OrganizationEventUserSchema)
+});
+export type OrganizationEvent = z.infer<typeof OrganizationEventSchema>;
+
+// An organization's detail "ficha": its primary organizer (the account "Conectar" switches to), its
+// suborganizadores (with the events each can access), the commissions Entraditas charges it and the
+// organization's events with the users granted access to them.
+export const OrganizationDetailSchema = OrganizationSchema.extend({
+  organizer: OrganizationOrganizerSchema.nullable(), // null when the organization has no organizer account yet
+  subOrganizers: z.array(OrganizationSubOrganizerSchema), // suborganizadores of the organization
+  commissions: z.array(OrganizationCommissionSchema),
+  events: z.array(OrganizationEventSchema)
+});
+export type OrganizationDetail = z.infer<typeof OrganizationDetailSchema>;
 
 // A user as shown in the superadmin's cross-tenant "Usuarios" directory (GET /directory/users),
 // carrying its organization's name for display since the raw record only has organizationId.

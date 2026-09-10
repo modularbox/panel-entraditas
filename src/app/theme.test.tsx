@@ -36,7 +36,7 @@ describe("ThemeManager", () => {
         id: "user-admin",
         email: "admin@entraditas.com",
         fullName: "Admin",
-        role: "admin",
+        role: "organizador",
         organizationId: "org-1"
       },
       status: "authenticated"

@@ -15,11 +15,14 @@ import { OrderDetailPage } from "@/features/sales/orders/detail/OrderDetailPage"
 import { OrdersListPage } from "@/features/sales/orders/list/OrdersListPage";
 import { RefundsListPage } from "@/features/sales/refunds/list/RefundsListPage";
 import { TaquillaPage } from "@/features/sales/taquilla/TaquillaPage";
+import { CustomersListPage } from "@/features/customers/CustomersListPage";
+import { CustomerDetailPage } from "@/features/customers/CustomerDetailPage";
 import { VentasLayout } from "@/features/sales/VentasLayout";
 import { TeamMemberFormPage } from "@/features/team/form/TeamMemberFormPage";
 import { TeamListPage } from "@/features/team/list/TeamListPage";
-import { UsersListPage } from "@/features/users/list/UsersListPage";
-import { UserDetailPage } from "@/features/users/detail/UserDetailPage";
+import { OrganizationsListPage } from "@/features/organizations/list/OrganizationsListPage";
+import { OrganizationDetailPage } from "@/features/organizations/detail/OrganizationDetailPage";
+
 import { PlaceholderPage } from "@/features/placeholder/PlaceholderPage";
 import { RequirePermission } from "@/shared/auth/RequirePermission";
 import { useSessionStore } from "@/shared/auth/sessionStore";
@@ -27,7 +30,7 @@ import { AuthLayout } from "./layouts/AuthLayout";
 import { PanelLayout } from "./layouts/PanelLayout";
 import { NAV_ITEMS } from "./navItems";
 
-const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/accesos", "/usuarios"]);
+const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/accesos", "/clientes", "/organizaciones"]);
 
 export function AppRoutes() {
   const status = useSessionStore((s) => s.status);
@@ -89,9 +92,9 @@ export function AppRoutes() {
           <Route path="/equipo/invitar" element={<TeamMemberFormPage />} />
           <Route path="/equipo/:id/editar" element={<TeamMemberFormPage />} />
         </Route>
-        <Route element={<RequirePermission permission="users:read" />}>
-          <Route path="/usuarios" element={<UsersListPage />} />
-          <Route path="/usuarios/:id" element={<UserDetailPage />} />
+        <Route element={<RequirePermission permission="organizations:manage" />}>
+          <Route path="/organizaciones" element={<OrganizationsListPage />} />
+          <Route path="/organizaciones/:id" element={<OrganizationDetailPage />} />
         </Route>
         <Route element={<RequirePermission permission="orders:read" />}>
           <Route path="/ventas" element={<VentasLayout />}>
@@ -103,6 +106,8 @@ export function AppRoutes() {
             <Route path="asistentes" element={<AttendeesListPage />} />
             <Route path="asistentes/:email" element={<AttendeeDetailPage />} />
           </Route>
+          <Route path="/clientes" element={<CustomersListPage />} />
+          <Route path="/clientes/:email" element={<CustomerDetailPage />} />
         </Route>
         <Route element={<RequirePermission permission="scan:validate" />}>
           <Route path="/accesos" element={<AccesosLayout />}>

@@ -30,8 +30,8 @@ describe("EventsListPage", () => {
     expect(screen.getByRole("button", { name: "Crear evento" })).toBeInTheDocument();
   });
 
-  it("shows only the 1 scoped event to a subuser, with no create button", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234");
+  it("shows only the 1 scoped event to a suborganizador, with no create button", async () => {
+    await useSessionStore.getState().login("javier.ortega@entraditas.com", "javier1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(2)); // header row + 1 data row
     expect(screen.queryByRole("button", { name: "Crear evento" })).not.toBeInTheDocument();

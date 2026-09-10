@@ -48,7 +48,7 @@ describe("OrderDetailPage", () => {
   });
 
   it("hides the refund form for a user without orders:refund", async () => {
-    await useSessionStore.getState().login("usuario@entraditas.com", "usuario1234"); // role "user", scoped to event-1/event-2
+    await useSessionStore.getState().login("marta.gutierrez@entraditas.com", "marta1234"); // role "suborganizador", scoped to event-1/event-2
     renderDetail("order-1");
     await screen.findByRole("heading", { name: "PED-2026-0001" });
     expect(screen.queryByLabelText("Importe a reembolsar (€)")).not.toBeInTheDocument();

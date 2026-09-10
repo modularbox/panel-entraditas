@@ -76,7 +76,7 @@ describe("EventDetailPage", () => {
   });
 
   it("shows a not-found message for an out-of-scope event", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234"); // scoped to event-1 only
+    await useSessionStore.getState().login("javier.ortega@entraditas.com", "javier1234"); // scoped to event-1 only
     renderDetail("event-3");
     expect(await screen.findByText("Evento no encontrado.")).toBeInTheDocument();
   });

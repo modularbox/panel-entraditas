@@ -31,7 +31,7 @@ describe("useSessionStore", () => {
   });
 
   it("restore re-hydrates the session from a stored token", async () => {
-    await useSessionStore.getState().login("usuario@entraditas.com", "usuario1234");
+    await useSessionStore.getState().login("marta.gutierrez@entraditas.com", "marta1234");
     const token = useSessionStore.getState().token;
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
     localStorage.setItem(TOKEN_KEY, token!);

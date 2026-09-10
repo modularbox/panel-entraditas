@@ -3,7 +3,6 @@ import { authHandlers } from "./auth";
 import { capacityPoolsHandlers } from "./capacityPools";
 import { customersHandlers } from "./customers";
 import { dashboardHandlers } from "./dashboard";
-import { directoryUsersHandlers } from "./directoryUsers";
 import { discountCodesHandlers } from "./discountCodes";
 import { eventsHandlers } from "./events";
 import { gatesHandlers } from "./gates";
@@ -19,4 +18,4 @@ import { venuePlanTemplatesHandlers } from "./venuePlanTemplates";
 import { venuesHandlers } from "./venues";
 import { usersHandlers } from "./users";
 
-export const handlers: HttpHandler[] = [...authHandlers, ...eventsHandlers, ...venuesHandlers, ...subEventsHandlers, ...capacityPoolsHandlers, ...ticketTypesHandlers, ...discountCodesHandlers, ...usersHandlers, ...directoryUsersHandlers, ...invitationsHandlers, ...dashboardHandlers, ...ordersHandlers, ...refundsHandlers, ...customersHandlers, ...organizationsHandlers, ...gatesHandlers, ...guestListsHandlers, ...publicCatalogHandlers, ...venuePlanTemplatesHandlers];
+export const handlers: HttpHandler[] = [...authHandlers, ...eventsHandlers, ...venuesHandlers, ...subEventsHandlers, ...capacityPoolsHandlers, ...ticketTypesHandlers, ...discountCodesHandlers, ...usersHandlers, ...invitationsHandlers, ...dashboardHandlers, ...ordersHandlers, ...refundsHandlers, ...customersHandlers, ...organizationsHandlers, ...gatesHandlers, ...guestListsHandlers, ...publicCatalogHandlers, ...venuePlanTemplatesHandlers];

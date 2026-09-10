@@ -19,6 +19,9 @@ function requireManager(request: Request, requestId: string) {
   return { actor, effective };
 }
 function validateAssignment(actor: User, effective: Set<string>, role: RoleSlug, overrides: PermissionOverride[], scopes: string[]) {
+  // An organization has exactly one organizer (its primary account, provisioned by the platform);
+  // team management only ever creates suborganizadores.
+  if (role === "organizador") return "Una organización solo puede tener un organizador";
   if (!canAssignRole(actor.role, role)) return "No puedes asignar un rol superior al tuyo";
   if (overrides.some((override) => override.effect === "allow" && !canGrantPermission(effective, override.permission))) {
     return "No puedes otorgar un permiso que tú mismo no tienes";

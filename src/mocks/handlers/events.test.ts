@@ -21,13 +21,13 @@ describe("events handlers", () => {
   });
 
   it("a user with limited eventScopes only sees their 2 scoped events", async () => {
-    const token = await loginAs("usuario@entraditas.com");
+    const token = await loginAs("marta.gutierrez@entraditas.com");
     const events = await apiClient.get<Event[]>("/events", { token });
     expect(events.map((e) => e.id).sort()).toEqual(["event-1", "event-2"]);
   });
 
   it("returns NOT_FOUND (not FORBIDDEN) for an out-of-scope event, to avoid leaking existence", async () => {
-    const token = await loginAs("usuario@entraditas.com");
+    const token = await loginAs("marta.gutierrez@entraditas.com");
     await expect(apiClient.get("/events/event-3", { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 

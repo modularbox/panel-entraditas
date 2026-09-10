@@ -38,8 +38,8 @@ describe("LoginPage", () => {
   it.each([
     ["superadmin@entraditas.com", "superadmin1234", "organizations:manage"],
     ["admin@entraditas.com", "admin1234", "users:manage"],
-    ["usuario@entraditas.com", "usuario1234", "orders:read"],
-    ["subusuario@entraditas.com", "subusuario1234", "scan:validate"]
+    ["marta.gutierrez@entraditas.com", "marta1234", "orders:read"],
+    ["javier.ortega@entraditas.com", "javier1234", "scan:validate"]
   ])("logs in %s and redirects to /eventos with the expected permission granted", async (email, password, expectedPermission) => {
     renderLoginPage();
     await fillAndSubmit(email, password);

@@ -33,7 +33,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
       effectivePermissions: new Set(["events:read"]),
       eventScopes: []
     });
@@ -45,7 +45,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
       effectivePermissions: new Set(["users:manage"]),
       eventScopes: []
     });
@@ -53,23 +53,11 @@ describe("AppRoutes", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "Equipo" })).toBeInTheDocument());
   });
 
-  it("shows the users directory to an authenticated superadmin", async () => {
-    useSessionStore.setState({
-      status: "authenticated",
-      token: "t",
-      user: { id: "u", email: "s@e.com", fullName: "S", role: "superadmin", organizationId: null },
-      effectivePermissions: new Set(["users:read"]),
-      eventScopes: []
-    });
-    renderApp(["/usuarios"]);
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Usuarios" })).toBeInTheDocument());
-  });
-
   it("shows the orders list under Ventas to an authenticated admin", async () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
       effectivePermissions: new Set(["orders:read"]),
       eventScopes: []
     });
@@ -81,7 +69,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
       effectivePermissions: new Set(["orders:read"]),
       eventScopes: []
     });
@@ -93,7 +81,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
       effectivePermissions: new Set(["orders:read"]),
       eventScopes: []
     });
@@ -105,7 +93,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
       effectivePermissions: new Set(["orders:read"]),
       eventScopes: []
     });
@@ -113,11 +101,23 @@ describe("AppRoutes", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "Asistentes" })).toBeInTheDocument());
   });
 
+  it("shows the customers list under /clientes to an authenticated admin", async () => {
+    useSessionStore.setState({
+      status: "authenticated",
+      token: "t",
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
+      effectivePermissions: new Set(["orders:read"]),
+      eventScopes: []
+    });
+    renderApp(["/clientes"]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Clientes" })).toBeInTheDocument());
+  });
+
   it("shows the gates overview under Control de accesos to an authenticated admin", async () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
       effectivePermissions: new Set(["scan:validate"]),
       eventScopes: []
     });

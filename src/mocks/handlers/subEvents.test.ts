@@ -35,7 +35,7 @@ describe("sub-events handlers", () => {
   });
 
   it("returns NOT_FOUND for a sub-event belonging to an out-of-scope event", async () => {
-    const token = await loginAs("usuario@entraditas.com"); // scoped to event-1 and event-2 only
+    const token = await loginAs("marta.gutierrez@entraditas.com"); // scoped to event-1 and event-2 only
     await expect(
       apiClient.get("/events/event-3/sub-events", { token })
     ).rejects.toMatchObject({ code: "NOT_FOUND" });

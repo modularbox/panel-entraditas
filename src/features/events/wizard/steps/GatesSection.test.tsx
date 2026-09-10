@@ -89,7 +89,7 @@ describe("GatesSection", () => {
     fireEvent.click(within(createForm).getByLabelText("Pista"));
     fireEvent.change(within(createForm).getByLabelText("Abre"), { target: { value: "2026-11-05T19:00" } });
     fireEvent.change(within(createForm).getByLabelText("Cierra"), { target: { value: "2026-11-05T23:00" } });
-    fireEvent.click(within(createForm).getByLabelText("Personal de puerta"));
+    fireEvent.click(within(createForm).getByLabelText("Javier Ortega López"));
     fireEvent.click(within(createForm).getByRole("button", { name: "Crear puerta" }));
 
     await waitFor(() => expect(screen.getByText("Puerta Grada — GRADA")).toBeInTheDocument());
@@ -118,13 +118,13 @@ describe("GatesSection", () => {
 
   it("unassigns an operator from an existing gate via its row checkbox", async () => {
     await loginAsAdmin();
-    renderSection("event-2"); // Puerta Norte starts with Personal de puerta assigned
+    renderSection("event-2"); // Puerta Norte starts with Javier Ortega López assigned
     await screen.findByText("Puerta Norte — NORTE");
-    // Scoped to the "Puertas" list: the create form below also has a "Personal de puerta"
+    // Scoped to the "Puertas" list: the create form below also has a "Javier Ortega López"
     // checkbox (its own, unchecked, operator picker), so an unscoped query would be ambiguous.
     const gatesList = screen.getByRole("list", { name: "Puertas" });
 
-    const operatorCheckbox = within(gatesList).getByRole("checkbox", { name: "Personal de puerta" });
+    const operatorCheckbox = within(gatesList).getByRole("checkbox", { name: "Javier Ortega López" });
     expect(operatorCheckbox).toBeChecked();
     fireEvent.click(operatorCheckbox);
 

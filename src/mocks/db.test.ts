@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   createSeedDatabase,
-  DEMO_ADMIN_ID,
-  DEMO_SUBUSER_ID,
+  DEMO_ORGANIZADOR_ID,
+  DEMO_SUBORGANIZADOR_ID,
   DEMO_SUPERADMIN_ID,
   DEMO_USER_ID
 } from "./db";
@@ -55,24 +55,31 @@ describe("createSeedDatabase", () => {
     expect(subEvents).toHaveLength(1);
   });
 
-  it("gives the 4 demo users the expected effective permissions", () => {
+  it("gives the 3 demo org roles the expected effective permissions", () => {
     const db = createSeedDatabase();
     const byId = (id: string) => db.users.find((u) => u.id === id)!;
 
     const superadmin = byId(DEMO_SUPERADMIN_ID);
     expect(resolveEffectivePermissions(superadmin.role, superadmin.permissionOverrides).has("organizations:manage")).toBe(true);
 
-    const admin = byId(DEMO_ADMIN_ID);
-    expect(resolveEffectivePermissions(admin.role, admin.permissionOverrides).has("users:manage")).toBe(true);
+    const organizador = byId(DEMO_ORGANIZADOR_ID);
+    expect(resolveEffectivePermissions(organizador.role, organizador.permissionOverrides).has("users:manage")).toBe(true);
 
+    // Both demo accounts beyond the organizer are suborganizadores: no base access, only what the
+    // organizer granted via allow overrides in the seed (the exact grants differ per account).
     const user = byId(DEMO_USER_ID);
+    expect(user.role).toBe("suborganizador");
     expect(user.eventScopes).toHaveLength(2);
-    expect(resolveEffectivePermissions(user.role, user.permissionOverrides).has("users:manage")).toBe(false);
+    const userEffective = resolveEffectivePermissions(user.role, user.permissionOverrides);
+    expect(userEffective.has("users:manage")).toBe(false);
+    expect(userEffective.has("orders:read")).toBe(true); // granted by the organizer in seed
 
-    const subuser = byId(DEMO_SUBUSER_ID);
-    const subuserEffective = resolveEffectivePermissions(subuser.role, subuser.permissionOverrides);
-    expect(subuserEffective.has("guestlist:manage")).toBe(true); // granted via an allow override in seed
-    expect(subuserEffective.has("users:manage")).toBe(false);
+    const suborganizador = byId(DEMO_SUBORGANIZADOR_ID);
+    expect(suborganizador.role).toBe("suborganizador");
+    const suborganizadorEffective = resolveEffectivePermissions(suborganizador.role, suborganizador.permissionOverrides);
+    expect(suborganizadorEffective.has("guestlist:manage")).toBe(true); // granted via an allow override in seed
+    expect(suborganizadorEffective.has("users:manage")).toBe(false);
+    expect(suborganizadorEffective.has("orders:read")).toBe(false); // this account wasn't granted orders
   });
 
   it("seeds two schema-valid gates across different organizations", () => {
@@ -82,7 +89,7 @@ describe("createSeedDatabase", () => {
 
     const norte = db.gates.find((g) => g.id === "gate-2-norte")!;
     expect(norte.eventId).toBe("event-2");
-    expect(norte.operatorUserIds).toContain(DEMO_SUBUSER_ID);
+    expect(norte.operatorUserIds).toContain(DEMO_SUBORGANIZADOR_ID);
 
     const entrada = db.gates.find((g) => g.id === "gate-4-entrada")!;
     expect(entrada.eventId).toBe("event-4");
@@ -90,11 +97,11 @@ describe("createSeedDatabase", () => {
     expect(entrada.operatorUserIds).toEqual([]);
   });
 
-  it("seeds an active admin account for every organization", () => {
+  it("seeds an active organizador account for every organization", () => {
     const db = createSeedDatabase();
     for (const organization of db.organizations) {
-      const admin = db.users.find((u) => u.organizationId === organization.id && u.role === "admin" && u.status === "active");
-      expect(admin).toBeDefined();
+      const organizador = db.users.find((u) => u.organizationId === organization.id && u.role === "organizador" && u.status === "active");
+      expect(organizador).toBeDefined();
     }
   });
 

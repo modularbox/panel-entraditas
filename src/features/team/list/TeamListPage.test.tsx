@@ -23,7 +23,7 @@ describe("TeamListPage", () => {
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
-  it("shows all 3 members of the organization to an admin", async () => {
+  it("shows all 3 members of the organization to an organizador", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4)); // 1 header row + 3 data rows
@@ -38,7 +38,7 @@ describe("TeamListPage", () => {
     await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Admin de Producciones Norte"));
 
     fireEvent.click(screen.getByRole("button", { name: "Nombre" }));
-    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Usuario con alcance limitado"));
+    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Marta Gutiérrez Vega"));
   });
 
   it("sorts by Correo ascending on the first click", async () => {
@@ -48,21 +48,21 @@ describe("TeamListPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Correo" }));
     await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("admin@entraditas.com"));
-    expect(screen.getAllByRole("row")[3]).toHaveTextContent("usuario@entraditas.com");
+    expect(screen.getAllByRole("row")[3]).toHaveTextContent("marta.gutierrez@entraditas.com");
   });
 
-  it("sorts by Rol in cargo order (Admin > Usuario > Subusuario) on the first click", async () => {
+  it("sorts by Rol in cargo order (Organizador > Suborganizador) on the first click", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
 
     fireEvent.click(screen.getByRole("button", { name: "Rol" }));
     await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Admin de Producciones Norte"));
-    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Administrador");
-    expect(screen.getAllByRole("row")[2]).toHaveTextContent("Usuario con alcance limitado");
-    expect(screen.getAllByRole("row")[3]).toHaveTextContent("Personal de puerta");
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Organizador");
+    expect(screen.getAllByRole("row")[2]).toHaveTextContent("Marta Gutiérrez Vega");
+    expect(screen.getAllByRole("row")[3]).toHaveTextContent("Javier Ortega López");
 
     fireEvent.click(screen.getByRole("button", { name: "Rol" }));
-    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Personal de puerta"));
+    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Marta Gutiérrez Vega"));
   });
 });

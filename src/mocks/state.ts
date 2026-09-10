@@ -128,8 +128,8 @@ export const sessions = new Map<string, string>();
 export const DEMO_PASSWORD_BY_EMAIL: Record<string, string> = {
   "superadmin@entraditas.com": "superadmin1234",
   "admin@entraditas.com": "admin1234",
-  "usuario@entraditas.com": "usuario1234",
-  "subusuario@entraditas.com": "subusuario1234",
+  "marta.gutierrez@entraditas.com": "marta1234",
+  "javier.ortega@entraditas.com": "javier1234",
   "admin.surlive@entraditas.com": "A9#sL2!kR4@qT7&"
 };
 

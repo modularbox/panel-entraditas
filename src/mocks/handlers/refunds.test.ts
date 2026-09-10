@@ -76,8 +76,8 @@ describe("refunds handlers", () => {
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it("returns FORBIDDEN for a user with orders:read but no orders:refund", async () => {
-    const token = await loginAs("usuario@entraditas.com"); // role "user", orders:refund not granted in seed
+  it("returns FORBIDDEN for a suborganizador with orders:read but no orders:refund", async () => {
+    const token = await loginAs("marta.gutierrez@entraditas.com"); // role "suborganizador", orders:refund not granted in seed
     await expect(
       apiClient.post("/orders/order-1/refund", { amount: 1000, reason: "Sin permiso" }, { token })
     ).rejects.toMatchObject({ code: "FORBIDDEN" });

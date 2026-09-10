@@ -19,45 +19,60 @@
       "id": "user-admin",
       "organizationId": "org-1",
       "parentUserId": null,
-      "role": "admin",
+      "role": "organizador",
       "email": "admin@entraditas.com",
       "fullName": "Admin de Producciones Norte",
       "status": "active",
       "permissionOverrides": [],
-      "eventScopes": []
+      "eventScopes": [],
+      "bankAccount": "ES77 2100 1234 5678 9012 3456"
     },
     {
       "id": "user-limited",
       "organizationId": "org-1",
       "parentUserId": "user-admin",
-      "role": "user",
-      "email": "usuario@entraditas.com",
-      "fullName": "Usuario con alcance limitado",
+      "role": "suborganizador",
+      "email": "marta.gutierrez@entraditas.com",
+      "fullName": "Marta Gutiérrez Vega",
       "status": "active",
-      "permissionOverrides": [],
+      "permissionOverrides": [
+        { "permission": "events:read", "effect": "allow" },
+        { "permission": "events:create", "effect": "allow" },
+        { "permission": "orders:read", "effect": "allow" },
+        { "permission": "guestlist:read", "effect": "allow" },
+        { "permission": "guestlist:manage", "effect": "allow" },
+        { "permission": "scan:validate", "effect": "allow" },
+        { "permission": "reports:read", "effect": "allow" }
+      ],
       "eventScopes": ["event-1", "event-2"]
     },
     {
       "id": "user-subuser",
       "organizationId": "org-1",
       "parentUserId": "user-admin",
-      "role": "subuser",
-      "email": "subusuario@entraditas.com",
-      "fullName": "Personal de puerta",
+      "role": "suborganizador",
+      "email": "javier.ortega@entraditas.com",
+      "fullName": "Javier Ortega López",
       "status": "active",
-      "permissionOverrides": [],
+      "permissionOverrides": [
+        { "permission": "events:read", "effect": "allow" },
+        { "permission": "scan:validate", "effect": "allow" },
+        { "permission": "guestlist:read", "effect": "allow" },
+        { "permission": "guestlist:manage", "effect": "allow" }
+      ],
       "eventScopes": ["event-1"]
     },
     {
       "id": "user-admin-2",
       "organizationId": "org-2",
       "parentUserId": null,
-      "role": "admin",
+      "role": "organizador",
       "email": "admin.surlive@entraditas.com",
       "fullName": "Admin de Sur Live",
       "status": "active",
       "permissionOverrides": [],
-      "eventScopes": []
+      "eventScopes": [],
+      "bankAccount": "ES42 3200 9876 5432 1098 7654"
     }
   ],
   "venues": [

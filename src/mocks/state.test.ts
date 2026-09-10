@@ -53,7 +53,7 @@ describe("local persistence", () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
     restoreFromStorage();
     expect(db.users.find((user) => user.id === "user-admin-2")).toBeDefined();
-    expect(db.users.some((user) => user.organizationId === "org-2" && user.role === "admin" && user.status === "active")).toBe(true);
+    expect(db.users.some((user) => user.organizationId === "org-2" && user.role === "organizador" && user.status === "active")).toBe(true);
   });
 
   it("resetDb removes the stored snapshot and goes back to the seed", () => {

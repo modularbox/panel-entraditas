@@ -88,7 +88,7 @@ describe("guestLists handlers", () => {
   });
 
   it("rejects access to an out-of-scope event's guest lists", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234"); // scoped to event-1 only
+    await useSessionStore.getState().login("javier.ortega@entraditas.com", "javier1234"); // scoped to event-1 only
     const token = useSessionStore.getState().token!;
     await expect(apiClient.get("/events/event-2/guest-lists", { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });

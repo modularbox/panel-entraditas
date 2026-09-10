@@ -124,7 +124,7 @@ export const gatesHandlers = [
   http.get(`${BASE}/events/:eventId/team`, ({ request, params }) => {
     const result = requireEvent(request, params.eventId as string);
     if ("error" in result) return result.error;
-    const members = db.users.filter((u) => u.organizationId === result.event.organizationId && u.role === "subuser");
+    const members = db.users.filter((u) => u.organizationId === result.event.organizationId && u.role === "suborganizador");
     return HttpResponse.json({ data: members, meta: { page: 1, perPage: members.length, total: members.length, nextCursor: null } });
   }),
 

@@ -44,14 +44,14 @@ describe("capacity pools handlers", () => {
   });
 
   it("returns NOT_FOUND for capacity pools of an out-of-scope sub-event", async () => {
-    const token = await loginAs("usuario@entraditas.com"); // scoped to event-1 and event-2 only
+    const token = await loginAs("marta.gutierrez@entraditas.com"); // scoped to event-1 and event-2 only
     await expect(
       apiClient.get("/sub-events/sub-event-3-0/capacity", { token })
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("returns NOT_FOUND when creating a pool in an out-of-scope sub-event", async () => {
-    const token = await loginAs("usuario@entraditas.com"); // scoped to event-1 and event-2 only
+    const token = await loginAs("marta.gutierrez@entraditas.com"); // scoped to event-1 and event-2 only
     await expect(
       apiClient.post(
         "/sub-events/sub-event-3-0/capacity-pools",
@@ -62,7 +62,7 @@ describe("capacity pools handlers", () => {
   });
 
   it("returns NOT_FOUND when patching a pool from an out-of-scope sub-event", async () => {
-    const token = await loginAs("usuario@entraditas.com"); // scoped to event-1 and event-2 only
+    const token = await loginAs("marta.gutierrez@entraditas.com"); // scoped to event-1 and event-2 only
     // First, create a pool for event-3 (not accessible to this user)
     const adminToken = await loginAs("admin@entraditas.com");
     const pool = await apiClient.post<CapacityPool>(

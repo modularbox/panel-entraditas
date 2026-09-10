@@ -79,16 +79,16 @@ describe("gates handlers", () => {
     expect(db.gates.some((g) => g.id === "gate-2-norte")).toBe(false);
   });
 
-  it("GET /events/:eventId/team returns only the subusers of the event's organization", async () => {
+  it("GET /events/:eventId/team returns only the suborganizadores of the event's organization", async () => {
     const token = await login();
     const members = await apiClient.get<User[]>("/events/event-2/team", { token });
-    expect(members).toHaveLength(1);
-    expect(members[0]!.role).toBe("subuser");
-    expect(members[0]!.fullName).toBe("Personal de puerta");
+    expect(members).toHaveLength(2);
+    expect(members.every((member) => member.role === "suborganizador")).toBe(true);
+    expect(members.map((member) => member.fullName).sort()).toEqual(["Javier Ortega López", "Marta Gutiérrez Vega"].sort());
   });
 
   it("rejects access to an out-of-scope event's gates", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234"); // scoped to event-1 only
+    await useSessionStore.getState().login("javier.ortega@entraditas.com", "javier1234"); // scoped to event-1 only
     const token = useSessionStore.getState().token!;
     await expect(apiClient.get("/events/event-2/gates", { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
@@ -103,7 +103,7 @@ describe("gates handlers", () => {
     const norte = gates[0]!;
     expect(norte.eventTitle).toBe("Rock en Directo");
     expect(norte.zoneName).toBe("Pista");
-    expect(norte.operatorNames).toEqual(["Personal de puerta"]);
+    expect(norte.operatorNames).toEqual(["Javier Ortega López"]);
   });
 
   it("GET /gates returns gates across every organization to a superadmin", async () => {
@@ -114,7 +114,7 @@ describe("gates handlers", () => {
   });
 
   it("GET /gates returns none when the event-scoped user's events have no gates", async () => {
-    await useSessionStore.getState().login("subusuario@entraditas.com", "subusuario1234"); // scoped to event-1 only, which has no gates
+    await useSessionStore.getState().login("javier.ortega@entraditas.com", "javier1234"); // scoped to event-1 only, which has no gates
     const token = useSessionStore.getState().token!;
     const gates = await apiClient.get<{ id: string }[]>("/gates", { token });
     expect(gates).toEqual([]);

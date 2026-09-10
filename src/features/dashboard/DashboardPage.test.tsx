@@ -54,7 +54,7 @@ describe("DashboardPage", () => {
   });
 
   it("scopes the general overview to a scoped user: only their assigned events", async () => {
-    await useSessionStore.getState().login("usuario@entraditas.com", "usuario1234");
+    await useSessionStore.getState().login("marta.gutierrez@entraditas.com", "marta1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByText("Ingresos brutos").length).toBeGreaterThan(1));
     expect(within(kpiArticle("Ingresos brutos")).getByText(/405,00/)).toBeInTheDocument();

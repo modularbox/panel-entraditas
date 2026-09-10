@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { OrganizationListItem } from "@entraditas/types";
+import type { OrganizationDetail, OrganizationListItem } from "@entraditas/types";
 import type { SessionResponse } from "@/shared/auth/sessionStore";
 import { demoPasswordFor, resetDb } from "@/mocks/state";
 import { apiClient } from "@/shared/lib/apiClient";
@@ -12,7 +12,7 @@ async function loginAs(email: string) {
 describe("organizations handlers", () => {
   afterEach(() => resetDb());
 
-  it("lists both organizations with their admin account to a superadmin", async () => {
+  it("lists both organizations with their organizador account to a superadmin", async () => {
     const token = await loginAs("superadmin@entraditas.com");
     const organizations = await apiClient.get<OrganizationListItem[]>("/organizations", { token });
     expect(organizations).toHaveLength(2);
@@ -21,14 +21,14 @@ describe("organizations handlers", () => {
       name: "Producciones Norte",
       slug: "producciones-norte",
       commissionRate: 0.08,
-      admin: { id: "user-admin", fullName: "Admin de Producciones Norte", email: "admin@entraditas.com" }
+      organizer: { id: "user-admin", fullName: "Admin de Producciones Norte", email: "admin@entraditas.com" }
     });
     expect(organizations[1]).toMatchObject({
       id: "org-2",
       name: "Sur Live",
       slug: "sur-live",
       commissionRate: 0.1,
-      admin: { id: "user-admin-2", fullName: "Admin de Sur Live", email: "admin.surlive@entraditas.com" }
+      organizer: { id: "user-admin-2", fullName: "Admin de Sur Live", email: "admin.surlive@entraditas.com" }
     });
   });
 
@@ -44,7 +44,7 @@ describe("organizations handlers", () => {
   it("connect switches the session to the organization's admin account", async () => {
     const token = await loginAs("superadmin@entraditas.com");
     const session = await apiClient.post<SessionResponse>(`/organizations/org-1/connect`, undefined, { token });
-    expect(session.user).toMatchObject({ id: "user-admin", email: "admin@entraditas.com", fullName: "Admin de Producciones Norte", role: "admin", organizationId: "org-1" });
+    expect(session.user).toMatchObject({ id: "user-admin", email: "admin@entraditas.com", fullName: "Admin de Producciones Norte", role: "organizador", organizationId: "org-1" });
     expect(session.effectivePermissions).toContain("users:manage");
     expect(session.effectivePermissions).not.toContain("organizations:manage");
 
@@ -68,5 +68,61 @@ describe("organizations handlers", () => {
 
     const token = await loginAs("superadmin@entraditas.com");
     await expect(apiClient.post("/organizations/org-999/connect", undefined, { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("serves the detail ficha with organizer bank account, suborganizadores' events, commissions and events with granted users", async () => {
+    const token = await loginAs("superadmin@entraditas.com");
+    const detail = await apiClient.get<OrganizationDetail>("/organizations/org-1", { token });
+
+    expect(detail.organizer).toMatchObject({
+      id: "user-admin",
+      fullName: "Admin de Producciones Norte",
+      email: "admin@entraditas.com",
+      bankAccount: "ES77 2100 1234 5678 9012 3456"
+    });
+
+    // Suborganizadores with the events each has access to.
+    expect(detail.subOrganizers).toMatchObject([
+      { id: "user-limited", fullName: "Marta Gutiérrez Vega", email: "marta.gutierrez@entraditas.com" },
+      { id: "user-subuser", fullName: "Javier Ortega López", email: "javier.ortega@entraditas.com" }
+    ]);
+    expect(detail.subOrganizers[0]!.accessibleEvents.map((event) => event.id)).toEqual(["event-1", "event-2"]);
+    expect(detail.subOrganizers[1]!.accessibleEvents.map((event) => event.id)).toEqual(["event-1"]);
+
+    // Comisiones desglosadas por evento y entrada, con la comisión = rate × recaudación.
+    expect(detail.commissions).toEqual([
+      { eventId: "event-1", eventTitle: "Noche de Jazz", entrada: "General", recaudacion: 12500, comision: 1000 },
+      { eventId: "event-2", eventTitle: "Rock en Directo", entrada: "Grada VIP", recaudacion: 10000, comision: 800 },
+      { eventId: "event-2", eventTitle: "Rock en Directo", entrada: "Pista", recaudacion: 18000, comision: 1440 }
+    ]);
+
+    // Eventos de la organización con los usuarios con acceso (organizador siempre, suborganizadores según eventScopes).
+    const jazz = detail.events.find((event) => event.id === "event-1")!;
+    expect(jazz.accessUsers.map((user) => user.id).sort()).toEqual(["user-admin", "user-limited", "user-subuser"]);
+    const rock = detail.events.find((event) => event.id === "event-2")!;
+    expect(rock.accessUsers.map((user) => user.id)).toEqual(["user-admin", "user-limited"]);
+    expect(detail.events.some((event) => event.id === "event-3")).toBe(true);
+    expect(detail.events.some((event) => event.id === "event-5")).toBe(true);
+  });
+
+  it("connects as a specific suborganizador of the organization", async () => {
+    const token = await loginAs("superadmin@entraditas.com");
+    const session = await apiClient.post<SessionResponse>("/organizations/org-1/users/user-limited/connect", undefined, { token });
+    expect(session.user).toMatchObject({ id: "user-limited", email: "marta.gutierrez@entraditas.com", fullName: "Marta Gutiérrez Vega", role: "suborganizador", organizationId: "org-1" });
+    expect(session.effectivePermissions).not.toContain("organizations:manage");
+    expect(session.eventScopes).toEqual(["event-1", "event-2"]);
+
+    const me = await apiClient.get<SessionResponse>("/auth/me", { token: session.accessToken });
+    expect(me.user.id).toBe("user-limited");
+  });
+
+  it("connects as a suborganizador only within its own organization and for active users", async () => {
+    const token = await loginAs("superadmin@entraditas.com");
+    // user-limited belongs to org-1, not org-2: no session, but a 404 outcome.
+    await expect(apiClient.post("/organizations/org-2/users/user-limited/connect", undefined, { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    await expect(apiClient.post("/organizations/org-1/users/user-limited/connect")).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+    const adminToken = await loginAs("admin@entraditas.com");
+    await expect(apiClient.post("/organizations/org-1/users/user-limited/connect", undefined, { token: adminToken })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
