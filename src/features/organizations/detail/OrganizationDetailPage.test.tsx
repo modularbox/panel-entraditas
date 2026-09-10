@@ -33,7 +33,6 @@ describe("OrganizationDetailPage", () => {
     await login();
     renderPage("org-1");
     await waitFor(() => expect(screen.getByRole("heading", { name: "Producciones Norte" })).toBeInTheDocument());
-    expect(screen.getByText("Comisión 8%")).toBeInTheDocument();
     expect(screen.getAllByText("Admin de Producciones Norte").length).toBeGreaterThan(0);
     expect(screen.getByText("admin@entraditas.com")).toBeInTheDocument();
     expect(screen.getByText("ES77 2100 1234 5678 9012 3456")).toBeInTheDocument();

@@ -1,7 +1,7 @@
 {
   "organizations": [
-    { "id": "org-1", "name": "Producciones Norte", "slug": "producciones-norte", "commissionRate": 0.08 },
-    { "id": "org-2", "name": "Sur Live", "slug": "sur-live", "commissionRate": 0.1 }
+    { "id": "org-1", "name": "Producciones Norte", "slug": "producciones-norte" },
+    { "id": "org-2", "name": "Sur Live", "slug": "sur-live" }
   ],
   "users": [
     {

@@ -15,8 +15,7 @@ export type PermissionOverride = z.infer<typeof PermissionOverrideSchema>;
 export const OrganizationSchema = z.object({
   id: z.string(),
   name: z.string(),
-  slug: z.string(),
-  commissionRate: z.number().min(0).max(1) // fraction, not a percentage (0.08 = 8%)
+  slug: z.string()
 });
 export type Organization = z.infer<typeof OrganizationSchema>;
 
@@ -410,17 +409,6 @@ export const OrganizationListItemSchema = OrganizationSchema.extend({
 });
 export type OrganizationListItem = z.infer<typeof OrganizationListItemSchema>;
 
-// Una comisión que Entraditas cobra a la organización por gestionar sus ventas, desglosada por
-// evento y por tipo de entrada ("entrada" como término de negocio, no "ticket").
-export const OrganizationCommissionSchema = z.object({
-  eventId: z.string(),
-  eventTitle: z.string(),
-  entrada: z.string(), // nombre del tipo de entrada (General, Pista, Abono…)
-  recaudacion: z.number().int().nonnegative(), // importe total vendido en céntimos
-  comision: z.number().int().nonnegative() // comisión cobrada en céntimos
-});
-export type OrganizationCommission = z.infer<typeof OrganizationCommissionSchema>;
-
 // A los eventos a los que un suborganizador tiene acceso, para la columna "Eventos" de la ficha.
 export const OrganizationAccessibleEventSchema = z.object({
   id: z.string(),
@@ -451,12 +439,11 @@ export const OrganizationEventSchema = EventSchema.extend({
 export type OrganizationEvent = z.infer<typeof OrganizationEventSchema>;
 
 // An organization's detail "ficha": its primary organizer (the account "Conectar" switches to), its
-// suborganizadores (with the events each can access), the commissions Entraditas charges it and the
-// organization's events with the users granted access to them.
+// suborganizadores (with the events each can access) and the organization's events with the users
+// granted access to them.
 export const OrganizationDetailSchema = OrganizationSchema.extend({
   organizer: OrganizationOrganizerSchema.nullable(), // null when the organization has no organizer account yet
   subOrganizers: z.array(OrganizationSubOrganizerSchema), // suborganizadores of the organization
-  commissions: z.array(OrganizationCommissionSchema),
   events: z.array(OrganizationEventSchema)
 });
 export type OrganizationDetail = z.infer<typeof OrganizationDetailSchema>;

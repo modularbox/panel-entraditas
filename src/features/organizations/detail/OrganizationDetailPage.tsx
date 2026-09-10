@@ -8,7 +8,6 @@ import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
 import { EventStatusBadge } from "@/shared/ui/EventStatusBadge";
-import { formatCommissionRate } from "@/features/organizations/list/OrganizationsListPage";
 
 const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
 
@@ -80,7 +79,6 @@ export function OrganizationDetailPage() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Comisión {formatCommissionRate(organization.commissionRate)}</span>
               <Button
                 type="button"
                 variant="outline"

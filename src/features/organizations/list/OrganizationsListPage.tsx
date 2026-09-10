@@ -11,11 +11,6 @@ import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { useOrganizationsQuery } from "./useOrganizationsQuery";
 
-export function formatCommissionRate(rate: number): string {
-  const percent = Math.round(rate * 100);
-  return `${percent}%`;
-}
-
 export function OrganizationsListPage() {
   const token = useSessionStore((state) => state.token);
   const queryClient = useQueryClient();
@@ -53,7 +48,6 @@ export function OrganizationsListPage() {
         )
       }),
       columnHelper.accessor("slug", { header: "Slug", cell: (info) => <span className="text-muted-foreground">{info.getValue()}</span> }),
-      columnHelper.accessor("commissionRate", { header: "Comisión", cell: (info) => formatCommissionRate(info.getValue()) }),
       columnHelper.accessor("organizer", {
         header: "Organizador",
         cell: (info) => {

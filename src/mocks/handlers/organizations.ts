@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import type { Organization, OrganizationCommission, OrganizationDetail, OrganizationEvent, OrganizationListItem, OrganizationOrganizer, OrganizationSubOrganizer } from "@entraditas/types";
+import type { Organization, OrganizationDetail, OrganizationEvent, OrganizationListItem, OrganizationOrganizer, OrganizationSubOrganizer } from "@entraditas/types";
 import { resolveEffectivePermissions } from "@/shared/auth/permissions";
 import { getSessionUserId } from "../authContext";
 import { db, sessions } from "../state";
@@ -35,31 +35,7 @@ function organizationOrganizer(organization: Organization): OrganizationOrganize
 }
 
 function toListItem(organization: Organization): OrganizationListItem {
-  return { id: organization.id, name: organization.name, slug: organization.slug, commissionRate: organization.commissionRate, organizer: organizationOrganizer(organization) };
-}
-
-// Active sales = orders that still keep money in them, the same scope as the dashboard's revenue
-// figures, so Comisiones matches what the organization actually collected.
-const REVENUE_STATUSES = new Set(["paid", "partially_refunded"]);
-
-// Every entrada (ticket type) of every event of the organization, with what it sold and the
-// commission Entraditas charges on it (its commissionRate applied to that entrance's take).
-function commissionsFor(organization: Organization): OrganizationCommission[] {
-  const eventIds = new Set(db.events.filter((event) => event.organizationId === organization.id).map((event) => event.id));
-  const eventById = new Map(db.events.map((event) => [event.id, event]));
-  const rows = new Map<string, OrganizationCommission>();
-  for (const item of db.orderItems) {
-    const order = db.orders.find((candidate) => candidate.id === item.orderId);
-    if (!order || !eventIds.has(order.eventId) || !REVENUE_STATUSES.has(order.status)) continue;
-    const event = eventById.get(order.eventId)!;
-    const key = `${order.eventId}\u0000${item.ticketTypeName}`;
-    const existing = rows.get(key) ?? { eventId: order.eventId, eventTitle: event.title, entrada: item.ticketTypeName, recaudacion: 0, comision: 0 };
-    existing.recaudacion += item.subtotal;
-    rows.set(key, existing);
-  }
-  return [...rows.values()]
-    .map((row) => ({ ...row, comision: Math.round(row.recaudacion * organization.commissionRate) }))
-    .sort((a, b) => a.eventTitle.localeCompare(b.eventTitle) || a.entrada.localeCompare(b.entrada));
+  return { id: organization.id, name: organization.name, slug: organization.slug, organizer: organizationOrganizer(organization) };
 }
 
 // Users of the organization with access to an event: every organizador (unscoped) plus the
@@ -97,10 +73,8 @@ function toDetail(organization: Organization): OrganizationDetail {
     id: organization.id,
     name: organization.name,
     slug: organization.slug,
-    commissionRate: organization.commissionRate,
     organizer,
     subOrganizers,
-    commissions: commissionsFor(organization),
     events: eventsFor(organization)
   };
 }

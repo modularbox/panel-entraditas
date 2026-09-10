@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { db, resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
-import { OrganizationsListPage, formatCommissionRate } from "./OrganizationsListPage";
+import { OrganizationsListPage } from "./OrganizationsListPage";
 
 function renderPage() {
   return render(
@@ -30,17 +30,15 @@ describe("OrganizationsListPage", () => {
     return useSessionStore.getState().token!;
   }
 
-  it("lists every organization with its admin account and commission", async () => {
+  it("lists every organization with its admin account", async () => {
     await login();
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(3)); // header + 2 seeded organizations
     expect(screen.getByText("Producciones Norte")).toBeInTheDocument();
     expect(screen.getByText("producciones-norte")).toBeInTheDocument();
-    expect(screen.getByText("8%")).toBeInTheDocument();
     expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument();
     expect(screen.getByText("admin@entraditas.com")).toBeInTheDocument();
     expect(screen.getByText("Sur Live")).toBeInTheDocument();
-    expect(screen.getByText("10%")).toBeInTheDocument();
     expect(screen.getByText("Admin de Sur Live")).toBeInTheDocument();
   });
 
@@ -93,14 +91,5 @@ describe("OrganizationsListPage", () => {
     const rowsDesc = screen.getAllByRole("row").slice(1);
     expect(rowsDesc[0]).toHaveTextContent("Sur Live");
     expect(rowsDesc[1]).toHaveTextContent("Producciones Norte");
-  });
-});
-
-describe("formatCommissionRate", () => {
-  it("formats a fraction as a whole percentage", () => {
-    expect(formatCommissionRate(0.08)).toBe("8%");
-    expect(formatCommissionRate(0.1)).toBe("10%");
-    expect(formatCommissionRate(0)).toBe("0%");
-    expect(formatCommissionRate(1)).toBe("100%");
   });
 });

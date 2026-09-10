@@ -20,14 +20,12 @@ describe("organizations handlers", () => {
       id: "org-1",
       name: "Producciones Norte",
       slug: "producciones-norte",
-      commissionRate: 0.08,
       organizer: { id: "user-admin", fullName: "Admin de Producciones Norte", email: "admin@entraditas.com" }
     });
     expect(organizations[1]).toMatchObject({
       id: "org-2",
       name: "Sur Live",
       slug: "sur-live",
-      commissionRate: 0.1,
       organizer: { id: "user-admin-2", fullName: "Admin de Sur Live", email: "admin.surlive@entraditas.com" }
     });
   });
@@ -70,7 +68,7 @@ describe("organizations handlers", () => {
     await expect(apiClient.post("/organizations/org-999/connect", undefined, { token })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("serves the detail ficha with organizer bank account, suborganizadores' events, commissions and events with granted users", async () => {
+  it("serves the detail ficha with organizer bank account, suborganizadores' events and events with granted users", async () => {
     const token = await loginAs("superadmin@entraditas.com");
     const detail = await apiClient.get<OrganizationDetail>("/organizations/org-1", { token });
 
@@ -88,13 +86,6 @@ describe("organizations handlers", () => {
     ]);
     expect(detail.subOrganizers[0]!.accessibleEvents.map((event) => event.id)).toEqual(["event-1", "event-2"]);
     expect(detail.subOrganizers[1]!.accessibleEvents.map((event) => event.id)).toEqual(["event-1"]);
-
-    // Comisiones desglosadas por evento y entrada, con la comisión = rate × recaudación.
-    expect(detail.commissions).toEqual([
-      { eventId: "event-1", eventTitle: "Noche de Jazz", entrada: "General", recaudacion: 12500, comision: 1000 },
-      { eventId: "event-2", eventTitle: "Rock en Directo", entrada: "Grada VIP", recaudacion: 10000, comision: 800 },
-      { eventId: "event-2", eventTitle: "Rock en Directo", entrada: "Pista", recaudacion: 18000, comision: 1440 }
-    ]);
 
     // Eventos de la organización con los usuarios con acceso (organizador siempre, suborganizadores según eventScopes).
     const jazz = detail.events.find((event) => event.id === "event-1")!;
