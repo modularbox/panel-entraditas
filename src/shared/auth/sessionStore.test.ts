@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetDb } from "@/mocks/state";
 import { apiClient } from "@/shared/lib/apiClient";
+import * as entraditasApi from "@/shared/lib/entraditasApi";
 import { useSessionStore, type SessionResponse } from "./sessionStore";
 
 const TOKEN_KEY = "entraditas.panel.devToken";
@@ -10,7 +11,54 @@ describe("useSessionStore", () => {
   afterEach(() => {
     localStorage.clear();
     resetDb();
+    vi.restoreAllMocks();
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
+  });
+
+  // Quien manda al entrar es api.entraditas.com. Estas tres pruebas cubren sus tres respuestas,
+  // que llevan a decisiones distintas y no se pueden confundir entre si.
+  describe("cuando api.entraditas.com decide", () => {
+    it("si la API acepta, la sesion del panel se abre sin pedir la contrasena de los mocks", async () => {
+      vi.spyOn(entraditasApi, "iniciarSesionEnLaApi").mockResolvedValue({
+        estado: "ok",
+        staff: {
+          id: "staff-1",
+          email: "superadmin@entraditas.com",
+          fullName: "Panel",
+          role: "superadmin",
+          organizationId: null,
+          status: "active"
+        }
+      });
+
+      // La contrasena que se escribe es la de la API, no la de demostracion del mock.
+      await useSessionStore.getState().login("superadmin@entraditas.com", "la-de-la-api");
+
+      const state = useSessionStore.getState();
+      expect(state.status).toBe("authenticated");
+      expect(state.user?.email).toBe("superadmin@entraditas.com");
+    });
+
+    it("si la API rechaza, no se entra al panel aunque la contrasena valga para los mocks", async () => {
+      vi.spyOn(entraditasApi, "iniciarSesionEnLaApi").mockResolvedValue({
+        estado: "rechazado",
+        mensaje: "Correo o contrasena incorrectos."
+      });
+
+      // "admin1234" es la contrasena de demostracion, publica en el repositorio: que la API haya
+      // dicho que no tiene que pesar mas que eso.
+      await expect(useSessionStore.getState().login("admin@entraditas.com", "admin1234")).rejects.toThrow();
+      expect(useSessionStore.getState().status).not.toBe("authenticated");
+    });
+
+    it("si la API no contesta, se entra igual contra los mocks", async () => {
+      vi.spyOn(entraditasApi, "iniciarSesionEnLaApi").mockResolvedValue({ estado: "sin-respuesta" });
+
+      // Una caida de la API no puede dejar a nadie fuera de su propio panel.
+      await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+
+      expect(useSessionStore.getState().status).toBe("authenticated");
+    });
   });
 
   it("login populates the session with effective permissions", async () => {

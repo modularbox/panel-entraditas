@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { apiClient } from "@/shared/lib/apiClient";
-import { loginToApi, logoutFromApi } from "@/shared/lib/entraditasApi";
+import { iniciarSesionEnLaApi, isApiConfigured, logoutFromApi, quienSoyEnLaApi } from "@/shared/lib/entraditasApi";
 import type { RoleSlug } from "@entraditas/types";
 
 const TOKEN_STORAGE_KEY = "entraditas.panel.devToken";
@@ -81,14 +81,35 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
+  /**
+   * Entrar al panel. Una sola contrasena, la de api.entraditas.com.
+   *
+   * Antes habia dos: la del panel, que se validaba contra los mocks del navegador (contrasenas de
+   * demostracion escritas en el repositorio, que no protegen nada), y la de la API, que decide lo
+   * que sale publicado. Como no coincidian, entrar dejaba el panel "sin conexion con
+   * entraditas.com" y habia que escribir la segunda a mano en otro formulario. Ahora manda la
+   * API: si dice que si, la sesion local se abre sola detras.
+   *
+   * Si la API no contesta (caida, sin red, o compilacion sin API configurada) se usa el camino de
+   * siempre contra los mocks. Una caida de la API no puede dejar a nadie fuera de su panel; lo
+   * unico que se pierde entretanto es poder publicar hacia fuera.
+   */
   async login(email, password) {
+    const enLaApi = await iniciarSesionEnLaApi(email, password);
+
+    if (enLaApi.estado === "rechazado") {
+      // Se dice de donde viene la negativa. La contrasena del panel paso a ser la de
+      // entraditas.com, y sin decirlo alguien puede reintentar la de siempre indefinidamente.
+      throw new Error(`${enLaApi.mensaje} La contraseña del panel es ahora la de entraditas.com.`);
+    }
+    if (enLaApi.estado === "ok") {
+      const session = await apiClient.post<SessionResponse>("/auth/session-from-api", { email });
+      get().setSession(session);
+      return;
+    }
+
     const result = await apiClient.post<SessionResponse>("/auth/login", { email, password });
     get().setSession(result);
-    // Ademas se abre sesion en api.entraditas.com con las mismas credenciales, que es lo que
-    // permite publicar en la web publica sin llevar ninguna clave compartida en el navegador.
-    // Si falla (API sin configurar, caida, o la persona todavia no dada de alta alli) no se
-    // interrumpe la entrada al panel: simplemente no se podra publicar hacia fuera.
-    await loginToApi(email, password);
   },
 
   async logout() {
@@ -108,6 +129,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({ status: "unauthenticated" });
       return;
     }
+
+    // Una sesion del panel sin sesion en la API esta a medias: se entra, pero lo que se publique
+    // no sale a entraditas.com. Pasa con las sesiones abiertas antes de que la API mandara, y
+    // desde dentro se veia como un aviso de "sin conexion" que habia que resolver a mano. Se
+    // prefiere pedir la contrasena una vez: al volver a entrar, las dos sesiones quedan abiertas.
+    if (isApiConfigured() && (await quienSoyEnLaApi()) === null) {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
+      set({ status: "unauthenticated", token: null, user: null, effectivePermissions: new Set(), eventScopes: [], impersonatorToken: null });
+      return;
+    }
+
     try {
       const result = await apiClient.get<SessionResponse>("/auth/me", { token });
       set({
