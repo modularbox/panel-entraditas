@@ -21,7 +21,14 @@ describe("useSessionStore", () => {
     it("si la API acepta, la sesion del panel se abre sin pedir la contrasena de los mocks", async () => {
       vi.spyOn(entraditasApi, "iniciarSesionEnLaApi").mockResolvedValue({
         estado: "ok",
-        staff: { email: "superadmin@entraditas.com", fullName: "Panel", role: "superadmin", organizationId: null, status: "active" }
+        staff: {
+          id: "staff-1",
+          email: "superadmin@entraditas.com",
+          fullName: "Panel",
+          role: "superadmin",
+          organizationId: null,
+          status: "active"
+        }
       });
 
       // La contrasena que se escribe es la de la API, no la de demostracion del mock.
