@@ -98,7 +98,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const enLaApi = await iniciarSesionEnLaApi(email, password);
 
     if (enLaApi.estado === "rechazado") {
-      throw new Error(enLaApi.mensaje);
+      // Se dice de donde viene la negativa. La contrasena del panel paso a ser la de
+      // entraditas.com, y sin decirlo alguien puede reintentar la de siempre indefinidamente.
+      throw new Error(`${enLaApi.mensaje} La contraseña del panel es ahora la de entraditas.com.`);
     }
     if (enLaApi.estado === "ok") {
       const session = await apiClient.post<SessionResponse>("/auth/session-from-api", { email });
