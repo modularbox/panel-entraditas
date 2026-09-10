@@ -8,6 +8,7 @@ import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { canAssignRole, capabilityKeysToOverrides, getConfigurableCapabilities, overridesToCapabilityKeys } from "@/shared/auth/permissions";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
+import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
 import { useTeamQuery } from "../list/useTeamQuery";
 import { teamMemberSchema, type TeamMemberFormValues } from "./teamMemberSchema";
@@ -59,6 +60,7 @@ export function TeamMemberFormPage() {
   }
   if (isEdit && !existingMember) return <p className="text-muted-foreground">Cargando…</p>;
   return <div className="flex flex-col gap-6">
+    <BackButton fallback="/equipo" />
     <h1 className="font-display text-2xl font-semibold">{isEdit ? "Editar persona" : "Invitar persona"}</h1>
     <form onSubmit={handleSubmit(onSubmit)} className="flex max-w-lg flex-col gap-4">
       <div className="flex flex-col gap-1.5"><label htmlFor="email">Correo electrónico</label><input id="email" type="email" disabled={isEdit} className="h-10 rounded-md border-2 border-foreground bg-background px-3 text-sm disabled:opacity-60" {...register("email")} />{errors.email && <span role="alert">{errors.email.message}</span>}</div>

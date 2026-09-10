@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Order, OrderItem, TicketType } from "@entraditas/types";
 import { Can } from "@/shared/auth/Can";
+import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
@@ -67,6 +68,7 @@ export function TaquillaPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <BackButton fallback="/ventas/pedidos" />
       <header>
         <h1 className="font-display text-2xl font-semibold">Taquilla</h1>
       </header>

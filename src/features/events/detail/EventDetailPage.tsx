@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import type { Event } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
+import { BackButton } from "@/shared/ui/BackButton";
 import { cn } from "@/shared/lib/cn";
 import { Step1BasicInfo } from "../wizard/steps/Step1BasicInfo";
 import { Step2Schedule } from "../wizard/steps/Step2Schedule";
@@ -58,6 +59,7 @@ export function EventDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <BackButton fallback="/eventos" />
       <h1>{event.title}</h1>
 
       <nav aria-label="Secciones del evento">

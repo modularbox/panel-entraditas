@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import type { Order, OrderItem, Refund } from "@entraditas/types";
 import { Can } from "@/shared/auth/Can";
+import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
@@ -122,6 +123,7 @@ export function OrderDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <BackButton fallback="/ventas/pedidos" />
       <header>
         <h1 className="font-display text-2xl font-semibold">{order.orderNumber}</h1>
         <p className="mt-1 text-sm text-muted-foreground">

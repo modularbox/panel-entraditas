@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { OrganizationDetail, OrganizationSubOrganizer } from "@entraditas/types";
 import { useSessionStore, type SessionResponse } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
+import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
 import { EventStatusBadge } from "@/shared/ui/EventStatusBadge";
 import { formatCommissionRate } from "@/features/organizations/list/OrganizationsListPage";
@@ -59,7 +60,7 @@ export function OrganizationDetailPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <button type="button" className="text-sm font-semibold text-primary hover:underline" onClick={() => navigate(-1)}>← Volver</button>
+      <BackButton fallback="/organizaciones" />
 
       <header>
         <h1 className="font-display text-2xl font-semibold">{organization.name}</h1>

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Event } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient } from "@/shared/lib/apiClient";
+import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
 import { useWizardStore } from "./wizardStore";
 import { useSetupStore } from "./setupStore";
@@ -93,6 +94,7 @@ export function EventWizardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <BackButton fallback="/eventos" />
       <p data-testid="wizard-event-id" className="hidden">
         {eventId ?? "sin-id"}
       </p>

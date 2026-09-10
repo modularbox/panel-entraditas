@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import type { Customer, Order } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
+import { BackButton } from "@/shared/ui/BackButton";
 
 type CustomerDetail = Customer & { orders: (Order & { eventTitle: string })[] };
 
@@ -55,6 +56,7 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
 
   return (
     <div className="flex flex-col gap-6">
+      <BackButton fallback="/clientes" />
       <header>
         <h1 className="font-display text-2xl font-semibold">{customer.name}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{customer.email}</p>
