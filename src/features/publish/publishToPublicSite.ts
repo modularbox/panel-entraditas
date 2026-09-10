@@ -1,11 +1,12 @@
 import type { CapacityPool, DiscountCode, Event, Organization, SubEvent, TicketType, Venue, Zone } from "@entraditas/types";
 import { apiClient } from "@/shared/lib/apiClient";
-import { canPublishToApi, isApiConfigured, publishEventToApi } from "@/shared/lib/entraditasApi";
+import { canPublishToApi, isApiConfigured, publishEventToApi, removeEventFromApi } from "@/shared/lib/entraditasApi";
 import { toPublicEvent } from "./toPublicEvent";
 import { missingForApi, toApiEventPayload } from "./toApiEventPayload";
 
 export type PublishOutcome =
   | { status: "published" }
+  | { status: "removed" }
   | { status: "skipped"; reason: string }
   | { status: "incomplete"; missing: string[] }
   | { status: "failed"; error: string };
@@ -57,8 +58,12 @@ export async function publishToPublicSite(eventId: string, token: string): Promi
       .then((orgs) => orgs.find((org) => org.id === event.organizationId) ?? null)
       .catch(() => null);
 
+    // Se conserva el estado real del evento. Un evento a la venta tiene que llegar a la web
+    // como tal: si se aplanara a "publicado", el comprador veria el evento pero sin venta
+    // abierta, que es justo lo contrario de lo que decidio el organizador.
     const payload = toApiEventPayload(
-      toPublicEvent({ event, organization, venue, zones, subEvents, ticketTypes, pools, discountCodes })
+      toPublicEvent({ event, organization, venue, zones, subEvents, ticketTypes, pools, discountCodes }),
+      event.status === "on_sale" ? "on_sale" : "published"
     );
 
     // Se comprueba aqui lo mismo que valida la API, para poder decir que falta en vez de
@@ -73,9 +78,35 @@ export async function publishToPublicSite(eventId: string, token: string): Promi
   }
 }
 
+/**
+ * Retira un evento de la web publica: se ha despublicado o borrado en el panel.
+ *
+ * Es la otra mitad de `publishToPublicSite`. Sin ella, quitar un evento del panel lo dejaba
+ * anunciandose en entraditas.com indefinidamente.
+ */
+export async function removeFromPublicSite(eventId: string): Promise<PublishOutcome> {
+  if (!isApiConfigured()) {
+    return { status: "skipped", reason: "La API publica no esta configurada en este entorno." };
+  }
+  if (!canPublishToApi()) {
+    return {
+      status: "skipped",
+      reason: "No hay sesion abierta en la API publica. Vuelve a iniciar sesion para retirarlo de la web."
+    };
+  }
+  try {
+    await removeEventFromApi(eventId);
+    return { status: "removed" };
+  } catch (error) {
+    return { status: "failed", error: error instanceof Error ? error.message : "No se pudo retirar de la web." };
+  }
+}
+
 /** Mensaje para el organizador a partir del resultado, para no repetirlo en cada pantalla. */
 export function describePublishOutcome(outcome: PublishOutcome): string {
   switch (outcome.status) {
+    case "removed":
+      return "Retirado: ya no aparece en entraditas.com.";
     case "published":
       return "Publicado: el evento ya aparece en entraditas.com.";
     case "skipped":

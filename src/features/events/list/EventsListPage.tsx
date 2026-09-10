@@ -7,7 +7,9 @@ import { Can } from "@/shared/auth/Can";
 import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { EventStatusBadge, EVENT_STATUS_LABEL } from "@/shared/ui/EventStatusBadge";
-import { EventReviewActions } from "./EventReviewActions";
+import { ConexionWebPublica } from "@/features/publish/ConexionWebPublica";
+import { SincronizarConLaWeb } from "@/features/publish/SincronizarConLaWeb";
+import { EventRowActions } from "./EventRowActions";
 import { useEventsQuery } from "./useEventsQuery";
 
 const STATUS_FILTERS: Array<{ value: "" | Event["status"]; label: string }> = [
@@ -33,18 +35,18 @@ const columns = [
   }),
   columnHelper.accessor("status", {
     header: "Estado",
-    cell: (info) => <EventStatusBadge status={info.getValue()} />
+    // Se le pasa el evento entero para que pueda marcar como TERMINADO lo que ya se celebro,
+    // aunque su estado guardado siga siendo "publicado" o "a la venta".
+    cell: (info) => <EventStatusBadge status={info.getValue()} event={info.row.original} />
   }),
   columnHelper.accessor("startsAt", {
     header: "Fecha",
     cell: (info) => (info.getValue() ? dateFormatter.format(new Date(info.getValue()!)) : "Fecha por confirmar")
   }),
-  // Solo se pinta algo para quien revisa y en los eventos que estan esperando revision; para el
-  // resto la celda queda vacia (ver EventReviewActions).
   columnHelper.display({
-    id: "revision",
-    header: "Revisión",
-    cell: (info) => <EventReviewActions event={info.row.original} />
+    id: "acciones",
+    header: "Acciones",
+    cell: (info) => <EventRowActions event={info.row.original} />
   })
 ];
 
@@ -74,6 +76,11 @@ export function EventsListPage() {
         </Can>
       </header>
 
+      {/* Aqui arriba porque de nada sirve aprobar un evento si la conexion con la web esta
+          caida: mejor verlo antes de publicar que descubrirlo despues por un mensaje de error. */}
+      <ConexionWebPublica />
+      <SincronizarConLaWeb eventos={events} />
+
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-sm font-bold">Estado</span>
         {STATUS_FILTERS.map((filter) => {
@@ -93,6 +100,15 @@ export function EventsListPage() {
           );
         })}
       </div>
+
+      {/* La diferencia entre publicado y a la venta no se deduce del nombre, y sin explicarla
+          nadie sabe cual elegir. */}
+      <p className="max-w-3xl text-sm text-muted-foreground">
+        <strong>Publicado</strong> es que el evento se ve en entraditas.com pero todavia no se
+        pueden comprar entradas: sirve para anunciarlo antes de abrir la venta.{" "}
+        <strong>A la venta</strong> es que ademas se puede comprar. Los eventos cuya fecha ya ha
+        pasado se marcan solos como <strong>terminado</strong> y dejan de salir en la web.
+      </p>
 
       {isLoading ? (
         <p className="text-muted-foreground">Cargando...</p>
