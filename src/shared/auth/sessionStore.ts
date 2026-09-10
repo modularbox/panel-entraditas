@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { apiClient } from "@/shared/lib/apiClient";
-import { iniciarSesionEnLaApi, logoutFromApi } from "@/shared/lib/entraditasApi";
+import { iniciarSesionEnLaApi, isApiConfigured, logoutFromApi, quienSoyEnLaApi } from "@/shared/lib/entraditasApi";
 import type { RoleSlug } from "@entraditas/types";
 
 const TOKEN_STORAGE_KEY = "entraditas.panel.devToken";
@@ -127,6 +127,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({ status: "unauthenticated" });
       return;
     }
+
+    // Una sesion del panel sin sesion en la API esta a medias: se entra, pero lo que se publique
+    // no sale a entraditas.com. Pasa con las sesiones abiertas antes de que la API mandara, y
+    // desde dentro se veia como un aviso de "sin conexion" que habia que resolver a mano. Se
+    // prefiere pedir la contrasena una vez: al volver a entrar, las dos sesiones quedan abiertas.
+    if (isApiConfigured() && (await quienSoyEnLaApi()) === null) {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
+      set({ status: "unauthenticated", token: null, user: null, effectivePermissions: new Set(), eventScopes: [], impersonatorToken: null });
+      return;
+    }
+
     try {
       const result = await apiClient.get<SessionResponse>("/auth/me", { token });
       set({
