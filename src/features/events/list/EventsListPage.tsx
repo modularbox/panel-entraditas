@@ -14,11 +14,10 @@ import { useEventsQuery } from "./useEventsQuery";
 const STATUS_FILTERS: Array<{ value: "" | Event["status"]; label: string }> = [
   { value: "", label: "Todos" },
   { value: "draft", label: "Borrador" },
-  { value: "pending_review", label: "Pendiente" },
-  { value: "in_review", label: "En revisión" },
+  { value: "pending_review", label: "En revisión" },
   { value: "published", label: "Publicado" },
   { value: "rejected", label: "Rechazado" },
-  { value: "on_sale", label: "A la venta" }
+  { value: "finished", label: "Finalizado" }
 ];
 const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
 
@@ -35,7 +34,7 @@ const columns = [
   columnHelper.accessor("status", {
     header: "Estado",
     // Se le pasa el evento entero para que pueda marcar como TERMINADO lo que ya se celebro,
-    // aunque su estado guardado siga siendo "publicado" o "a la venta".
+    // aunque su estado guardado siga siendo "publicado".
     cell: (info) => <EventStatusBadge status={info.getValue()} event={info.row.original} />
   }),
   columnHelper.accessor("startsAt", {
@@ -97,13 +96,12 @@ export function EventsListPage() {
         })}
       </div>
 
-      {/* La diferencia entre publicado y a la venta no se deduce del nombre, y sin explicarla
-          nadie sabe cual elegir. */}
+      {/* Publicado ya es venta abierta: no hay estados de venta aparte. Lo unico que aclara el
+          texto es como se deduce el terminado. */}
       <p className="max-w-3xl text-sm text-muted-foreground">
-        <strong>Publicado</strong> es que el evento se ve en entraditas.com pero todavia no se
-        pueden comprar entradas: sirve para anunciarlo antes de abrir la venta.{" "}
-        <strong>A la venta</strong> es que ademas se puede comprar. Los eventos cuya fecha ya ha
-        pasado se marcan solos como <strong>terminado</strong> y dejan de salir en la web.
+        <strong>Publicado</strong> es que el evento se ve en entraditas.com y ya se pueden
+        comprar entradas. Los eventos cuya fecha ya ha pasado se marcan solos como{" "}
+        <strong>Finalizado</strong> y dejan de salir en la web.
       </p>
 
       {isLoading ? (

@@ -24,6 +24,11 @@ const CHANNEL_LABELS: Record<Order["channel"], string> = {
   courtesy: "Cortesía"
 };
 
+const PAYMENT_LABELS: Record<"card" | "cash", string> = {
+  card: "Tarjeta",
+  cash: "Efectivo"
+};
+
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const columnHelper = createColumnHelper<Order>();
 const columns = [
@@ -37,6 +42,7 @@ const columns = [
   }),
   columnHelper.accessor("customerName", { header: "Comprador" }),
   columnHelper.accessor("channel", { header: "Canal", cell: (info) => CHANNEL_LABELS[info.getValue()] }),
+  columnHelper.accessor("paymentMethod", { header: "Pago", cell: (info) => PAYMENT_LABELS[info.getValue()] }),
   columnHelper.accessor("status", { header: "Estado", cell: (info) => STATUS_LABELS[info.getValue()] }),
   columnHelper.accessor("total", { header: "Total", cell: (info) => euro.format(info.getValue() / 100) }),
   columnHelper.accessor("createdAt", { header: "Fecha", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") })

@@ -11,12 +11,10 @@ import type { PublicEvent } from "@entraditas/types";
  */
 export interface ApiEventPayload extends PublicEvent {
   /**
-   * Estado con el que queda en la web. Solo estos dos salen publicados:
-   *   `published` esta anunciado pero sin venta abierta;
-   *   `on_sale` ademas se puede comprar.
-   * Antes iba fijo a "published" y un evento a la venta perdia ese estado al publicarse.
+   * Estado con el que queda en la web. El panel solo publica eventos ya aprobados, que es el
+   * unico estado con venta abierta: siempre llegan como `published`.
    */
-  status: "published" | "on_sale";
+  status: "published";
   /** Nombre que la API valida para los tipos de entrada, con el precio en euros. */
   ticketTiers: { id: string; name: string; price: number; description: string; available: number }[];
   /** Fecha y hora separadas, obligatorias cuando `dateStatus` es "confirmed". */

@@ -41,9 +41,11 @@ describe("TaquillaPage", () => {
     fireEvent.change(await screen.findByLabelText("Cantidad de Grada VIP"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "Cliente en taquilla" } });
     fireEvent.change(screen.getByLabelText("Email del comprador"), { target: { value: "taquilla@example.com" } });
+    fireEvent.click(screen.getByLabelText("Efectivo"));
     fireEvent.click(screen.getByRole("button", { name: "Confirmar venta" }));
 
     expect(await screen.findByText(/confirmada/)).toBeInTheDocument();
+    expect(db.orders.some((order) => order.customerEmail === "taquilla@example.com" && order.paymentMethod === "cash")).toBe(true);
   });
 
   it("disables the quantity input and shows Agotado for a sold-out ticket type", async () => {

@@ -59,14 +59,6 @@ describe("EventDetailPage", () => {
     expect(screen.getByLabelText("Código")).toBeInTheDocument();
   });
 
-  it("switches to the Invitados tab and shows its already-created guest list", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    renderDetail("event-2"); // seeded with the "Prensa" guest list
-    fireEvent.click(await screen.findByRole("button", { name: "Invitados" }));
-
-    expect(await screen.findByRole("listitem", { name: "Prensa" })).toBeInTheDocument();
-  });
-
   it("disables out-of-scope sections with an explanatory tooltip", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderDetail("event-3");

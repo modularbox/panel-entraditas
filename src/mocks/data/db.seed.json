@@ -39,8 +39,6 @@
         { "permission": "events:read", "effect": "allow" },
         { "permission": "events:create", "effect": "allow" },
         { "permission": "orders:read", "effect": "allow" },
-        { "permission": "guestlist:read", "effect": "allow" },
-        { "permission": "guestlist:manage", "effect": "allow" },
         { "permission": "scan:validate", "effect": "allow" },
         { "permission": "reports:read", "effect": "allow" }
       ],
@@ -56,9 +54,7 @@
       "status": "active",
       "permissionOverrides": [
         { "permission": "events:read", "effect": "allow" },
-        { "permission": "scan:validate", "effect": "allow" },
-        { "permission": "guestlist:read", "effect": "allow" },
-        { "permission": "guestlist:manage", "effect": "allow" }
+        { "permission": "scan:validate", "effect": "allow" }
       ],
       "eventScopes": ["event-1"]
     },
@@ -169,7 +165,7 @@
       "title": "Festival del Sur",
       "description": "Festival de tres días.",
       "category": "festival",
-      "status": "on_sale",
+      "status": "published",
       "visibility": "public",
       "startsAt": "2026-07-16T18:00:00.000Z",
       "endsAt": "2026-07-18T02:00:00.000Z",
@@ -483,42 +479,17 @@
       "isActive": true
     }
   ],
-  "guestLists": [
-    { "id": "gl-2-prensa", "eventId": "event-2", "subEventId": null, "name": "Prensa", "quota": 5 }
-  ],
-  "guestListEntries": [
-    {
-      "id": "gle-1",
-      "guestListId": "gl-2-prensa",
-      "fullName": "Marta López",
-      "email": "marta.lopez@example.com",
-      "phone": null,
-      "companions": 0,
-      "status": "pending",
-      "notes": null
-    },
-    {
-      "id": "gle-2",
-      "guestListId": "gl-2-prensa",
-      "fullName": "Carlos Ruiz",
-      "email": null,
-      "phone": "600111222",
-      "companions": 1,
-      "status": "checked_in",
-      "notes": "Fotógrafo acreditado"
-    }
-  ],
   "invitations": [],
   "orders": [
-    { "id": "order-1", "orderNumber": "PED-2026-0001", "eventId": "event-1", "organizationId": "org-1", "customerName": "Marta Ruiz", "customerEmail": "marta.ruiz@example.com", "status": "paid", "total": 5000, "refundedAmount": 0, "currency": "EUR", "channel": "web", "createdAt": "2026-08-05T10:00:00.000Z" },
-    { "id": "order-2", "orderNumber": "PED-2026-0002", "eventId": "event-1", "organizationId": "org-1", "customerName": "Javier Soto", "customerEmail": "javier.soto@example.com", "status": "paid", "total": 7500, "refundedAmount": 0, "currency": "EUR", "channel": "panel", "createdAt": "2026-08-07T11:30:00.000Z" },
-    { "id": "order-3", "orderNumber": "PED-2026-0003", "eventId": "event-1", "organizationId": "org-1", "customerName": "Lucía Fernández", "customerEmail": "lucia.fernandez@example.com", "status": "pending", "total": 2500, "refundedAmount": 0, "currency": "EUR", "channel": "web", "createdAt": "2026-08-10T09:15:00.000Z" },
-    { "id": "order-4", "orderNumber": "PED-2026-0004", "eventId": "event-1", "organizationId": "org-1", "customerName": "Diego Molina", "customerEmail": "diego.molina@example.com", "status": "refunded", "total": 5000, "refundedAmount": 5000, "currency": "EUR", "channel": "web", "createdAt": "2026-08-02T16:45:00.000Z" },
-    { "id": "order-5", "orderNumber": "PED-2026-0005", "eventId": "event-2", "organizationId": "org-1", "customerName": "Sara Gómez", "customerEmail": "sara.gomez@example.com", "status": "paid", "total": 22000, "refundedAmount": 0, "currency": "EUR", "channel": "web", "createdAt": "2026-08-11T18:20:00.000Z" },
-    { "id": "order-6", "orderNumber": "PED-2026-0006", "eventId": "event-2", "organizationId": "org-1", "customerName": "Pablo Ibáñez", "customerEmail": "pablo.ibanez@example.com", "status": "paid", "total": 6000, "refundedAmount": 0, "currency": "EUR", "channel": "box_office", "createdAt": "2026-08-12T20:05:00.000Z" },
-    { "id": "order-8", "orderNumber": "PED-2026-0008", "eventId": "event-4", "organizationId": "org-2", "customerName": "Nuria Vidal", "customerEmail": "nuria.vidal@example.com", "status": "paid", "total": 18000, "refundedAmount": 0, "currency": "EUR", "channel": "box_office", "createdAt": "2026-07-10T12:00:00.000Z" },
-    { "id": "order-9", "orderNumber": "PED-2026-0009", "eventId": "event-4", "organizationId": "org-2", "customerName": "Prensa Sur", "customerEmail": "prensa@surlive.example", "status": "paid", "total": 0, "refundedAmount": 0, "currency": "EUR", "channel": "courtesy", "createdAt": "2026-07-08T09:00:00.000Z" },
-    { "id": "order-10", "orderNumber": "PED-2026-0010", "eventId": "event-4", "organizationId": "org-2", "customerName": "Hugo Serrano", "customerEmail": "hugo.serrano@example.com", "status": "partially_refunded", "total": 18000, "refundedAmount": 9000, "currency": "EUR", "channel": "web", "createdAt": "2026-07-05T17:30:00.000Z" }
+    { "id": "order-1", "orderNumber": "PED-2026-0001", "eventId": "event-1", "organizationId": "org-1", "customerName": "Marta Ruiz", "customerEmail": "marta.ruiz@example.com", "status": "paid", "total": 5000, "refundedAmount": 0, "currency": "EUR", "channel": "web", "paymentMethod": "card", "createdAt": "2026-08-05T10:00:00.000Z" },
+    { "id": "order-2", "orderNumber": "PED-2026-0002", "eventId": "event-1", "organizationId": "org-1", "customerName": "Javier Soto", "customerEmail": "javier.soto@example.com", "status": "paid", "total": 7500, "refundedAmount": 0, "currency": "EUR", "channel": "panel", "paymentMethod": "card", "createdAt": "2026-08-07T11:30:00.000Z" },
+    { "id": "order-3", "orderNumber": "PED-2026-0003", "eventId": "event-1", "organizationId": "org-1", "customerName": "Lucía Fernández", "customerEmail": "lucia.fernandez@example.com", "status": "pending", "total": 2500, "refundedAmount": 0, "currency": "EUR", "channel": "web", "paymentMethod": "card", "createdAt": "2026-08-10T09:15:00.000Z" },
+    { "id": "order-4", "orderNumber": "PED-2026-0004", "eventId": "event-1", "organizationId": "org-1", "customerName": "Diego Molina", "customerEmail": "diego.molina@example.com", "status": "refunded", "total": 5000, "refundedAmount": 5000, "currency": "EUR", "channel": "web", "paymentMethod": "card", "createdAt": "2026-08-02T16:45:00.000Z" },
+    { "id": "order-5", "orderNumber": "PED-2026-0005", "eventId": "event-2", "organizationId": "org-1", "customerName": "Sara Gómez", "customerEmail": "sara.gomez@example.com", "status": "paid", "total": 22000, "refundedAmount": 0, "currency": "EUR", "channel": "web", "paymentMethod": "card", "createdAt": "2026-08-11T18:20:00.000Z" },
+    { "id": "order-6", "orderNumber": "PED-2026-0006", "eventId": "event-2", "organizationId": "org-1", "customerName": "Pablo Ibáñez", "customerEmail": "pablo.ibanez@example.com", "status": "paid", "total": 6000, "refundedAmount": 0, "currency": "EUR", "channel": "box_office", "paymentMethod": "cash", "createdAt": "2026-08-12T20:05:00.000Z" },
+    { "id": "order-8", "orderNumber": "PED-2026-0008", "eventId": "event-4", "organizationId": "org-2", "customerName": "Nuria Vidal", "customerEmail": "nuria.vidal@example.com", "status": "paid", "total": 18000, "refundedAmount": 0, "currency": "EUR", "channel": "box_office", "paymentMethod": "card", "createdAt": "2026-07-10T12:00:00.000Z" },
+    { "id": "order-9", "orderNumber": "PED-2026-0009", "eventId": "event-4", "organizationId": "org-2", "customerName": "Prensa Sur", "customerEmail": "prensa@surlive.example", "status": "paid", "total": 0, "refundedAmount": 0, "currency": "EUR", "channel": "courtesy", "paymentMethod": "card", "createdAt": "2026-07-08T09:00:00.000Z" },
+    { "id": "order-10", "orderNumber": "PED-2026-0010", "eventId": "event-4", "organizationId": "org-2", "customerName": "Hugo Serrano", "customerEmail": "hugo.serrano@example.com", "status": "partially_refunded", "total": 18000, "refundedAmount": 9000, "currency": "EUR", "channel": "web", "paymentMethod": "card", "createdAt": "2026-07-05T17:30:00.000Z" }
   ],
   "orderItems": [
     { "id": "oi-1", "orderId": "order-1", "ticketTypeId": "tt-1", "ticketTypeName": "General", "quantity": 2, "unitPrice": 2500, "subtotal": 5000 },

@@ -23,6 +23,7 @@ export function TaquillaPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash">("card");
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<{ orderId: string; orderNumber: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +51,7 @@ export function TaquillaPage() {
           eventId,
           customerName,
           customerEmail,
+          paymentMethod,
           items: cartLines.map((line) => ({ ticketTypeId: line.ticketType.id, quantity: line.quantity }))
         },
         { token: token! }
@@ -68,10 +70,12 @@ export function TaquillaPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <BackButton fallback="/ventas/pedidos" />
-      <header>
-        <h1 className="font-display text-2xl font-semibold">Taquilla</h1>
-      </header>
+      <div className="flex items-center gap-4">
+        <BackButton fallback="/ventas/pedidos" />
+        <header>
+          <h1 className="font-display text-2xl font-semibold">Taquilla</h1>
+        </header>
+      </div>
 
       <Can
         do="orders:create"
@@ -179,6 +183,19 @@ export function TaquillaPage() {
                     className="mt-1 h-9 w-56 rounded-md border-2 border-foreground bg-surface px-2 text-sm"
                   />
                 </div>
+                <fieldset className="mt-1">
+                  <legend className="block text-xs font-medium text-muted-foreground">Método de pago</legend>
+                  <div className="mt-1 flex gap-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" name="payment-method" value="card" checked={paymentMethod === "card"} onChange={() => setPaymentMethod("card")} />
+                      Tarjeta
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" name="payment-method" value="cash" checked={paymentMethod === "cash"} onChange={() => setPaymentMethod("cash")} />
+                      Efectivo
+                    </label>
+                  </div>
+                </fieldset>
               </div>
 
               <Button

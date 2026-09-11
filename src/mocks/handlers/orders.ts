@@ -87,6 +87,7 @@ export const ordersHandlers = [
       eventId?: string;
       customerName?: string;
       customerEmail?: string;
+      paymentMethod?: "card" | "cash";
       items?: { ticketTypeId: string; quantity: number }[];
     };
 
@@ -100,6 +101,9 @@ export const ordersHandlers = [
     if (items.length === 0) return validationError("req_orders_create", "Añade al menos una línea a la venta");
     if (!body.customerName?.trim() || !body.customerEmail?.trim()) {
       return validationError("req_orders_create", "El nombre y el email del comprador son obligatorios");
+    }
+    if (body.paymentMethod !== undefined && body.paymentMethod !== "card" && body.paymentMethod !== "cash") {
+      return validationError("req_orders_create", "El método de pago debe ser tarjeta o efectivo");
     }
 
     const lines: { ticketType: TicketType; quantity: number }[] = [];
@@ -118,8 +122,14 @@ export const ordersHandlers = [
       }
     }
 
-    const orderId = `order-${db.orders.length + 1}`;
-    const orderNumber = `PED-2026-${String(db.orders.length + 1).padStart(4, "0")}`;
+    // Seeds skip ids (order-7 never existed), so derive the next id from the real maximum
+    // instead of the array length, which would collide with an existing seed order.
+    const nextOrderIndex = db.orders.reduce((max, order) => {
+      const parsed = Number(order.id.replace(/^order-/, ""));
+      return Number.isFinite(parsed) && parsed > max ? parsed : max;
+    }, 0) + 1;
+    const orderId = `order-${nextOrderIndex}`;
+    const orderNumber = `PED-2026-${String(nextOrderIndex).padStart(4, "0")}`;
     const total = lines.reduce((sum, line) => sum + line.ticketType.basePrice * line.quantity, 0);
 
     const order: Order = {
@@ -134,6 +144,7 @@ export const ordersHandlers = [
       refundedAmount: 0,
       currency: "EUR",
       channel: "box_office",
+      paymentMethod: body.paymentMethod ?? "card",
       createdAt: new Date().toISOString()
     };
     db.orders.push(order);

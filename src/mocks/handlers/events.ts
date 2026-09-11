@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { EVENT_CATEGORIES, type Event, type SubEvent, type User, type Venue } from "@entraditas/types";
 import { hasPermission, resolveEffectivePermissions } from "@/shared/auth/permissions";
+import { hasEventFinished } from "@/shared/lib/eventLifecycle";
 import { db } from "../state";
 import { getSessionUserId } from "../authContext";
 
@@ -151,7 +152,13 @@ export const eventsHandlers = [
     if (!user) return unauthenticated("req_events_list");
     const status = new URL(request.url).searchParams.get("status");
     let events = db.events.filter((e) => canAccessEvent(e, user));
-    if (status) events = events.filter((e) => e.status === status);
+    // "Terminado" no es un estado guardado: se deduce de la fecha, asi que el filtro se resuelve
+    // aqui en vez de comparar contra un status que nunca se almacena.
+    if (status === "finished") {
+      events = events.filter((e) => hasEventFinished(e));
+    } else if (status) {
+      events = events.filter((e) => e.status === status);
+    }
     return HttpResponse.json({
       data: events,
       meta: { page: 1, perPage: events.length, total: events.length, nextCursor: null }
@@ -254,7 +261,6 @@ maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
     }
 
     const subEventIds = new Set(db.subEvents.filter((s) => s.eventId === event.id).map((s) => s.id));
-    const guestListIds = new Set(db.guestLists.filter((g) => g.eventId === event.id).map((g) => g.id));
     db.events = db.events.filter((e) => e.id !== event.id);
     db.subEvents = db.subEvents.filter((s) => s.eventId !== event.id);
     db.capacityPools = db.capacityPools.filter((p) => !subEventIds.has(p.subEventId));
@@ -263,59 +269,13 @@ maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
     db.ticketTypePrices = db.ticketTypePrices.filter((p) => !ticketTypeIds.has(p.ticketTypeId));
     db.discountCodes = db.discountCodes.filter((d) => d.eventId !== event.id);
     db.gates = db.gates.filter((g) => g.eventId !== event.id);
-    db.guestLists = db.guestLists.filter((g) => g.eventId !== event.id);
-    db.guestListEntries = db.guestListEntries.filter((e) => !guestListIds.has(e.guestListId));
     return HttpResponse.json({ data: {}, meta: { requestId: "req_events_delete" } });
   }),
 
-  // Abrir y cerrar la venta son transiciones propias, no un PATCH del estado: el PATCH general
-  // deja escribir cualquier campo, asi que por ahi se podria saltar la revision poniendo
-  // "published" a mano en un borrador.
-  http.post(`${BASE}/events/:id/open-sales`, ({ request, params }) => {
-    const user = requireUser(request);
-    if (!user) return unauthenticated("req_events_open_sales");
-    const event = db.events.find((e) => e.id === params.id);
-    if (!event || !canAccessEvent(event, user)) return notFound("req_events_open_sales");
-    if (!canManageEvent(user)) return forbidden("req_events_open_sales", "Solo un admin puede abrir la venta");
-    if (event.status !== "published") {
-      return HttpResponse.json(
-        {
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "Solo se abre la venta de un evento ya publicado",
-            requestId: "req_events_open_sales"
-          }
-        },
-        { status: 409 }
-      );
-    }
-    event.status = "on_sale";
-    return HttpResponse.json({ data: event, meta: { requestId: "req_events_open_sales" } });
-  }),
-
-  http.post(`${BASE}/events/:id/close-sales`, ({ request, params }) => {
-    const user = requireUser(request);
-    if (!user) return unauthenticated("req_events_close_sales");
-    const event = db.events.find((e) => e.id === params.id);
-    if (!event || !canAccessEvent(event, user)) return notFound("req_events_close_sales");
-    if (!canManageEvent(user)) return forbidden("req_events_close_sales", "Solo un admin puede cerrar la venta");
-    if (event.status !== "on_sale") {
-      return HttpResponse.json(
-        {
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "El evento no esta a la venta",
-            requestId: "req_events_close_sales"
-          }
-        },
-        { status: 409 }
-      );
-    }
-    // Sigue anunciado y visible; lo que se cierra es la compra.
-    event.status = "published";
-    return HttpResponse.json({ data: event, meta: { requestId: "req_events_close_sales" } });
-  }),
-
+  // Publicar manda a revision, aprobar/rechazar resuelve eso y retirar vuelve a borrador.
+  // Son transiciones propias, no un PATCH del estado: el PATCH general deja escribir cualquier
+  // campo, asi que por ahi se podria saltar la revision poniendo "published" a mano en un
+  // borrador.
   http.post(`${BASE}/events/:id/publish`, ({ request, params }) => {
     const user = requireUser(request);
     if (!user) return unauthenticated("req_events_publish");
@@ -354,7 +314,7 @@ maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
         { status: 403 }
       );
     }
-    if (event.status !== "pending_review" && event.status !== "in_review") {
+    if (event.status !== "pending_review") {
       return HttpResponse.json(
         {
           error: {

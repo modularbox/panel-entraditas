@@ -43,8 +43,8 @@ export interface PublishInput {
   discountCodes?: DiscountCode[];
 }
 
-/** The states in which an event is visible to buyers at all. */
-const PUBLIC_STATUSES = new Set<Event["status"]>(["published", "on_sale", "sold_out", "paused", "finished"]);
+/** The states in which an event is visible to buyers at all: published is the only one. */
+const PUBLIC_STATUSES = new Set<Event["status"]>(["published"]);
 
 export function isPubliclyVisible(event: Event): boolean {
   return PUBLIC_STATUSES.has(event.status) && event.visibility === "public";

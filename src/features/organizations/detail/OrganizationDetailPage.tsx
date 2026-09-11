@@ -59,11 +59,12 @@ export function OrganizationDetailPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <BackButton fallback="/organizaciones" />
-
-      <header>
-        <h1 className="font-display text-2xl font-semibold">{organization.name}</h1>
-      </header>
+      <div className="flex items-center gap-4">
+        <BackButton fallback="/organizaciones" />
+        <header>
+          <h1 className="font-display text-2xl font-semibold">{organization.name}</h1>
+        </header>
+      </div>
 
       {connectError && <p role="alert">{connectError}</p>}
 

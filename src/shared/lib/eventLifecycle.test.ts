@@ -14,13 +14,12 @@ function evento(overrides: Partial<Parameters<typeof shouldAppearOnPublicSite>[0
 }
 
 describe("isPubliclyVisible", () => {
-  it("solo se publican los eventos anunciados o a la venta", () => {
+  it("solo se publica un evento publicado", () => {
     expect(isPubliclyVisible("published")).toBe(true);
-    expect(isPubliclyVisible("on_sale")).toBe(true);
   });
 
   it("nada que siga en preparacion o ya retirado llega al comprador", () => {
-    for (const status of ["draft", "pending_review", "in_review", "rejected", "paused", "cancelled", "finished", "sold_out"] as const) {
+    for (const status of ["draft", "pending_review", "rejected", "finished"] as const) {
       expect(isPubliclyVisible(status), status).toBe(false);
     }
   });
@@ -67,13 +66,9 @@ describe("shouldAppearOnPublicSite", () => {
     expect(shouldAppearOnPublicSite(evento(), AHORA)).toBe(true);
   });
 
-  it("a la venta y futuro: se ve", () => {
-    expect(shouldAppearOnPublicSite(evento({ status: "on_sale" }), AHORA)).toBe(true);
-  });
-
-  it("a la venta pero ya celebrado: NO se ve", () => {
-    // El caso que estaba pasando: "Festival del Sur" seguia a la venta con fecha de julio.
-    expect(shouldAppearOnPublicSite(evento({ status: "on_sale", startsAt: "2026-07-16T18:00:00.000Z" }), AHORA)).toBe(false);
+  it("publicado pero ya celebrado: NO se ve", () => {
+    // El caso que estaba pasando: "Festival del Sur" seguia publicado con fecha de julio.
+    expect(shouldAppearOnPublicSite(evento({ startsAt: "2026-07-16T18:00:00.000Z" }), AHORA)).toBe(false);
   });
 
   it("un borrador con fecha futura tampoco se ve", () => {

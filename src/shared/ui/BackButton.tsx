@@ -24,7 +24,7 @@ export function BackButton({ fallback }: BackButtonProps) {
     navigate(-1);
   };
   return (
-    <button type="button" className="-ml-6 text-sm font-semibold text-primary hover:underline" onClick={handleClick}>
+    <button type="button" className="shrink-0 text-sm font-semibold text-primary hover:underline" onClick={handleClick}>
       ← Volver
     </button>
   );

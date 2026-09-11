@@ -165,18 +165,7 @@ export const EVENT_RULE_DEFAULTS: Required<EventRules> = {
   wheelchairAccessible: false
 };
 
-export const EventStatusSchema = z.enum([
-  "draft",
-  "pending_review",
-  "in_review",
-  "published",
-  "rejected",
-  "on_sale",
-  "sold_out",
-  "paused",
-  "finished",
-  "cancelled"
-]);
+export const EventStatusSchema = z.enum(["draft", "pending_review", "published", "rejected", "finished"]);
 export type EventStatus = z.infer<typeof EventStatusSchema>;
 
 export const EventSchema = z.object({
@@ -369,7 +358,10 @@ export type VenuePlanTemplate = z.infer<typeof VenuePlanTemplateSchema>;
 export const OrderSchema = z.object({
   id: z.string(), orderNumber: z.string(), eventId: z.string(), organizationId: z.string(), customerName: z.string(), customerEmail: z.string().email(),
   status: z.enum(["pending", "reserved", "paid", "cancelled", "expired", "refunded", "partially_refunded"]),
-  total: z.number().int().nonnegative(), refundedAmount: z.number().int().nonnegative(), currency: z.string().length(3), channel: z.enum(["web", "panel", "box_office", "courtesy"]), createdAt: z.string()
+  total: z.number().int().nonnegative(), refundedAmount: z.number().int().nonnegative(), currency: z.string().length(3), channel: z.enum(["web", "panel", "box_office", "courtesy"]),
+  // Método de pago de la venta. Siempre presente: taquilla elige tarjeta/efectivo y las
+  // compras online/web se pagan con tarjeta.
+  paymentMethod: z.enum(["card", "cash"]), createdAt: z.string()
 });
 export type Order = z.infer<typeof OrderSchema>;
 
@@ -489,24 +481,3 @@ export const GateSchema = z.object({
   isActive: z.boolean()
 });
 export type Gate = z.infer<typeof GateSchema>;
-
-export const GuestListSchema = z.object({
-  id: z.string(),
-  eventId: z.string(),
-  subEventId: z.string().nullable(),
-  name: z.string(),
-  quota: z.number().int().positive().nullable()
-});
-export type GuestList = z.infer<typeof GuestListSchema>;
-
-export const GuestListEntrySchema = z.object({
-  id: z.string(),
-  guestListId: z.string(),
-  fullName: z.string(),
-  email: z.string().email().nullable(),
-  phone: z.string().nullable(),
-  companions: z.number().int().nonnegative(),
-  status: z.enum(["pending", "checked_in"]),
-  notes: z.string().nullable()
-});
-export type GuestListEntry = z.infer<typeof GuestListEntrySchema>;

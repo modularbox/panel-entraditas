@@ -1,17 +1,14 @@
 import type { Event } from "@entraditas/types";
 
 /**
- * Los dos estados en los que un evento se ve en entraditas.com.
+ * El estado en que un evento se ve en entraditas.com: `published`.
  *
- * La diferencia entre ellos:
- *   - `published`: el evento esta anunciado y se puede consultar, pero la venta no esta abierta.
- *     Sirve para anunciar antes de poner entradas a la venta.
- *   - `on_sale`: ademas de verse, se pueden comprar entradas.
- *
- * Cualquier otro estado (borrador, en revision, pausado, agotado, cancelado, terminado) NO se
- * publica: o todavia no esta listo, o ya no debe ofrecerse.
+ * Publicado es un evento anunciado y con la venta abierta: es lo que el organizador decide al
+ * aprobarse la revision, y no hay estados aparte para "anunciar sin vender". Cualquier otro
+ * estado (borrador, en revision, rechazado) NO se publica: todavia no esta listo. Los que ya se
+ * celebraron se filtran por fecha, no por un estado guardado.
  */
-export const PUBLIC_STATUSES: readonly Event["status"][] = ["published", "on_sale"];
+export const PUBLIC_STATUSES: readonly Event["status"][] = ["published"];
 
 export function isPubliclyVisible(status: Event["status"]): boolean {
   return PUBLIC_STATUSES.includes(status);

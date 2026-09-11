@@ -12,7 +12,6 @@ import { Step4TicketTypes } from "../wizard/steps/Step4TicketTypes";
 import { SeatingPlanSection } from "../wizard/steps/SeatingPlanSection";
 import { DiscountCodesSection } from "../wizard/steps/DiscountCodesSection";
 import { GatesSection } from "../wizard/steps/GatesSection";
-import { GuestlistSection } from "../wizard/steps/GuestlistSection";
 
 const ENABLED_TABS = [
   { key: "general", label: "Información general" },
@@ -20,8 +19,7 @@ const ENABLED_TABS = [
   { key: "aforos", label: "Aforos y zonas" },
   { key: "tipos", label: "Tipos de entrada" },
   { key: "descuentos", label: "Códigos de descuento" },
-  { key: "puertas", label: "Puertas" },
-  { key: "invitados", label: "Invitados" }
+  { key: "puertas", label: "Puertas" }
 ] as const;
 
 // Sections not built yet; rendered as disabled buttons so the full nav is visible early.
@@ -59,8 +57,10 @@ export function EventDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <BackButton fallback="/eventos" />
-      <h1>{event.title}</h1>
+      <div className="flex items-center gap-4">
+        <BackButton fallback="/eventos" />
+        <h1>{event.title}</h1>
+      </div>
 
       <nav aria-label="Secciones del evento">
         <ul className="flex flex-wrap gap-2">
@@ -104,7 +104,6 @@ export function EventDetailPage() {
         {activeTab === "tipos" && <Step4TicketTypes eventId={eventId} onSaved={noop} />}
         {activeTab === "descuentos" && <DiscountCodesSection eventId={eventId} />}
         {activeTab === "puertas" && <GatesSection eventId={eventId} />}
-        {activeTab === "invitados" && <GuestlistSection eventId={eventId} />}
       </section>
     </div>
   );

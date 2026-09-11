@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DiscountCodeSchema, EventSchema, GateSchema, GuestListEntrySchema, GuestListSchema, InvitationSchema, OrderItemSchema, OrderSchema, TicketTypeSchema, UserSchema, ZoneSchema
+  DiscountCodeSchema, EventSchema, GateSchema, InvitationSchema, OrderItemSchema, OrderSchema, TicketTypeSchema, UserSchema, ZoneSchema
 } from "./schemas";
 
 const validEvent = {
@@ -203,7 +203,7 @@ describe("OrderSchema", () => {
   const validOrder = {
     id: "order-1", orderNumber: "PED-2026-0001", eventId: "event-1", organizationId: "org-1",
     customerName: "Marta Ruiz", customerEmail: "marta.ruiz@example.com", status: "paid",
-    total: 5000, refundedAmount: 0, currency: "EUR", channel: "web", createdAt: "2026-08-05T10:00:00.000Z"
+    total: 5000, refundedAmount: 0, currency: "EUR", channel: "web", paymentMethod: "card", createdAt: "2026-08-05T10:00:00.000Z"
   };
 
   it("accepts a valid paid order with refundedAmount", () => {
@@ -273,49 +273,6 @@ describe("GateSchema", () => {
         id: "gate-4", eventId: "event-2", subEventId: null, name: "Puerta X", code: "X", zoneId: null,
         direction: "in", allowReentry: false, maxScansPerTicket: 0, allowedTicketTypeGroupIds: null,
         opensAt: null, closesAt: null, operatorUserIds: [], isActive: true
-      })
-    ).toThrow();
-  });
-});
-
-describe("GuestListSchema", () => {
-  it("accepts a valid guest list with a quota", () => {
-    const result = GuestListSchema.parse({
-      id: "gl-1", eventId: "event-2", subEventId: null, name: "Prensa", quota: 5
-    });
-    expect(result.quota).toBe(5);
-  });
-
-  it("accepts a guest list without a quota (unlimited)", () => {
-    const result = GuestListSchema.parse({
-      id: "gl-2", eventId: "event-2", subEventId: "sub-event-2", name: "Patrocinadores", quota: null
-    });
-    expect(result.quota).toBeNull();
-  });
-});
-
-describe("GuestListEntrySchema", () => {
-  it("accepts a valid pending entry", () => {
-    const result = GuestListEntrySchema.parse({
-      id: "gle-1", guestListId: "gl-1", fullName: "Marta López", email: "marta@example.com",
-      phone: null, companions: 0, status: "pending", notes: null
-    });
-    expect(result.status).toBe("pending");
-  });
-
-  it("accepts a checked-in entry with companions and notes", () => {
-    const result = GuestListEntrySchema.parse({
-      id: "gle-2", guestListId: "gl-1", fullName: "Carlos Ruiz", email: null,
-      phone: "600111222", companions: 1, status: "checked_in", notes: "Fotógrafo acreditado"
-    });
-    expect(result.companions).toBe(1);
-  });
-
-  it("rejects an unknown status", () => {
-    expect(() =>
-      GuestListEntrySchema.parse({
-        id: "gle-3", guestListId: "gl-1", fullName: "X", email: null, phone: null,
-        companions: 0, status: "sent", notes: null
       })
     ).toThrow();
   });

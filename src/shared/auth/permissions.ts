@@ -8,7 +8,7 @@ import type { PermissionOverride, RoleSlug } from "@entraditas/types";
 export const PERMISSIONS = [
   "organizations:manage",
   "events:read", "events:create",
-  "orders:read", "orders:create", "orders:refund", "guestlist:read", "guestlist:manage",
+  "orders:read", "orders:create", "orders:refund",
   "scan:validate", "reports:read", "reports:export",
   "users:manage"
 ] as const;
@@ -84,7 +84,6 @@ export const CAPABILITIES: Capability[] = [
   { key: "refund_orders", label: "Devolver dinero", permissions: ["orders:refund"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "fixed_no" } },
   { key: "sell_tickets", label: "Vender entradas en taquilla", permissions: ["orders:create"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
   { key: "scan_tickets", label: "Escanear entradas en la puerta", permissions: ["scan:validate"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
-  { key: "manage_guestlist", label: "Gestionar invitados y cortesías", permissions: ["guestlist:read", "guestlist:manage"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
   { key: "view_reports", label: "Ver informes y estadísticas", permissions: ["reports:read"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
   { key: "manage_team", label: "Dar de alta a personas del equipo", permissions: ["users:manage"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "fixed_no" } }
 ];

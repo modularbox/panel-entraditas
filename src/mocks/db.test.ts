@@ -6,7 +6,7 @@ import {
   DEMO_SUPERADMIN_ID,
   DEMO_USER_ID
 } from "./db";
-import { EventSchema, GateSchema, GuestListEntrySchema, GuestListSchema, OrderItemSchema, OrderSchema, RefundSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
+import { EventSchema, GateSchema, OrderItemSchema, OrderSchema, RefundSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
 import { resolveEffectivePermissions } from "@/shared/auth/permissions";
 
 describe("createSeedDatabase", () => {
@@ -77,7 +77,6 @@ describe("createSeedDatabase", () => {
     const suborganizador = byId(DEMO_SUBORGANIZADOR_ID);
     expect(suborganizador.role).toBe("suborganizador");
     const suborganizadorEffective = resolveEffectivePermissions(suborganizador.role, suborganizador.permissionOverrides);
-    expect(suborganizadorEffective.has("guestlist:manage")).toBe(true); // granted via an allow override in seed
     expect(suborganizadorEffective.has("users:manage")).toBe(false);
     expect(suborganizadorEffective.has("orders:read")).toBe(false); // this account wasn't granted orders
   });
@@ -144,20 +143,5 @@ describe("createSeedDatabase", () => {
 
     const order1 = db.orders.find((o) => o.id === "order-1")!;
     expect(order1.refundedAmount).toBe(0);
-  });
-
-  it("seeds one guest list on event-2 with 2 schema-valid entries", () => {
-    const db = createSeedDatabase();
-    expect(db.guestLists).toHaveLength(1);
-    const guestList = db.guestLists[0]!;
-    expect(() => GuestListSchema.parse(guestList)).not.toThrow();
-    expect(guestList.eventId).toBe("event-2");
-    expect(guestList.quota).toBe(5);
-
-    const entries = db.guestListEntries.filter((e) => e.guestListId === guestList.id);
-    expect(entries).toHaveLength(2);
-    for (const entry of entries) expect(() => GuestListEntrySchema.parse(entry)).not.toThrow();
-    expect(entries.some((e) => e.status === "pending")).toBe(true);
-    expect(entries.some((e) => e.status === "checked_in")).toBe(true);
   });
 });

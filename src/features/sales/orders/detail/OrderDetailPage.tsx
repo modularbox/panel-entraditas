@@ -27,6 +27,11 @@ const CHANNEL_LABELS: Record<Order["channel"], string> = {
   courtesy: "Cortesía"
 };
 
+const PAYMENT_LABELS: Record<"card" | "cash", string> = {
+  card: "Tarjeta",
+  cash: "Efectivo"
+};
+
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 
 function RefundForm({
@@ -123,13 +128,15 @@ export function OrderDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <BackButton fallback="/ventas/pedidos" />
-      <header>
-        <h1 className="font-display text-2xl font-semibold">{order.orderNumber}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {STATUS_LABELS[order.status]} · {CHANNEL_LABELS[order.channel]} · {new Date(order.createdAt).toLocaleDateString("es-ES")}
-        </p>
-      </header>
+      <div className="flex items-center gap-4">
+        <BackButton fallback="/ventas/pedidos" />
+        <header>
+          <h1 className="font-display text-2xl font-semibold">{order.orderNumber}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {STATUS_LABELS[order.status]} · {CHANNEL_LABELS[order.channel]} · {PAYMENT_LABELS[order.paymentMethod]} · {new Date(order.createdAt).toLocaleDateString("es-ES")}
+          </p>
+        </header>
+      </div>
 
       <section className="rounded-lg border-2 border-foreground bg-surface p-5 shadow-flat">
         <h2 className="font-display text-lg font-semibold">Comprador</h2>

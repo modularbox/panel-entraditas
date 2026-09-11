@@ -60,20 +60,9 @@ describe("EventsListPage", () => {
     const theatreRow = screen.getByRole("row", { name: /Bernarda Alba/ });
     expect(within(theatreRow).getByText("Borrador")).toHaveClass("border-status-draft");
 
-    // "Festival del Sur" sigue guardado como "a la venta", pero se celebro en julio: la lista
+    // "Festival del Sur" sigue guardado como publicado, pero se celebro en julio: la lista
     // lo marca como terminado en vez de anunciar una venta que ya no existe.
     const festivalRow = screen.getByRole("row", { name: /Festival del Sur/ });
     expect(within(festivalRow).getByText("Finalizado")).toHaveClass("border-status-finished");
-    expect(within(festivalRow).queryByText("A la venta")).not.toBeInTheDocument();
-  });
-
-  it("un evento a la venta y todavia por celebrar si se muestra a la venta", async () => {
-    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
-    db.events.find((event) => event.id === "event-1")!.status = "on_sale";
-    renderPage();
-    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(6));
-
-    const jazzRow = screen.getByRole("row", { name: /Noche de Jazz/ });
-    expect(within(jazzRow).getByText("A la venta")).toHaveClass("border-status-on-sale");
   });
 });

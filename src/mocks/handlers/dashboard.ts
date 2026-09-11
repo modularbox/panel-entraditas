@@ -22,12 +22,9 @@ const formatDate = (value: string | null) => {
 };
 const statusLabels: Record<string, string> = {
   draft: "Borrador",
+  pending_review: "En revisión",
   published: "Publicado",
-  on_sale: "A la venta",
-  sold_out: "Agotado",
-  paused: "Pausado",
-  finished: "Finalizado",
-  cancelled: "Cancelado"
+  rejected: "Rechazado"
 };
 const shortDate = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short" });
 const TICKET_PALETTE = ["#e4572e", "#f2c14e", "#2a9d8f", "#52606d", "#9b5de5"];

@@ -58,12 +58,9 @@ export async function publishToPublicSite(eventId: string, token: string): Promi
       .then((orgs) => orgs.find((org) => org.id === event.organizationId) ?? null)
       .catch(() => null);
 
-    // Se conserva el estado real del evento. Un evento a la venta tiene que llegar a la web
-    // como tal: si se aplanara a "publicado", el comprador veria el evento pero sin venta
-    // abierta, que es justo lo contrario de lo que decidio el organizador.
+    // Solo llegan aqui eventos aprobados, que es lo unico que la web puede vender: "publicado".
     const payload = toApiEventPayload(
-      toPublicEvent({ event, organization, venue, zones, subEvents, ticketTypes, pools, discountCodes }),
-      event.status === "on_sale" ? "on_sale" : "published"
+      toPublicEvent({ event, organization, venue, zones, subEvents, ticketTypes, pools, discountCodes })
     );
 
     // Se comprueba aqui lo mismo que valida la API, para poder decir que falta en vez de

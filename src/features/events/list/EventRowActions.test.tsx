@@ -60,49 +60,7 @@ describe("EventRowActions", () => {
     });
   });
 
-  describe("venta", () => {
-    it("abrir la venta pasa de publicado a a la venta", async () => {
-      await loginAs("admin@entraditas.com");
-      renderActions(eventById("event-1")); // published
-
-      fireEvent.click(screen.getByRole("button", { name: "Abrir venta" }));
-
-      await waitFor(() => expect(eventById("event-1").status).toBe("on_sale"));
-    });
-
-    it("cerrar la venta lo devuelve a publicado, no a borrador", async () => {
-      // Cerrar la venta no es retirarlo: el evento sigue anunciandose.
-      // event-4 es de org-2, asi que lo gestiona el admin de esa organizacion y no el de org-1.
-      await loginAs("admin.surlive@entraditas.com");
-      renderActions(eventById("event-4")); // on_sale
-
-      fireEvent.click(screen.getByRole("button", { name: "Cerrar venta" }));
-
-      await waitFor(() => expect(eventById("event-4").status).toBe("published"));
-    });
-
-    it("un admin no puede tocar el evento de otra organizacion", async () => {
-      // El servidor responde 404 para no confirmar siquiera que ese evento existe.
-      await loginAs("admin@entraditas.com"); // org-1
-      renderActions(eventById("event-4")); // org-2
-
-      fireEvent.click(screen.getByRole("button", { name: "Cerrar venta" }));
-
-      await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
-      expect(eventById("event-4").status).toBe("on_sale");
-    });
-
-    it("no se ofrece abrir la venta de un evento que ya se celebro", async () => {
-      await loginAs("admin@entraditas.com");
-      const evento = eventById("event-1");
-      evento.startsAt = "2020-01-01T20:00:00.000Z";
-      evento.endsAt = "2020-01-01T23:00:00.000Z";
-
-      renderActions(evento);
-
-      expect(screen.queryByRole("button", { name: "Abrir venta" })).not.toBeInTheDocument();
-    });
-
+  describe("retirar", () => {
     it("retirar de la web devuelve el evento a borrador", async () => {
       await loginAs("admin@entraditas.com");
       renderActions(eventById("event-1"));
@@ -111,6 +69,24 @@ describe("EventRowActions", () => {
 
       await waitFor(() => expect(eventById("event-1").status).toBe("draft"));
       expect(eventById("event-1").publishedAt).toBeNull();
+    });
+
+    it("un admin no puede tocar el evento de otra organizacion", async () => {
+      // El servidor responde 404 para no confirmar siquiera que ese evento existe.
+      await loginAs("admin@entraditas.com"); // org-1
+      renderActions(eventById("event-4")); // org-2
+
+      fireEvent.click(screen.getByRole("button", { name: "Retirar de la web" }));
+
+      await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
+      expect(eventById("event-4").status).toBe("published");
+    });
+
+    it("no se ofrece retirar un evento que nunca se publico", async () => {
+      await loginAs("admin@entraditas.com");
+      renderActions(eventById("event-5")); // borrador
+
+      expect(screen.queryByRole("button", { name: "Retirar de la web" })).not.toBeInTheDocument();
     });
   });
 

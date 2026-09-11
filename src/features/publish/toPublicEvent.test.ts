@@ -58,7 +58,6 @@ describe("isPubliclyVisible", () => {
   it("keeps drafts and events awaiting review out of the catalogue", () => {
     expect(isPubliclyVisible({ ...EVENT, status: "draft" })).toBe(false);
     expect(isPubliclyVisible({ ...EVENT, status: "pending_review" })).toBe(false);
-    expect(isPubliclyVisible({ ...EVENT, status: "in_review" })).toBe(false);
     expect(isPubliclyVisible({ ...EVENT, status: "rejected" })).toBe(false);
   });
 

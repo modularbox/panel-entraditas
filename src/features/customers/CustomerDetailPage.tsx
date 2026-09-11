@@ -24,6 +24,11 @@ const CHANNEL_LABELS: Record<Order["channel"], string> = {
   courtesy: "Cortesía"
 };
 
+const PAYMENT_LABELS: Record<"card" | "cash", string> = {
+  card: "Tarjeta",
+  cash: "Efectivo"
+};
+
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const number = new Intl.NumberFormat("es-ES");
 
@@ -56,11 +61,13 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
 
   return (
     <div className="flex flex-col gap-6">
-      <BackButton fallback="/clientes" />
-      <header>
-        <h1 className="font-display text-2xl font-semibold">{customer.name}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{customer.email}</p>
-      </header>
+      <div className="flex items-center gap-4">
+        <BackButton fallback="/clientes" />
+        <header>
+          <h1 className="font-display text-2xl font-semibold">{customer.name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{customer.email}</p>
+        </header>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <article className="border-2 border-foreground bg-surface p-4 shadow-flat">
@@ -89,6 +96,7 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
               <th className="px-4 py-3 font-medium text-muted-foreground">Evento</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Canal</th>
+              <th className="px-4 py-3 font-medium text-muted-foreground">Pago</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Total</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
             </tr>
@@ -102,6 +110,7 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
                 <td className="px-4 py-3">{order.eventTitle}</td>
                 <td className="px-4 py-3">{STATUS_LABELS[order.status]}</td>
                 <td className="px-4 py-3">{CHANNEL_LABELS[order.channel]}</td>
+                <td className="px-4 py-3">{PAYMENT_LABELS[order.paymentMethod]}</td>
                 <td className="px-4 py-3">{euro.format(order.total / 100)}</td>
                 <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString("es-ES")}</td>
               </tr>

@@ -61,8 +61,6 @@ function isDatabase(value: unknown): value is Database {
     Array.isArray(candidate.ticketTypePrices) &&
     Array.isArray(candidate.discountCodes) &&
     Array.isArray(candidate.gates) &&
-    Array.isArray(candidate.guestLists) &&
-    Array.isArray(candidate.guestListEntries) &&
     Array.isArray(candidate.invitations) &&
     Array.isArray(candidate.orders) &&
     Array.isArray(candidate.orderItems) &&

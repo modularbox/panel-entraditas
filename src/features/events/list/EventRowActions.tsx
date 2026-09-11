@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Event } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
-import { hasEventFinished } from "@/shared/lib/eventLifecycle";
 import { Button } from "@/shared/ui/button";
 import {
   describePublishOutcome,
@@ -13,11 +12,10 @@ import {
 } from "@/features/publish/publishToPublicSite";
 
 /** Estados desde los que tiene sentido revisar: lo que el organizador ya ha enviado. */
-const REVIEWABLE: Event["status"][] = ["pending_review", "in_review"];
+const REVIEWABLE: Event["status"][] = ["pending_review"];
 
 /**
- * Acciones de un evento en el listado: revisarlo, abrir o cerrar su venta, retirarlo de la web
- * y borrarlo.
+ * Acciones de un evento en el listado: revisarlo, retirarlo de la web y borrarlo.
  *
  * Cada accion que cambia lo que ve el comprador se sincroniza con entraditas.com en el mismo
  * gesto. Antes solo existia "aprobar", asi que un evento despublicado o borrado en el panel
@@ -70,32 +68,6 @@ export function EventRowActions({ event }: { event: Event }) {
     onError: (error) => reportError(error, "No se pudo rechazar el evento.")
   });
 
-  const openSales = useMutation({
-    mutationFn: async () => {
-      await apiClient.post<Event>(`/events/${event.id}/open-sales`, undefined, { token: token! });
-      // Se reenvia a la web porque el estado forma parte de lo publicado: pasar a "a la venta"
-      // es lo que abre la compra de cara al comprador.
-      return publishToPublicSite(event.id, token!);
-    },
-    onSuccess: async (outcome) => {
-      report(outcome, "Venta abierta.");
-      await refresh();
-    },
-    onError: (error) => reportError(error, "No se pudo abrir la venta.")
-  });
-
-  const closeSales = useMutation({
-    mutationFn: async () => {
-      await apiClient.post<Event>(`/events/${event.id}/close-sales`, undefined, { token: token! });
-      return publishToPublicSite(event.id, token!);
-    },
-    onSuccess: async (outcome) => {
-      report(outcome, "Venta cerrada; el evento sigue anunciado.");
-      await refresh();
-    },
-    onError: (error) => reportError(error, "No se pudo cerrar la venta.")
-  });
-
   const unpublish = useMutation({
     mutationFn: async () => {
       await apiClient.post<Event>(`/events/${event.id}/unpublish`, undefined, { token: token! });
@@ -133,28 +105,16 @@ export function EventRowActions({ event }: { event: Event }) {
   const canManage = role === "superadmin" || role === "organizador";
   const canReview = role === "superadmin";
   const reviewable = REVIEWABLE.includes(event.status);
-  const finished = hasEventFinished(event);
 
-  const working =
-    approve.isPending || reject.isPending || openSales.isPending || closeSales.isPending ||
-    unpublish.isPending || remove.isPending;
+  const working = approve.isPending || reject.isPending || unpublish.isPending || remove.isPending;
 
   const acciones: { label: string; onClick: () => void; variant?: "outline" | "destructive" }[] = [];
   if (canReview && reviewable) {
     acciones.push({ label: approve.isPending ? "Publicando..." : "Aprobar y publicar", onClick: () => approve.mutate() });
     acciones.push({ label: "Rechazar", onClick: () => reject.mutate(), variant: "outline" });
   }
-  if (canManage && !reviewable) {
-    // Un evento ya celebrado no se vuelve a poner a la venta.
-    if (event.status === "published" && !finished) {
-      acciones.push({ label: "Abrir venta", onClick: () => openSales.mutate() });
-    }
-    if (event.status === "on_sale") {
-      acciones.push({ label: "Cerrar venta", onClick: () => closeSales.mutate(), variant: "outline" });
-    }
-    if (event.status === "published" || event.status === "on_sale") {
-      acciones.push({ label: "Retirar de la web", onClick: () => unpublish.mutate(), variant: "outline" });
-    }
+  if (canManage && !reviewable && event.status === "published") {
+    acciones.push({ label: "Retirar de la web", onClick: () => unpublish.mutate(), variant: "outline" });
   }
 
   // Quien no administra no ve ninguna accion. Quien si, ve al menos "Eliminar" aunque el estado
@@ -216,7 +176,7 @@ export function EventRowActions({ event }: { event: Event }) {
 
       {confirmingDelete && (
         <p className="max-w-xs text-xs font-medium text-muted-foreground">
-          Se borra el evento con sus sesiones, entradas, descuentos, puertas e invitados. No se
+          Se borra el evento con sus sesiones, entradas, descuentos y puertas. No se
           puede deshacer.
         </p>
       )}
