@@ -142,6 +142,14 @@ export const PublicEventRulesSchema = z.object({
   /** 0 = sin tope por comprador. */
   maxPerCustomer: z.number().int().nonnegative(),
   allowGuestCheckout: z.boolean(),
+  /**
+   * Si se puede dejar un asiento suelto entre dos ocupados al elegir butaca. La web lo necesita
+   * para rechazar la seleccion que dejaria un hueco de uno, que luego ya no se vende.
+   *
+   * Opcional porque los eventos publicados antes de que existiera no lo llevan; la web los trata
+   * como "permitido", que es como se vendian hasta entonces.
+   */
+  allowIsolatedSeats: z.boolean().optional(),
   allowSeatSelection: z.boolean(),
   requiresAttendeeName: z.boolean(),
   requiresAttendeeDocument: z.boolean(),

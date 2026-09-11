@@ -141,6 +141,38 @@ export async function conectarConLaApi(email: string, password: string): Promise
   }
 }
 
+/**
+ * Si la sesion de la API sigue valiendo, distinguiendo "no vale" de "no se puede saber".
+ *
+ * Al recargar el panel hay que decidir si pedir la contrasena otra vez, y esas dos respuestas
+ * llevan a decisiones opuestas. Si la API dice que no, hay que volver a entrar. Si la API no
+ * contesta, no: una caida de la API no puede sacar a nadie de su propio panel, igual que al
+ * iniciar sesion (ver `iniciarSesionEnLaApi`).
+ */
+export type EstadoSesionApi = "valida" | "invalida" | "sin-respuesta";
+
+export async function estadoSesionApi(): Promise<EstadoSesionApi> {
+  if (!isApiConfigured()) return "sin-respuesta";
+  const token = getApiToken();
+
+  try {
+    if (!token) {
+      // Sin token no hay sesion que comprobar, pero hace falta saber si la API esta ahi: si lo
+      // esta, la sesion del panel quedo a medias y hay que entrar para completarla; si no, se
+      // entro contra los mocks durante una caida y no se puede hacer nada mejor.
+      const salud = await fetch(`${API_BASE}/health`);
+      return salud.ok ? "invalida" : "sin-respuesta";
+    }
+    const respuesta = await fetch(`${API_BASE}/v1/panel/me`, { headers: { authorization: `Bearer ${token}` } });
+    if (respuesta.ok) return "valida";
+    if (respuesta.status >= 500) return "sin-respuesta";
+    storeApiToken(null);
+    return "invalida";
+  } catch {
+    return "sin-respuesta";
+  }
+}
+
 /** Quien esta conectado ahora mismo a la API, o null si la sesion ya no vale. */
 export async function quienSoyEnLaApi(): Promise<ApiStaff | null> {
   if (!isApiConfigured() || !getApiToken()) return null;

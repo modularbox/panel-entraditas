@@ -1,7 +1,6 @@
-import {
-  EVENT_RULE_DEFAULTS,
-  type PublicEventRules
-} from "@entraditas/types";
+import type { PublicEventRules } from "@entraditas/types";
+import { resolvedRules } from "@/shared/lib/eventRules";
+import { zoneTicketTypeGroupId } from "@/shared/lib/zoneTicketType";
 import type {
   CapacityPool,
   DiscountCode,
@@ -99,13 +98,16 @@ const ZONE_KIND_TO_PUBLIC: Partial<Record<Zone["kind"], PublicSeatZone["kind"]>>
  * label the organiser sees and the tier each one sells, so the buyer site never has to re-derive
  * the numbering and can never disagree with the panel about which chair is A7.
  */
-export function toSeatZones(zones: Zone[], pools: CapacityPool[]): PublicSeatZone[] {
+export function toSeatZones(zones: Zone[], pools: CapacityPool[], ticketTypes: TicketType[] = []): PublicSeatZone[] {
   const stage = zones.find((zone) => zone.kind === "stage") ?? null;
   const result: PublicSeatZone[] = [];
   for (const zone of zones) {
     const kind = ZONE_KIND_TO_PUBLIC[zone.kind];
     if (!kind) continue; // gates are operational, not part of the buyer's plan
     const pool = pools.find((candidate) => candidate.zoneId === zone.id);
+    // Same resolution the seating editor shows: the new link on the pool, or the older one on the
+    // ticket type. Reading only the pool published every older zone without a ticket type.
+    const zoneGroupId = zoneTicketTypeGroupId(pool, ticketTypes);
     const base = {
       id: zone.id,
       name: zone.name,
@@ -134,7 +136,7 @@ export function toSeatZones(zones: Zone[], pools: CapacityPool[]): PublicSeatZon
           row: seat.rowLabel,
           number: seat.number,
           // No assignment means the seat is not for sale, not that it is taken.
-          tierId: assignments[seat.id] ?? pool?.ticketTypeGroupId ?? null,
+          tierId: assignments[seat.id] ?? zoneGroupId,
           sold: false
         }))
       });
@@ -142,7 +144,7 @@ export function toSeatZones(zones: Zone[], pools: CapacityPool[]): PublicSeatZon
     }
 
     if (kind === "ga") {
-      result.push({ ...base, capacity: zone.capacity, tierId: pool?.ticketTypeGroupId ?? null });
+      result.push({ ...base, capacity: zone.capacity, tierId: zoneGroupId });
       continue;
     }
 
@@ -173,12 +175,15 @@ export function toDiscountCodes(discountCodes: DiscountCode[]): PublicDiscountCo
  * Lo puramente operativo (reentrada, escaneos por entrada, plazo interno de reembolso) no sale.
  */
 export function toPublicRules(event: Event): PublicEventRules {
-  const rules = { ...EVENT_RULE_DEFAULTS, ...(event.rules ?? {}) };
+  // La misma resolucion que ve el organizador en el asistente: si fueran dos, lo publicado podria
+  // no coincidir con lo que el panel ensena, que es justo el fallo que habia.
+  const rules = resolvedRules(event);
   return {
     minPerOrder: rules.minPerOrder,
     maxPerOrder: rules.maxPerOrder,
     maxPerCustomer: rules.maxPerCustomer,
     allowGuestCheckout: rules.allowGuestCheckout,
+    allowIsolatedSeats: rules.allowIsolatedSeats,
     allowSeatSelection: rules.allowSeatSelection,
     requiresAttendeeName: rules.requiresAttendeeName,
     requiresAttendeeDocument: rules.requiresAttendeeDocument,
@@ -208,7 +213,9 @@ export function toPublicEvent(input: PublishInput): PublicEvent {
   const { event, organization, venue, zones = [], subEvents = [], pools = [], discountCodes = [] } = input;
   const ticketTypes = sellableTicketTypes(input.ticketTypes ?? []);
   const tiers = toTiers(ticketTypes);
-  const seatZones = toSeatZones(zones, pools);
+  // Con TODOS los tipos de entrada, no solo los publicos: una zona asignada a uno oculto tiene que
+  // salir con su tipo, y es la web la que la deja fuera de la venta al no encontrarlo en `tiers`.
+  const seatZones = toSeatZones(zones, pools, input.ticketTypes ?? []);
   const prices = tiers.map((tier) => tier.price);
 
   return {

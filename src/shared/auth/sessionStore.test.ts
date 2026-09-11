@@ -61,6 +61,44 @@ describe("useSessionStore", () => {
     });
   });
 
+  describe("al recargar la pagina", () => {
+    async function sesionGuardada() {
+      await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+      const token = useSessionStore.getState().token!;
+      useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
+      localStorage.setItem(TOKEN_KEY, token);
+    }
+
+    it("si la API dice que la sesion no vale, hay que volver a entrar", async () => {
+      await sesionGuardada();
+      vi.spyOn(entraditasApi, "estadoSesionApi").mockResolvedValue("invalida");
+
+      await useSessionStore.getState().restore();
+
+      expect(useSessionStore.getState().status).toBe("unauthenticated");
+      expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    });
+
+    it("si la API no contesta, se sigue dentro", async () => {
+      await sesionGuardada();
+      vi.spyOn(entraditasApi, "estadoSesionApi").mockResolvedValue("sin-respuesta");
+
+      // Antes, cualquier caida de la API sacaba a todo el mundo al recargar.
+      await useSessionStore.getState().restore();
+
+      expect(useSessionStore.getState().status).toBe("authenticated");
+    });
+
+    it("si la sesion de la API vale, se sigue dentro", async () => {
+      await sesionGuardada();
+      vi.spyOn(entraditasApi, "estadoSesionApi").mockResolvedValue("valida");
+
+      await useSessionStore.getState().restore();
+
+      expect(useSessionStore.getState().status).toBe("authenticated");
+    });
+  });
+
   it("login populates the session with effective permissions", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     const state = useSessionStore.getState();

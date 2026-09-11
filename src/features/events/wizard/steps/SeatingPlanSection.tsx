@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CapacityPool, Event, TemplateZone, TicketType, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
+import { zoneTicketTypeGroupId } from "@/shared/lib/zoneTicketType";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useZonesQuery } from "./useZonesQuery";
 import { defaultZoneLayout, type ZoneLayout } from "./zoneGeometry";
@@ -296,13 +297,10 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   );
 
   // A zone's whole-zone ticket type. Older events stored that link the other way round (on the
-  // ticket type's capacityPoolId), so both are resolved here and everywhere else reads this.
+  // ticket type's capacityPoolId); zoneTicketTypeGroupId resolves both, and publishing uses the
+  // same function so the plan shown here and the one sent to entraditas.com always agree.
   const resolveZoneGroupId = useMemo(() => {
-    return (pool: CapacityPool | undefined): string | null => {
-      if (!pool) return null;
-      if (pool.ticketTypeGroupId) return pool.ticketTypeGroupId;
-      return ticketTypes.find((t) => t.capacityPoolId === pool.id)?.groupId ?? null;
-    };
+    return (pool: CapacityPool | undefined): string | null => zoneTicketTypeGroupId(pool, ticketTypes);
   }, [ticketTypes]);
 
   /** What each ticket type has taken across every zone: seats for numbered, whole capacity for standing. */
