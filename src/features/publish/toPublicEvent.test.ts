@@ -126,6 +126,27 @@ describe("toSeatZones", () => {
     expect(zone!.seats!.map((seat) => seat.label)).toEqual(["A1", "A2", "A3", "B1", "B2", "B3"]);
   });
 
+  // Los eventos anteriores guardaban la asignacion al reves, en el tipo de entrada. El editor la
+  // leia; la publicacion no, y esas zonas salian hacia la web sin tipo de entrada.
+  it("publica el tipo de entrada de una zona de pie asignada a la antigua (en el tipo de entrada)", () => {
+    const pista: Zone = { id: "zone-pista", venueId: "venue-1", name: "Pista", kind: "standing", capacity: 800, x: 0, y: 0, width: 40, height: 60 };
+    const antigua = ticketType({ id: "tt-pista", groupId: "grupo-pista", name: "Pista", capacityPoolId: "pool-pista" });
+    const [zone] = toSeatZones([pista], [pool({ id: "pool-pista", zoneId: "zone-pista", ticketTypeGroupId: undefined })], [antigua]);
+    expect(zone!.tierId).toBe("grupo-pista");
+  });
+
+  it("y lo mismo para las butacas de una zona numerada entera asignada a la antigua", () => {
+    const antigua = ticketType({ id: "tt-platea", groupId: "grupo-platea", name: "Platea", capacityPoolId: "pool-1" });
+    const [zone] = toSeatZones([numbered], [pool({ ticketTypeGroupId: undefined })], [antigua]);
+    expect(zone!.seats!.every((seat) => seat.tierId === "grupo-platea")).toBe(true);
+  });
+
+  it("si estan las dos, manda la del aforo, que es donde se guarda ahora", () => {
+    const antigua = ticketType({ id: "tt-x", groupId: "viejo", name: "Viejo", capacityPoolId: "pool-1" });
+    const [zone] = toSeatZones([numbered], [pool({ ticketTypeGroupId: "nuevo" })], [antigua]);
+    expect(zone!.seats![0]!.tierId).toBe("nuevo");
+  });
+
   it("carries each seat's ticket type across", () => {
     const [zone] = toSeatZones([numbered], [pool({ seatAssignments: [{ seatId: "A-1", ticketTypeGroupId: "vip" }] })]);
     expect(zone!.seats!.find((seat) => seat.id === "A-1")!.tierId).toBe("vip");
@@ -326,6 +347,35 @@ describe("toPublicEvent", () => {
       // Reentry and scans-per-ticket are for the gate staff, not for the buyer.
       expect(result.rules).not.toHaveProperty("allowReentry");
       expect(result.rules).not.toHaveProperty("maxScansPerTicket");
+    });
+
+    // El fallo que habia: el cuestionario guardaba los limites en campos sueltos y la
+    // publicacion solo leia `rules`, asi que la web vendia siempre con los valores por defecto.
+    it("publica los limites que un evento antiguo guardo fuera de rules", () => {
+      const result = toPublicEvent({
+        event: { ...EVENT, maxTicketsPerOrder: 3, maxTicketsPerCustomer: 5, allowSingleSeatGaps: true }
+      });
+      expect(result.rules.maxPerOrder).toBe(3);
+      expect(result.rules.maxPerCustomer).toBe(5);
+      expect(result.rules.allowIsolatedSeats).toBe(true);
+    });
+
+    it("si estan en los dos sitios, manda rules: es donde se guarda ahora", () => {
+      const result = toPublicEvent({
+        event: { ...EVENT, maxTicketsPerOrder: 3, rules: { maxPerOrder: 8, allowIsolatedSeats: false }, allowSingleSeatGaps: true }
+      });
+      expect(result.rules.maxPerOrder).toBe(8);
+      expect(result.rules.allowIsolatedSeats).toBe(false);
+    });
+
+    it("publica si se permiten asientos sueltos, para que la web pueda impedirlos", () => {
+      expect(toPublicEvent({ event: EVENT }).rules.allowIsolatedSeats).toBe(false);
+      expect(toPublicEvent({ event: { ...EVENT, rules: { allowIsolatedSeats: true } } }).rules.allowIsolatedSeats).toBe(true);
+    });
+
+    it("lo publicado sigue cumpliendo el contrato de la web", () => {
+      const result = toPublicEvent({ event: { ...EVENT, rules: { maxPerOrder: 4, allowIsolatedSeats: true } }, venue: VENUE });
+      expect(() => PublicEventSchema.parse(result)).not.toThrow();
     });
   });
 

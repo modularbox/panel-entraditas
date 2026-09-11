@@ -7,7 +7,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
-import { useSetupStore } from "../setupStore";
+import { OptionButton, QuestionSection } from "./EventRulesQuestions";
 import { step1Schema, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";
 
@@ -46,7 +46,6 @@ async function filesToDataUrls(files: FileList | null): Promise<string[]> {
 
 export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps) {
   const token = useSessionStore((s) => s.token);
-  const setup = useSetupStore();
   const [saveError, setSaveError] = useState<string | null>(null);
   const [coverMode, setCoverMode] = useState<"upload" | "url">("upload");
   const { data: existingEvent, isError: hasLoadError } = useQuery({
@@ -67,7 +66,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
     defaultValues: {
       coverImageUrl: "",
       gallery: "",
-      category: !eventId ? (setup.category as string) : "concierto",
+      category: "concierto",
       title: "",
       startDate: "",
       startTime: "",
@@ -78,7 +77,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
       description: "",
       serviceFeeType: "none",
       serviceFeeValue: 0,
-      hasSubEvents: !eventId ? setup.hasSubEvents : false
+      hasSubEvents: false
     }
   });
 
@@ -134,12 +133,9 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         notifyWhenDateConfirmed: formValues.datePending ? true : formValues.notifyWhenDateConfirmed,
         serviceFeeType: formValues.serviceFeeType,
         serviceFeeValue: formValues.serviceFeeType === "none" ? 0 : formValues.serviceFeeValue ?? 0,
-        hasSubEvents: formValues.hasSubEvents,
-        ...(!eventId && {
-          maxTicketsPerOrder: setup.maxTicketsPerOrder,
-          maxTicketsPerCustomer: setup.maxTicketsPerCustomer,
-          allowSingleSeatGaps: setup.allowSingleSeatGaps
-        })
+        // Los limites de compra y los asientos sueltos ya no se mandan desde aqui: se deciden en
+        // sus pasos (tipos de entrada y asientos) y se guardan en `rules`, que es lo que se publica.
+        hasSubEvents: formValues.hasSubEvents
       };
       const event = eventId
         ? await apiClient.patch<Event>(`/events/${eventId}`, payload, { token: token! })
@@ -313,10 +309,24 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
           <input id="serviceFeeValue" type="number" step="0.01" min="0" {...register("serviceFeeValue")} />
         </fieldset>
 
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <input type="checkbox" {...register("hasSubEvents")} />
-          Este evento tiene varias sesiones, pases o fechas
-        </label>
+        {/* Al final del paso: es lo que decide si el siguiente paso es "Varias funciones". */}
+        <QuestionSection title="¿Tendrá varias sesiones, pases o fechas?" hint="Festivales y giras suelen tener varias funciones.">
+          <input type="hidden" {...register("hasSubEvents")} />
+          <div className="flex flex-wrap gap-2">
+            <OptionButton
+              selected={!values.hasSubEvents}
+              onClick={() => setValue("hasSubEvents", false, { shouldDirty: true })}
+            >
+              Sesión única
+            </OptionButton>
+            <OptionButton
+              selected={Boolean(values.hasSubEvents)}
+              onClick={() => setValue("hasSubEvents", true, { shouldDirty: true })}
+            >
+              Varias sesiones
+            </OptionButton>
+          </div>
+        </QuestionSection>
 
         {hasLoadError && <p role="alert">No se pudo cargar el evento.</p>}
         {saveError && <p role="alert">{saveError}</p>}

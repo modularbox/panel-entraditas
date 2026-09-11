@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { apiClient } from "@/shared/lib/apiClient";
-import { iniciarSesionEnLaApi, isApiConfigured, logoutFromApi, quienSoyEnLaApi } from "@/shared/lib/entraditasApi";
+import { estadoSesionApi, iniciarSesionEnLaApi, logoutFromApi } from "@/shared/lib/entraditasApi";
 import type { RoleSlug } from "@entraditas/types";
 
 const TOKEN_STORAGE_KEY = "entraditas.panel.devToken";
@@ -134,7 +134,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     // no sale a entraditas.com. Pasa con las sesiones abiertas antes de que la API mandara, y
     // desde dentro se veia como un aviso de "sin conexion" que habia que resolver a mano. Se
     // prefiere pedir la contrasena una vez: al volver a entrar, las dos sesiones quedan abiertas.
-    if (isApiConfigured() && (await quienSoyEnLaApi()) === null) {
+    //
+    // Pero SOLO si la API ha dicho que no. Si no contesta, se sigue dentro: antes, cualquier
+    // caida de la API sacaba del panel a todo el mundo al recargar la pagina.
+    if ((await estadoSesionApi()) === "invalida") {
       localStorage.removeItem(TOKEN_STORAGE_KEY);
       localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
       set({ status: "unauthenticated", token: null, user: null, effectivePermissions: new Set(), eventScopes: [], impersonatorToken: null });
