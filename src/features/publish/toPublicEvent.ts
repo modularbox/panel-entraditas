@@ -120,14 +120,19 @@ export function toSeatZones(zones: Zone[], pools: CapacityPool[], ticketTypes: T
 
     if (kind === "seats") {
       const assignments: SeatAssignments = fromSeatAssignmentList(pool?.seatAssignments);
+      const accessible = new Set(pool?.accessibleSeatIds ?? []);
       const seats = buildSeatGrid({
         capacity: zone.capacity,
         width: zone.width,
         height: zone.height,
         rows: zone.rows,
         rowSeats: zone.rowSeats,
+        seatRows: zone.seatRows,
         rowAOrigin: rowOriginForStage(zone, stage)
       });
+      // The zone's left edge, so the columns published start at 0 even when a row is shifted
+      // left of the others. The buyer site draws from these, not from the seat numbers.
+      const left = seats.length > 0 ? Math.min(...seats.map((seat) => seat.column)) : 0;
       result.push({
         ...base,
         seats: seats.map((seat) => ({
@@ -137,7 +142,9 @@ export function toSeatZones(zones: Zone[], pools: CapacityPool[], ticketTypes: T
           number: seat.number,
           // No assignment means the seat is not for sale, not that it is taken.
           tierId: assignments[seat.id] ?? zoneGroupId,
-          sold: false
+          sold: false,
+          column: seat.column - left,
+          ...(accessible.has(seat.id) ? { accessible: true } : {})
         }))
       });
       continue;

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CapacityPool, Event, TemplateZone, TicketType, Zone } from "@entraditas/types";
+import type { CapacityPool, Event, SubEvent, TemplateZone, TicketType, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { zoneTicketTypeGroupId } from "@/shared/lib/zoneTicketType";
+import { useWizardStore } from "../wizardStore";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useZonesQuery } from "./useZonesQuery";
 import { defaultZoneLayout, type ZoneLayout } from "./zoneGeometry";
@@ -11,6 +12,7 @@ import { ZoneCanvas } from "./ZoneCanvas";
 import { ZoneEditorPanel } from "./ZoneEditorPanel";
 import { ZoneListEditor } from "./ZoneListEditor";
 import { ZoneSeatEditor } from "./ZoneSeatEditor";
+import { SeatRowsEditor } from "./SeatRowsEditor";
 import { PlanTemplates } from "./PlanTemplates";
 import { SeatingModeChooser } from "./SeatingModeChooser";
 import { TicketTypeAssignment, type ZoneAssignment } from "./TicketTypeAssignment";
@@ -24,7 +26,8 @@ import {
   rowOriginForStage,
   toSeatAssignmentList,
   type Seat,
-  type SeatAssignments
+  type SeatAssignments,
+  type SeatRowSpec
 } from "./seatMap";
 
 export interface SeatingPlanSectionProps {
@@ -80,10 +83,47 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Drawing surface size. A local preference for working comfortably on a big room, not part of
-  // the event's data: the zones' percent coordinates stay valid at any canvas size.
-  const [canvasHeight, setCanvasHeight] = useState(384);
-  const [canvasWidth, setCanvasWidth] = useState(100);
+  // Drawing surface size. A working preference, kept in the wizard's store (and in localStorage)
+  // rather than in this component: as component state it was lost every time the step unmounted,
+  // so going to the next step and back reset the canvas.
+  const canvasHeight = useWizardStore((s) => s.canvasHeight);
+  const canvasWidth = useWizardStore((s) => s.canvasWidth);
+  const setCanvasSize = useWizardStore((s) => s.setCanvasSize);
+  const creatingSessionRef = useRef(false);
+
+  /**
+   * An event with no session gets one, silently.
+   *
+   * Capacity hangs off a session, and the seat breakdown is stored on that capacity. A
+   * single-session event never created one -- nothing in the panel does, outside the "Varias
+   * funciones" step -- so on those events every seat action was written to a pool that did not
+   * exist and nothing was saved: you picked seats, pressed OK, and nothing happened. A single
+   * session *is* a session of one, so it is created here from the event's own date.
+   */
+  useEffect(() => {
+    if (!eventId || !token || !event || subEvents.length > 0 || creatingSessionRef.current) return;
+    creatingSessionRef.current = true;
+    (async () => {
+      try {
+        await apiClient.post<SubEvent>(
+          `/events/${eventId}/sub-events`,
+          {
+            name: event.hasSubEvents ? "Primera funcion" : "Funcion unica",
+            startsAt: event.startsAt,
+            endsAt: event.endsAt,
+            doorsOpenAt: null,
+            status: "scheduled",
+            sortOrder: 0
+          },
+          { token }
+        );
+        await queryClient.invalidateQueries({ queryKey: ["sub-events", eventId] });
+      } catch (e) {
+        creatingSessionRef.current = false;
+        if (e instanceof AppError) setError(e.message);
+      }
+    })();
+  }, [eventId, token, event, subEvents.length, queryClient]);
 
   // The drawn plan is the source of truth: any sellable zone without a
   // matching capacity pool for this event's first function gets one
@@ -152,7 +192,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
 
   async function updateZone(
     id: string,
-    patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "rowSeats" | "x" | "y" | "width" | "height">>
+    patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "rowSeats" | "seatRows" | "x" | "y" | "width" | "height">>
   ) {
     setError(null);
     try {
@@ -266,6 +306,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         height: zone.height,
         rows: zone.rows,
         rowSeats: zone.rowSeats,
+        seatRows: zone.seatRows,
         rowAOrigin: rowOriginForStage(zone, stage)
       });
     }
@@ -366,13 +407,13 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   if (!eventId) {
     return (
       <p className="text-sm text-muted-foreground">
-        Guarda la informaci�n del evento para poder dibujar el plano de asientos.
+        Guarda la informacion del evento para poder dibujar el plano de asientos.
       </p>
     );
   }
   if (!event) return null;
   if (!venueId) {
-    return <p role="alert">Este evento no tiene un recinto asociado todav�a.</p>;
+    return <p role="alert">Este evento no tiene un recinto asociado todavia.</p>;
   }
 
   // An event drawn before this choice existed already has zones on a plan, so it keeps the plan
@@ -416,7 +457,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
               max="900"
               step="20"
               value={canvasHeight}
-              onChange={(e) => setCanvasHeight(Number(e.target.value))}
+              onChange={(e) => setCanvasSize({ height: Number(e.target.value) })}
             />
             <label htmlFor="canvas-width" className="text-xs text-muted-foreground">
               Ancho
@@ -428,7 +469,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
               max="100"
               step="5"
               value={canvasWidth}
-              onChange={(e) => setCanvasWidth(Number(e.target.value))}
+              onChange={(e) => setCanvasSize({ width: Number(e.target.value) })}
             />
             <span className="text-xs text-muted-foreground">
               {canvasHeight} px de alto - {canvasWidth}% de ancho
@@ -472,10 +513,29 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
       {/* Templates work for both modes: a set of zones is reusable whether or not it is drawn. */}
       <PlanTemplates zones={zones} mode={mode} onApply={applyTemplate} />
 
+      {selectedZone && selectedZone.kind === "numbered" && (
+        <SeatRowsEditor
+          zone={selectedZone}
+          rowAOrigin={rowOriginForStage(selectedZone, stage)}
+          // Las filas mandan sobre lo que hubiera antes: la capacidad sale de ellas, y los dos
+          // formatos viejos se retiran para que no queden dos descripciones de la misma sala.
+          onChange={(rows: SeatRowSpec[], capacity: number) =>
+            void updateZone(selectedZone.id, { seatRows: rows, capacity, rowSeats: null, rows: null })
+          }
+        />
+      )}
+
       {selectedZone && selectedZone.kind === "numbered" && (selectedSeats?.length ?? 0) === 0 && (
         <p className="rounded-md border-2 border-border bg-surface p-3 text-sm text-muted-foreground">
-          Indica cuantos asientos tiene "{selectedZone.name}" para dibujar sus butacas y poder
+          "{selectedZone.name}" todavia no tiene ninguna butaca. Crea sus filas arriba para poder
           repartirlas por tipo de entrada.
+        </p>
+      )}
+
+      {/* El fallo al guardar se repite aqui: el de arriba queda fuera de pantalla en un plano largo. */}
+      {error && selectedZone?.kind === "numbered" && (
+        <p role="alert" className="rounded-md border-2 border-destructive px-3 py-2 text-sm font-semibold">
+          {error}
         </p>
       )}
 

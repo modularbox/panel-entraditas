@@ -10,6 +10,7 @@ import {
   countUnassigned,
   moveSeat,
   remainingForGroup,
+  seatGridExtent,
   seatRows,
   seatsForGroup,
   type Seat,
@@ -53,6 +54,7 @@ export function ZoneSeatEditor({
   const accessible = new Set(accessibleSeatIds);
   const selected = new Set(selection);
   const rows = seatRows(seats);
+  const extent = seatGridExtent(seats);
   const unassigned = countUnassigned(seats, assignments);
   const groupById = new Map(groups.map((group) => [group.groupId, group]));
 
@@ -214,6 +216,12 @@ export function ZoneSeatEditor({
         </p>
       )}
 
+      {/*
+        Laid out on the zone's own columns, not row by row from the left. A row with an aisle in
+        it, or shifted half a seat against the one above, has to appear here exactly where it will
+        appear on the plan and on entraditas.com -- otherwise this grid and the drawing above it
+        show two different rooms, which is what they used to do.
+      */}
       <div className="flex flex-col gap-1.5 overflow-x-auto">
         {rows.map((row) => (
           <div key={row[0]!.rowLabel} className="flex items-center gap-2">
@@ -225,12 +233,15 @@ export function ZoneSeatEditor({
             >
               {row[0]!.rowLabel}
             </button>
-            <div className="flex flex-wrap gap-1">
+            <div
+              className="grid shrink-0 gap-y-1"
+              style={{ gridTemplateColumns: `repeat(${Math.max(1, extent.columns * 2)}, 0.9rem)` }}
+            >
               {row.map((seat) => {
                 const groupId = assignments[seat.id];
                 const group = groupId ? groupById.get(groupId) : undefined;
                 const isAccessible = accessible.has(seat.id);
-                const background = isAccessible ? ACCESSIBLE_COLOR : group?.color;
+                const background = group?.color;
                 const isSelected = selected.has(seat.id);
                 return (
                   <button
@@ -241,7 +252,15 @@ export function ZoneSeatEditor({
                     }`}
                     aria-pressed={isSelected}
                     onClick={() => toggleSeat(seat)}
-                    style={background ? { backgroundColor: background, borderColor: background } : undefined}
+                    style={{
+                      // Two half-columns per seat, so a row shifted half a seat lands between the
+                      // seats of the row above instead of on top of them.
+                      gridColumn: `${Math.round((seat.column - extent.left) * 2) + 1} / span 2`,
+                      ...(background ? { backgroundColor: background, borderColor: background } : {}),
+                      // The wheelchair goes ON TOP of the ticket type's colour: a seat is both
+                      // things at once, and painting it blue instead hid which type it sells.
+                      ...(isAccessible ? { outline: `2px solid ${ACCESSIBLE_COLOR}`, outlineOffset: "1px" } : {})
+                    }}
                     className={cn(
                       "h-7 w-7 rounded-t-md border-2 text-[10px] font-semibold leading-none",
                       background ? "text-white" : "border-dashed border-muted-foreground text-muted-foreground",

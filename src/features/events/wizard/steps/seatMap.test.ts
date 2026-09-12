@@ -4,19 +4,23 @@ import {
   assignSeatCount,
   buildSeatGrid,
   capacityOfRowSeats,
+  capacityOfSeatRows,
   clearSeat,
   computeRowCount,
   countAssignedByGroup,
   countUnassigned,
   fromSeatAssignmentList,
   moveSeat,
+  normaliseSeatRows,
   pruneAssignments,
   remainingForGroup,
   rowLabel,
   rowOriginForStage,
+  seatGridExtent,
   seatRows,
   seatsForGroup,
   seatsPerRow,
+  toggleRowGap,
   toSeatAssignmentList
 } from "./seatMap";
 
@@ -115,6 +119,97 @@ describe("buildSeatGrid", () => {
       const seats = buildSeatGrid({ capacity: 6, width: 20, height: 20, rows: 2, rowSeats: [] });
       expect(seatRows(seats).map((row) => row.length)).toEqual([3, 3]);
     });
+  });
+});
+
+describe("rows with aisles, shifts and their own numbering", () => {
+  const zone = { capacity: 0, width: 20, height: 20 };
+
+  it("skips the aisle when numbering, so the numbers match the chairs", () => {
+    // A row of 7 positions with a gangway at position 4: six seats, numbered 1 to 6.
+    const seats = buildSeatGrid({ ...zone, seatRows: [{ slots: 7, gaps: [4] }] });
+    expect(seats.map((seat) => seat.label)).toEqual(["A1", "A2", "A3", "A4", "A5", "A6"]);
+  });
+
+  it("leaves the aisle's column empty, so the drawing keeps the room's shape", () => {
+    const seats = buildSeatGrid({ ...zone, seatRows: [{ slots: 7, gaps: [4] }] });
+    expect(seats.map((seat) => seat.column)).toEqual([0, 1, 2, 4, 5, 6]);
+  });
+
+  it("does not count an aisle as a seat", () => {
+    expect(capacityOfSeatRows([{ slots: 7, gaps: [4] }, { slots: 7 }])).toBe(13);
+  });
+
+  it("shifts a whole row by half a seat, landing it between the seats above", () => {
+    const seats = buildSeatGrid({ ...zone, seatRows: [{ slots: 3 }, { slots: 3, offset: 1 }] });
+    expect(seats.filter((seat) => seat.rowIndex === 1).map((seat) => seat.column)).toEqual([0.5, 1.5, 2.5]);
+  });
+
+  it("numbers a row from where the venue starts it", () => {
+    const seats = buildSeatGrid({ ...zone, seatRows: [{ slots: 3, startNumber: 101 }] });
+    expect(seats.map((seat) => seat.label)).toEqual(["A101", "A102", "A103"]);
+  });
+
+  it("numbers right to left when the row runs that way", () => {
+    const seats = buildSeatGrid({ ...zone, seatRows: [{ slots: 3, reversed: true }] });
+    // Leftmost seat is the last number; the columns still run left to right.
+    expect(seats.map((seat) => [seat.label, seat.column])).toEqual([
+      ["A3", 0],
+      ["A2", 1],
+      ["A1", 2]
+    ]);
+  });
+
+  it("uses the row's own name when the venue does not call it A", () => {
+    const seats = buildSeatGrid({ ...zone, seatRows: [{ slots: 2, label: "Palco" }, { slots: 2 }] });
+    expect(seats.map((seat) => seat.label)).toEqual(["Palco1", "Palco2", "B1", "B2"]);
+  });
+
+  it("keeps two rows with the same name from producing the same seat twice", () => {
+    const seats = buildSeatGrid({ ...zone, seatRows: [{ slots: 1, label: "A" }, { slots: 1, label: "A" }] });
+    expect(new Set(seats.map((seat) => seat.id)).size).toBe(2);
+  });
+
+  it("wins over the older row lengths and over the even split", () => {
+    const seats = buildSeatGrid({ capacity: 99, width: 20, height: 20, rows: 9, rowSeats: [4, 4], seatRows: [{ slots: 3 }] });
+    expect(seats).toHaveLength(3);
+  });
+});
+
+describe("toggleRowGap", () => {
+  it("turns a seat into an aisle and back", () => {
+    const row = { slots: 5 };
+    const withGap = toggleRowGap(row, 3);
+    expect(withGap.gaps).toEqual([3]);
+    expect(toggleRowGap(withGap, 3).gaps).toBeUndefined();
+  });
+
+  it("keeps the aisles in order however they were added", () => {
+    expect(toggleRowGap(toggleRowGap({ slots: 9 }, 7), 2).gaps).toEqual([2, 7]);
+  });
+});
+
+describe("seatGridExtent", () => {
+  it("measures the box the seats occupy, shifts included", () => {
+    const seats = buildSeatGrid({ capacity: 0, width: 20, height: 20, seatRows: [{ slots: 4 }, { slots: 4, offset: -1 }] });
+    expect(seatGridExtent(seats)).toEqual({ left: -0.5, right: 3, columns: 4.5, rows: 2 });
+  });
+
+  it("measures nothing for an empty zone", () => {
+    expect(seatGridExtent([])).toEqual({ left: 0, right: 0, columns: 0, rows: 0 });
+  });
+});
+
+describe("normaliseSeatRows", () => {
+  it("reads the older row lengths as rows without aisles", () => {
+    expect(normaliseSeatRows({ capacity: 6, width: 20, height: 20, rowSeats: [4, 2] })).toEqual([
+      { slots: 4 },
+      { slots: 2 }
+    ]);
+  });
+
+  it("spreads a plain capacity over the rows the zone's shape implies", () => {
+    expect(normaliseSeatRows({ capacity: 6, width: 20, height: 10, rows: 2 })).toEqual([{ slots: 3 }, { slots: 3 }]);
   });
 });
 

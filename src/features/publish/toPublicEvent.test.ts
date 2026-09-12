@@ -182,6 +182,34 @@ describe("toSeatZones", () => {
     const gate: Zone = { ...numbered, id: "gate-1", name: "Puerta Norte", kind: "gate", capacity: 0 };
     expect(toSeatZones([gate], [])).toEqual([]);
   });
+
+  // Sin la posicion dibujada, la web solo puede rehacer un rectangulo: dibujaria una sala
+  // distinta de la que dibujo el organizador en cuanto haya un pasillo o una fila desplazada.
+  describe("la sala tal como se dibujo", () => {
+    const conPasillo: Zone = { ...numbered, capacity: 0, rows: null, seatRows: [{ slots: 5, gaps: [3] }] };
+
+    it("manda donde se dibuja cada butaca, no solo su numero", () => {
+      const [zone] = toSeatZones([conPasillo], [pool({})]);
+      expect(zone!.seats!.map((seat) => [seat.label, seat.column])).toEqual([
+        ["A1", 0],
+        ["A2", 1],
+        ["A3", 3],
+        ["A4", 4]
+      ]);
+    });
+
+    it("mide las columnas desde el borde de la zona aunque una fila salga por la izquierda", () => {
+      const desplazada: Zone = { ...numbered, capacity: 0, rows: null, seatRows: [{ slots: 2 }, { slots: 2, offset: -1 }] };
+      const [zone] = toSeatZones([desplazada], [pool({})]);
+      expect(zone!.seats!.map((seat) => seat.column)).toEqual([0.5, 1.5, 0, 1]);
+    });
+
+    it("marca las plazas de movilidad reducida", () => {
+      const [zone] = toSeatZones([numbered], [pool({ accessibleSeatIds: ["A-2"] })]);
+      expect(zone!.seats!.find((seat) => seat.id === "A-2")!.accessible).toBe(true);
+      expect(zone!.seats!.find((seat) => seat.id === "A-1")!.accessible).toBeUndefined();
+    });
+  });
 });
 
 describe("toDiscountCodes", () => {

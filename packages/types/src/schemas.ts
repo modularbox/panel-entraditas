@@ -72,7 +72,27 @@ export const ZoneSchema = z.object({
   // Seats in each row, when the room is not a neat rectangle: [12, 11, 11, 9] for a stalls block
   // that narrows at the back. Overrides both `rows` and the even split, and its sum becomes the
   // zone's real capacity. null/absent means "spread `capacity` evenly over `rows`".
+  //
+  // Superseded by `seatRows`, which says the same thing and more; kept because zones drawn before
+  // that existed still carry it and must keep producing the same seats.
   rowSeats: z.array(z.number().int().nonnegative()).nullable().optional(),
+  // The room row by row: how many positions each row has, which of them are aisles rather than
+  // seats, how far the row is shifted sideways (in half seats, for staggered or curved stands),
+  // and how it is numbered. This is what lets a plan describe the actual venue instead of only a
+  // rectangle. Wins over `rowSeats` and `rows`, and its seat count becomes the zone's capacity.
+  seatRows: z
+    .array(
+      z.object({
+        label: z.string().nullable().optional(),
+        slots: z.number().int().nonnegative(),
+        gaps: z.array(z.number().int().positive()).optional(),
+        offset: z.number().optional(),
+        startNumber: z.number().int().positive().optional(),
+        reversed: z.boolean().optional()
+      })
+    )
+    .nullable()
+    .optional(),
   x: z.number().min(0).max(100),
   y: z.number().min(0).max(100),
   width: z.number().min(1).max(100),

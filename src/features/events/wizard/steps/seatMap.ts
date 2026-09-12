@@ -1,26 +1,67 @@
 /**
  * Seat geometry and per-seat ticket-type assignment.
  *
- * A numbered zone stores only its physical shape (capacity + how many rows it is
- * split into). The individual seats are *derived* from that, so a venue's zone stays
- * a small record while still producing stable, physically meaningful seat labels:
- * row A is the row closest to the stage, and seat 1 is the leftmost seat of its row.
+ * A numbered zone is described row by row (`seatRows`): how many positions each row has, which of
+ * those are aisles rather than seats, and how far the row is shifted sideways. That is what lets a
+ * plan describe a real room -- a stalls block that narrows at the back, a central aisle, the
+ * staggered rows of a curved stand -- instead of only a rectangle.
  *
- * Which ticket type each seat sells is a separate, per-event concern (the same venue
- * is reused across events), so assignments live on the event's capacity pool as a
- * sparse seatId -> ticketTypeGroupId map: only assigned seats appear in it.
+ * The individual seats are *derived* from that description, never stored, so the venue's zone
+ * stays a small record while still producing stable, physically meaningful labels: row A is the
+ * row closest to the stage, and numbering runs over the real seats only, skipping the aisles, so
+ * it matches what is printed on the chairs.
+ *
+ * Zones drawn before this existed carry `rowSeats` (just the lengths) or nothing at all (an even
+ * split of `capacity` over `rows`). Both are still read, and normaliseSeatRows turns any of the
+ * three into the same row-by-row description.
+ *
+ * Which ticket type each seat sells is a separate, per-event concern (the same venue is reused
+ * across events), so assignments live on the event's capacity pool as a sparse
+ * seatId -> ticketTypeGroupId map: only assigned seats appear in it.
  */
 
 /** Hard ceiling on how many seats we materialise, so a mistyped capacity can't hang the UI. */
 export const MAX_RENDERED_SEATS = 2000;
+
+/**
+ * One physical row.
+ *
+ * `slots` counts *positions*, aisles included, because that is what makes the drawing match the
+ * room: a row of 14 with a gangway in the middle is 15 slots with slot 8 empty, and the seats
+ * either side of it stay where they are instead of sliding together.
+ */
+export interface SeatRowSpec {
+  /** Row name as printed in the venue. Absent means the automatic A, B, C... */
+  label?: string | null;
+  /** Positions in the row, aisles included. */
+  slots: number;
+  /** 1-based positions that are an aisle or a gap, not a seat. */
+  gaps?: number[];
+  /**
+   * Sideways shift, in HALF seats, so rows can be staggered against each other: 1 moves the row
+   * half a seat to the right, -2 a whole seat to the left. Half steps because that is exactly
+   * what a curved or offset stand needs and whole steps cannot express.
+   */
+  offset?: number;
+  /** Number of the row's first seat. Theatres often start a block at 101, or at 2 for even sides. */
+  startNumber?: number;
+  /** Numbering runs right to left, as in halls numbered outwards from the centre aisle. */
+  reversed?: boolean;
+}
 
 export interface Seat {
   /** Stable within a layout: derived from the row label and the seat number ("A-1"). */
   id: string;
   /** 0-based row as *drawn*, top to bottom. Not the same as the row label when row A is at the bottom. */
   rowIndex: number;
-  /** 0-based position within the drawn row, left to right. */
+  /** 0-based position within the drawn row, left to right. Counts aisles, so it is the drawn column. */
   colIndex: number;
+  /**
+   * Drawn horizontal position in seat widths, with the row's shift already applied. Can land on a
+   * half (3.5) when the row is staggered. This is the one number every surface -- the canvas
+   * miniature, the editor grid and the buyer site -- positions the seat by, so they cannot disagree.
+   */
+  column: number;
   rowLabel: string;
   /** 1-based seat number within its row, as printed on the ticket. */
   number: number;
@@ -39,6 +80,8 @@ export interface SeatGridInput {
   rows?: number | null;
   /** Explicit seats per row, for rooms that are not a neat rectangle. Wins over `rows`. */
   rowSeats?: number[] | null;
+  /** Full row-by-row description. Wins over everything else. */
+  seatRows?: SeatRowSpec[] | null;
   rowAOrigin?: RowOrigin;
 }
 
@@ -46,6 +89,19 @@ export interface SeatGridInput {
 export function capacityOfRowSeats(rowSeats: number[] | null | undefined): number | null {
   if (!rowSeats || rowSeats.length === 0) return null;
   return rowSeats.reduce((sum, seats) => sum + Math.max(0, Math.floor(seats)), 0);
+}
+
+/** Real seats in a row: its positions minus its aisles. */
+export function seatsInRow(row: SeatRowSpec): number {
+  const slots = Math.max(0, Math.floor(row.slots));
+  const gaps = new Set((row.gaps ?? []).filter((gap) => gap >= 1 && gap <= slots));
+  return slots - gaps.size;
+}
+
+/** What the zone actually holds once the aisles are discounted. */
+export function capacityOfSeatRows(rows: SeatRowSpec[] | null | undefined): number | null {
+  if (!rows || rows.length === 0) return null;
+  return rows.reduce((sum, row) => sum + seatsInRow(row), 0);
 }
 
 /** seatId -> ticketTypeGroupId. Only assigned seats are present. */
@@ -101,32 +157,92 @@ export function rowOriginForStage(
   return stageCenter > zoneCenter ? "bottom" : "top";
 }
 
+/**
+ * The room as rows, whatever the zone happens to store.
+ *
+ * The three shapes a zone can be in -- a full row-by-row description, the older list of row
+ * lengths, or just a capacity to spread -- all collapse to the same thing here, so the editor
+ * only ever deals with one model and nothing has to branch on how old a plan is.
+ */
+export function normaliseSeatRows(zone: SeatGridInput): SeatRowSpec[] {
+  if (zone.seatRows?.length) {
+    return zone.seatRows
+      .map((row) => ({ ...row, slots: Math.max(0, Math.floor(row.slots)) }))
+      .filter((row) => row.slots > 0);
+  }
+  const capacity = Math.max(0, Math.min(Math.floor(zone.capacity), MAX_RENDERED_SEATS));
+  if (zone.rowSeats?.length) {
+    return zone.rowSeats
+      .map((seats) => ({ slots: Math.max(0, Math.floor(seats)) }))
+      .filter((row) => row.slots > 0);
+  }
+  return seatsPerRow(capacity, computeRowCount(capacity, zone.width, zone.height, zone.rows)).map((slots) => ({
+    slots
+  }));
+}
+
+/** A rectangular block, which is what most zones are and what the quick setup produces. */
+export function rectangleSeatRows(rows: number, seatsPerRowCount: number): SeatRowSpec[] {
+  const rowCount = Math.max(0, Math.floor(rows));
+  const slots = Math.max(0, Math.floor(seatsPerRowCount));
+  if (rowCount === 0 || slots === 0) return [];
+  return Array.from({ length: rowCount }, () => ({ slots }));
+}
+
+/** Turns a position of a row into an aisle, or back into a seat. */
+export function toggleRowGap(row: SeatRowSpec, slot: number): SeatRowSpec {
+  const gaps = new Set(row.gaps ?? []);
+  if (gaps.has(slot)) gaps.delete(slot);
+  else gaps.add(slot);
+  const next = [...gaps].filter((gap) => gap >= 1 && gap <= row.slots).sort((a, b) => a - b);
+  return { ...row, gaps: next.length > 0 ? next : undefined };
+}
+
 /** Builds the seats of a zone in reading order (row drawn first, then left to right). */
 export function buildSeatGrid(zone: SeatGridInput): Seat[] {
-  const capacity = Math.max(0, Math.min(Math.floor(zone.capacity), MAX_RENDERED_SEATS));
-  // A custom distribution describes the room exactly, so it wins over the even split entirely.
-  const custom = zone.rowSeats?.length
-    ? zone.rowSeats.map((seats) => Math.max(0, Math.floor(seats))).filter((seats) => seats > 0)
-    : null;
-  const rowCount = custom ? custom.length : computeRowCount(capacity, zone.width, zone.height, zone.rows);
-  const counts = custom ?? seatsPerRow(capacity, rowCount);
+  const rows = normaliseSeatRows(zone);
   const origin = zone.rowAOrigin ?? "top";
   const seats: Seat[] = [];
-  counts.forEach((seatsInRow, rowIndex) => {
-    const labelIndex = origin === "top" ? rowIndex : counts.length - 1 - rowIndex;
-    const label = rowLabel(labelIndex);
-    for (let colIndex = 0; colIndex < seatsInRow; colIndex += 1) {
-      const number = colIndex + 1;
+  // Two rows sharing a name would produce two seats with the same id, and one would silently
+  // shadow the other's ticket type. A repeated name is disambiguated rather than rejected.
+  const usedLabels = new Set<string>();
+  let placed = 0;
+
+  rows.forEach((row, rowIndex) => {
+    const automatic = rowLabel(origin === "top" ? rowIndex : rows.length - 1 - rowIndex);
+    let label = row.label?.trim() ? row.label.trim() : automatic;
+    if (usedLabels.has(label)) {
+      let suffix = 2;
+      while (usedLabels.has(`${label}.${suffix}`)) suffix += 1;
+      label = `${label}.${suffix}`;
+    }
+    usedLabels.add(label);
+
+    const gaps = new Set((row.gaps ?? []).filter((gap) => gap >= 1 && gap <= row.slots));
+    const realSlots: number[] = [];
+    for (let slot = 1; slot <= row.slots; slot += 1) if (!gaps.has(slot)) realSlots.push(slot);
+
+    const start = row.startNumber && row.startNumber > 0 ? Math.floor(row.startNumber) : 1;
+    const offset = Number.isFinite(row.offset) ? (row.offset as number) : 0;
+
+    realSlots.forEach((slot, realIndex) => {
+      if (placed >= MAX_RENDERED_SEATS) return;
+      const position = row.reversed ? realSlots.length - 1 - realIndex : realIndex;
+      const number = start + position;
+      const colIndex = slot - 1;
       seats.push({
         id: `${label}-${number}`,
         rowIndex,
         colIndex,
+        column: colIndex + offset / 2,
         rowLabel: label,
         number,
         label: `${label}${number}`
       });
-    }
+      placed += 1;
+    });
   });
+
   return seats;
 }
 
@@ -137,6 +253,27 @@ export function seatRows(seats: Seat[]): Seat[][] {
     (rows[seat.rowIndex] ??= []).push(seat);
   }
   return rows.filter(Boolean);
+}
+
+/**
+ * The box the drawn seats occupy, in seat widths.
+ *
+ * Every surface that paints a plan needs the same two numbers to place a seat, and a staggered
+ * row can start at a negative column, so the left edge is part of the answer rather than assumed
+ * to be zero. Returning it here is what keeps the canvas miniature, the editor grid and the
+ * buyer site drawing the same room.
+ */
+export function seatGridExtent(seats: Seat[]): { left: number; right: number; columns: number; rows: number } {
+  if (seats.length === 0) return { left: 0, right: 0, columns: 0, rows: 0 };
+  let left = Infinity;
+  let right = -Infinity;
+  let rows = 0;
+  for (const seat of seats) {
+    left = Math.min(left, seat.column);
+    right = Math.max(right, seat.column);
+    rows = Math.max(rows, seat.rowIndex + 1);
+  }
+  return { left, right, columns: right - left + 1, rows };
 }
 
 export function countAssignedByGroup(assignments: SeatAssignments): Record<string, number> {

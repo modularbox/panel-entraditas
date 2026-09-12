@@ -65,7 +65,17 @@ export const PublicSeatSchema = z.object({
   row: z.string(),
   number: z.number().int().positive(),
   tierId: z.string().nullable(),
-  sold: z.boolean()
+  sold: z.boolean(),
+  /**
+   * Where the seat is drawn within its zone, in seat widths from the zone's left edge. Sent
+   * because the seat number is NOT the position: a row with a central gangway skips a column
+   * without skipping a number, and a staggered row sits on a half (3.5). Without it the buyer
+   * site can only re-derive a rectangle, and shows a different room from the one the organiser
+   * drew. Optional: events published before it existed have none, and fall back to the number.
+   */
+  column: z.number().optional(),
+  /** Reserved for reduced mobility. The buyer site marks it on top of the tier's colour. */
+  accessible: z.boolean().optional()
 });
 export type PublicSeat = z.infer<typeof PublicSeatSchema>;
 

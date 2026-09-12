@@ -9,7 +9,7 @@ export interface ZoneListEditorProps {
   selectedZoneId: string | null;
   onSelectZone: (id: string | null) => void;
   onAddZone: (kind: Zone["kind"]) => void;
-  onUpdateZone: (id: string, patch: Partial<Pick<Zone, "name" | "capacity" | "rows">>) => void;
+  onUpdateZone: (id: string, patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "rowSeats" | "seatRows">>) => void;
   onDeleteZone: (id: string) => void;
 }
 
@@ -81,7 +81,15 @@ export function ZoneListEditor({
                       min="0"
                       inputMode="numeric"
                       defaultValue={zone.capacity}
-                      onBlur={(e) => onUpdateZone(zone.id, { capacity: Number(e.target.value) })}
+                      // Escribir aqui cuantos asientos tiene la zona es describirla de la forma
+                      // simple, asi que retira el detalle fila a fila: si no, ese detalle seguiria
+                      // mandando y este numero no haria nada, sin decir por que.
+                      onBlur={(e) =>
+                        onUpdateZone(zone.id, {
+                          capacity: Number(e.target.value),
+                          ...(zone.kind === "numbered" ? { seatRows: null, rowSeats: null } : {})
+                        })
+                      }
                       className="h-10 w-28 rounded-md border-2 border-foreground bg-surface px-3 text-sm"
                     />
                   </div>
@@ -100,7 +108,11 @@ export function ZoneListEditor({
                         defaultValue={zone.rows ?? ""}
                         onBlur={(e) => {
                           const value = e.target.value.trim();
-                          onUpdateZone(zone.id, { rows: value === "" ? null : Number(value) });
+                          onUpdateZone(zone.id, {
+                            rows: value === "" ? null : Number(value),
+                            seatRows: null,
+                            rowSeats: null
+                          });
                         }}
                         className="h-10 w-28 rounded-md border-2 border-foreground bg-surface px-3 text-sm"
                       />
