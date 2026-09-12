@@ -12,7 +12,7 @@ import { ZoneCanvas } from "./ZoneCanvas";
 import { ZoneEditorPanel } from "./ZoneEditorPanel";
 import { ZoneListEditor } from "./ZoneListEditor";
 import { ZoneSeatEditor } from "./ZoneSeatEditor";
-import { SeatRowsEditor } from "./SeatRowsEditor";
+import { SeatRowsEditor, type PlanPatch } from "./SeatRowsEditor";
 import { PlanTemplates } from "./PlanTemplates";
 import { SeatingModeChooser } from "./SeatingModeChooser";
 import { TicketTypeAssignment, type ZoneAssignment } from "./TicketTypeAssignment";
@@ -23,11 +23,11 @@ import {
   countUnassigned,
   fromSeatAssignmentList,
   pruneAssignments,
+  remapById,
   rowOriginForStage,
   toSeatAssignmentList,
   type Seat,
-  type SeatAssignments,
-  type SeatRowSpec
+  type SeatAssignments
 } from "./seatMap";
 
 export interface SeatingPlanSectionProps {
@@ -190,9 +190,58 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
   }
 
+  /**
+   * Cambia la forma o la numeracion de una zona numerada sin perder lo repartido.
+   *
+   * El identificador de una butaca es su nombre ("A-7"), que es lo que hace que el panel y la web
+   * hablen de la misma butaca. El precio de eso es que renombrar una fila, empezar a numerar en
+   * otro sitio o pasar la zona entera de letras a numeros cambia TODOS los identificadores, y los
+   * tipos de entrada colgados de ellos se irian al suelo sin decir nada. Aqui se emparejan por el
+   * sitio que ocupan, que no cambia, y se vuelven a colgar de su butaca.
+   */
+  async function updatePlan(zone: Zone, patch: PlanPatch) {
+    const antes = buildSeatGrid({ ...zone, rowAOrigin: rowOriginForStage(zone, stage) });
+    const siguiente: Zone = { ...zone, ...patch };
+    const despues = buildSeatGrid({ ...siguiente, rowAOrigin: rowOriginForStage(siguiente, stage) });
+
+    const pool = pools.find((p) => p.zoneId === zone.id);
+    const asignaciones = pruneAssignments(fromSeatAssignmentList(pool?.seatAssignments), antes);
+    const movidas = remapById(antes, despues, asignaciones);
+    const accesibles = remapById(antes, despues, pool?.accessibleSeatIds ?? []);
+
+    // Las filas mandan sobre lo que hubiera antes: la capacidad sale de ellas, y los dos formatos
+    // viejos se retiran para que no queden dos descripciones de la misma sala.
+    await updateZone(zone.id, {
+      ...patch,
+      capacity: despues.length,
+      ...(patch.seatRows ? { rowSeats: null, rows: null } : {})
+    });
+    if (pool) {
+      await patchPool(zone.id, {
+        seatAssignments: toSeatAssignmentList(movidas),
+        accessibleSeatIds: accesibles
+      });
+    }
+  }
+
   async function updateZone(
     id: string,
-    patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "rowSeats" | "seatRows" | "x" | "y" | "width" | "height">>
+    patch: Partial<
+      Pick<
+        Zone,
+        | "name"
+        | "capacity"
+        | "rows"
+        | "rowSeats"
+        | "seatRows"
+        | "rowNaming"
+        | "seatNaming"
+        | "x"
+        | "y"
+        | "width"
+        | "height"
+      >
+    >
   ) {
     setError(null);
     try {
@@ -300,15 +349,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     const grids: Record<string, Seat[]> = {};
     for (const zone of sellableZones) {
       if (zone.kind !== "numbered") continue;
-      grids[zone.id] = buildSeatGrid({
-        capacity: zone.capacity,
-        width: zone.width,
-        height: zone.height,
-        rows: zone.rows,
-        rowSeats: zone.rowSeats,
-        seatRows: zone.seatRows,
-        rowAOrigin: rowOriginForStage(zone, stage)
-      });
+      grids[zone.id] = buildSeatGrid({ ...zone, rowAOrigin: rowOriginForStage(zone, stage) });
     }
     return grids;
   }, [sellableZones, stage]);
@@ -517,11 +558,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         <SeatRowsEditor
           zone={selectedZone}
           rowAOrigin={rowOriginForStage(selectedZone, stage)}
-          // Las filas mandan sobre lo que hubiera antes: la capacidad sale de ellas, y los dos
-          // formatos viejos se retiran para que no queden dos descripciones de la misma sala.
-          onChange={(rows: SeatRowSpec[], capacity: number) =>
-            void updateZone(selectedZone.id, { seatRows: rows, capacity, rowSeats: null, rows: null })
-          }
+          onChange={(patch) => void updatePlan(selectedZone, patch)}
         />
       )}
 

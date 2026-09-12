@@ -88,11 +88,18 @@ export const ZoneSchema = z.object({
         gaps: z.array(z.number().int().positive()).optional(),
         offset: z.number().optional(),
         startNumber: z.number().int().positive().optional(),
-        reversed: z.boolean().optional()
+        reversed: z.boolean().optional(),
+        // Seats the venue calls something other than their count, by position.
+        names: z.record(z.string()).optional()
       })
     )
     .nullable()
     .optional(),
+  // Como se nombran filas y butacas cuando no tienen nombre propio. Hay recintos numerados
+  // (fila 1, 2, 3) y recintos con letras (fila A, B, C), y los dos existen en la misma ciudad.
+  // Por defecto: filas con letras, butacas con numeros.
+  rowNaming: z.enum(["letters", "numbers"]).nullable().optional(),
+  seatNaming: z.enum(["letters", "numbers"]).nullable().optional(),
   x: z.number().min(0).max(100),
   y: z.number().min(0).max(100),
   width: z.number().min(1).max(100),

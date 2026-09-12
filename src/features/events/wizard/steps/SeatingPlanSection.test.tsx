@@ -398,7 +398,8 @@ describe("SeatingPlanSection", () => {
     renderSection("event-2");
     fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
 
-    fireEvent.click(await screen.findByLabelText("Butaca A3. Pulsa para convertirla en pasillo"));
+    fireEvent.click(await screen.findByLabelText(/^Butaca A3\./));
+    fireEvent.click(await screen.findByRole("button", { name: "Quitar (pasillo)" }));
 
     await waitFor(() => {
       const zone = db.zones.find((z) => z.id === "zone-grada")!;
@@ -406,8 +407,51 @@ describe("SeatingPlanSection", () => {
       expect(zone.seatRows![0]).toMatchObject({ slots: 5, gaps: [3] });
     });
     // The seat that was A4 is now A3: numbering runs over the real seats, skipping the aisle.
-    expect(await screen.findByLabelText("Butaca A3. Pulsa para convertirla en pasillo")).toBeInTheDocument();
+    expect(await screen.findByLabelText(/^Butaca A3\./)).toBeInTheDocument();
     expect(screen.getByLabelText(/Posicion 3 de la fila A: pasillo/)).toBeInTheDocument();
+  });
+
+  // Renombrar o renumerar cambia el identificador de cada butaca, que es su nombre. Sin
+  // reengancharlas, el reparto por tipo de entrada se caia al suelo sin avisar.
+  it("keeps the ticket types on their seats when the zone is renumbered", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    db.capacityPools.find((p) => p.id === "pool-2-grada")!.seatAssignments = [
+      { seatId: "A-1", ticketTypeGroupId: "tt-2-grada" },
+      { seatId: "B-2", ticketTypeGroupId: "tt-2-grada" }
+    ];
+    db.capacityPools.find((p) => p.id === "pool-2-grada")!.accessibleSeatIds = ["A-2"];
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Filas con numeros" }));
+
+    await waitFor(() => {
+      const pool = db.capacityPools.find((p) => p.id === "pool-2-grada")!;
+      // La fila A pasa a llamarse 1 y la B, 2: las mismas butacas, con su tipo de entrada.
+      expect(pool.seatAssignments!.map((s) => s.seatId).sort()).toEqual(["1-1", "2-2"]);
+      expect(pool.accessibleSeatIds).toEqual(["1-2"]);
+    });
+  });
+
+  it("splits a total between rows when the organiser only knows the capacity", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Total / filas" }));
+    fireEvent.change(await screen.findByLabelText("Total de butacas"), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText("Filas"), { target: { value: "8" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear la rejilla" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rehacer" }));
+
+    await waitFor(() => {
+      const zone = db.zones.find((z) => z.id === "zone-grada")!;
+      expect(zone.capacity).toBe(100);
+      // 100 entre 8 no es exacto: el resto va a las primeras filas.
+      expect(zone.seatRows!.map((r) => r.slots)).toEqual([13, 13, 13, 13, 12, 12, 12, 12]);
+    });
   });
 
   it("shifts a whole row half a seat, for stands that are not aligned", async () => {

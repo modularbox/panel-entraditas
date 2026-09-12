@@ -1,5 +1,6 @@
 import type { Zone } from "@entraditas/types";
 import { Button } from "@/shared/ui/button";
+import { useTips } from "@/shared/ui/tips";
 
 export interface ZoneEditorPanelProps {
   zones: Zone[];
@@ -16,12 +17,17 @@ export interface ZoneEditorPanelProps {
 // No hay boton de zona accesible: la movilidad reducida se marca asiento a asiento desde el
 // editor de asientos, porque esas plazas van repartidas dentro del patio de butacas y no en un
 // bloque aparte. El tipo "accessible" sigue existiendo para planos antiguos que ya lo usaban.
-const ADD_BUTTONS: { kind: Zone["kind"]; label: string }[] = [
-  { kind: "numbered", label: "+ Zona numerada" },
-  { kind: "standing", label: "+ Zona de pie" },
-  { kind: "stage", label: "+ Escenario/Pantalla" },
-  { kind: "gate", label: "+ Puerta" }
+const ADD_BUTTONS: { kind: Zone["kind"]; label: string; ayuda: string }[] = [
+  { kind: "numbered", label: "+ Zona numerada", ayuda: "Butacas con fila y numero: patio, anfiteatro, grada" },
+  { kind: "standing", label: "+ Zona de pie", ayuda: "Aforo libre, sin asiento asignado: pista, foso" },
+  { kind: "stage", label: "+ Escenario/Pantalla", ayuda: "Solo para orientar al comprador; no se vende" },
+  { kind: "gate", label: "+ Puerta", ayuda: "Acceso por donde entra el publico; no se vende" }
 ];
+
+/** El lienzo guarda porcentajes con todos sus decimales; en una casilla solo estorban. */
+function redondear(valor: number): number {
+  return Math.round(valor * 10) / 10;
+}
 
 export function ZoneEditorPanel({
   zones,
@@ -32,12 +38,20 @@ export function ZoneEditorPanel({
   onDuplicateZone
 }: ZoneEditorPanelProps) {
   const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
+  const { tip, capa } = useTips();
 
   return (
     <div className="flex flex-col gap-3">
+      {capa}
       <div className="flex flex-col gap-2">
         {ADD_BUTTONS.map((btn) => (
-          <Button key={btn.kind} type="button" variant="outline" onClick={() => onAddZone(btn.kind)}>
+          <Button
+            key={btn.kind}
+            type="button"
+            variant="outline"
+            {...tip(btn.ayuda)}
+            onClick={() => onAddZone(btn.kind)}
+          >
             {btn.label}
           </Button>
         ))}
@@ -90,6 +104,7 @@ export function ZoneEditorPanel({
             <Button
               type="button"
               variant="outline"
+              {...tip("Copia la forma de la zona al lado, sin su reparto de butacas")}
               onClick={() => onDuplicateZone(selectedZone.id)}
               className="mt-2"
             >
@@ -103,7 +118,9 @@ export function ZoneEditorPanel({
             type="number"
             min="1"
             max="100"
-            defaultValue={selectedZone.width}
+            step="0.1"
+            defaultValue={redondear(selectedZone.width)}
+            {...tip("Lo ancha que es la zona dentro del plano")}
             onBlur={(e) => onUpdateZone(selectedZone.id, { width: Number(e.target.value) })}
           />
 
@@ -113,11 +130,19 @@ export function ZoneEditorPanel({
             type="number"
             min="1"
             max="100"
-            defaultValue={selectedZone.height}
+            step="0.1"
+            defaultValue={redondear(selectedZone.height)}
+            {...tip("Lo alta que es la zona dentro del plano")}
             onBlur={(e) => onUpdateZone(selectedZone.id, { height: Number(e.target.value) })}
           />
 
-          <Button type="button" variant="destructive" onClick={() => onDeleteZone(selectedZone.id)} className="mt-2">
+          <Button
+            type="button"
+            variant="destructive"
+            {...tip("Borra la zona y su reparto de butacas")}
+            onClick={() => onDeleteZone(selectedZone.id)}
+            className="mt-2"
+          >
             Eliminar esta zona
           </Button>
         </fieldset>

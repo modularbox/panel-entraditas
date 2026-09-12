@@ -47,7 +47,16 @@ export interface SeatRowSpec {
   startNumber?: number;
   /** Numbering runs right to left, as in halls numbered outwards from the centre aisle. */
   reversed?: boolean;
+  /**
+   * Seats the venue calls something other than what the count would give them, by position
+   * (1-based slot). For the odd chair that keeps an old number after a refurbishment, or a
+   * bis/duplicate. The key is the slot so the name stays put when the row grows or shrinks.
+   */
+  names?: Record<string, string>;
 }
+
+/** A, B, C... or 1, 2, 3... Whichever the venue paints on the row ends and the chairs. */
+export type Naming = "letters" | "numbers";
 
 export interface Seat {
   /** Stable within a layout: derived from the row label and the seat number ("A-1"). */
@@ -63,9 +72,11 @@ export interface Seat {
    */
   column: number;
   rowLabel: string;
-  /** 1-based seat number within its row, as printed on the ticket. */
+  /** 1-based ordinal within its row. Always a number, whatever the seat is *called*. */
   number: number;
-  /** Human label as printed on the ticket ("A1"). */
+  /** What the seat is called within its row ("7", "G", "12bis"), as painted on the chair. */
+  numberLabel: string;
+  /** Human label as printed on the ticket ("A7"). */
   label: string;
 }
 
@@ -83,6 +94,10 @@ export interface SeatGridInput {
   /** Full row-by-row description. Wins over everything else. */
   seatRows?: SeatRowSpec[] | null;
   rowAOrigin?: RowOrigin;
+  /** How the rows are named when they have no name of their own. Default: letters. */
+  rowNaming?: Naming | null;
+  /** How the seats are numbered within a row. Default: numbers. */
+  seatNaming?: Naming | null;
 }
 
 /** Capacity implied by a custom distribution, which is what the zone actually holds. */
@@ -198,10 +213,28 @@ export function toggleRowGap(row: SeatRowSpec, slot: number): SeatRowSpec {
   return { ...row, gaps: next.length > 0 ? next : undefined };
 }
 
+/** The automatic name of the nth row or seat, in whichever scheme the venue uses. */
+export function autoName(index: number, naming: Naming | null | undefined): string {
+  return naming === "numbers" ? String(index + 1) : rowLabel(index);
+}
+
+/**
+ * What is printed on the ticket: "A7", but "1-7" when the row is numbered too.
+ *
+ * Run together, a numbered row and a numbered seat are unreadable: row 1 seat 1 and row 11 seat
+ * nothing both come out as "11", and row 1 seat 10 reads as "110". A separator only goes in when
+ * a digit would land against a digit, so the usual "A7" stays as short as it always was.
+ */
+export function seatLabel(row: string, seat: string): string {
+  return /\d$/.test(row) && /^\d/.test(seat) ? `${row}-${seat}` : `${row}${seat}`;
+}
+
 /** Builds the seats of a zone in reading order (row drawn first, then left to right). */
 export function buildSeatGrid(zone: SeatGridInput): Seat[] {
   const rows = normaliseSeatRows(zone);
   const origin = zone.rowAOrigin ?? "top";
+  const rowNaming: Naming = zone.rowNaming ?? "letters";
+  const seatNaming: Naming = zone.seatNaming ?? "numbers";
   const seats: Seat[] = [];
   // Two rows sharing a name would produce two seats with the same id, and one would silently
   // shadow the other's ticket type. A repeated name is disambiguated rather than rejected.
@@ -209,7 +242,7 @@ export function buildSeatGrid(zone: SeatGridInput): Seat[] {
   let placed = 0;
 
   rows.forEach((row, rowIndex) => {
-    const automatic = rowLabel(origin === "top" ? rowIndex : rows.length - 1 - rowIndex);
+    const automatic = autoName(origin === "top" ? rowIndex : rows.length - 1 - rowIndex, rowNaming);
     let label = row.label?.trim() ? row.label.trim() : automatic;
     if (usedLabels.has(label)) {
       let suffix = 2;
@@ -224,26 +257,108 @@ export function buildSeatGrid(zone: SeatGridInput): Seat[] {
 
     const start = row.startNumber && row.startNumber > 0 ? Math.floor(row.startNumber) : 1;
     const offset = Number.isFinite(row.offset) ? (row.offset as number) : 0;
+    const usedNames = new Set<string>();
 
     realSlots.forEach((slot, realIndex) => {
       if (placed >= MAX_RENDERED_SEATS) return;
       const position = row.reversed ? realSlots.length - 1 - realIndex : realIndex;
       const number = start + position;
+      // The chair's own name wins over the count: a refurbished hall keeps the odd old number.
+      const custom = row.names?.[String(slot)]?.trim();
+      let numberLabel = custom || autoName(number - 1, seatNaming);
+      if (usedNames.has(numberLabel)) {
+        let suffix = 2;
+        while (usedNames.has(`${numberLabel}.${suffix}`)) suffix += 1;
+        numberLabel = `${numberLabel}.${suffix}`;
+      }
+      usedNames.add(numberLabel);
       const colIndex = slot - 1;
       seats.push({
-        id: `${label}-${number}`,
+        id: `${label}-${numberLabel}`,
         rowIndex,
         colIndex,
         column: colIndex + offset / 2,
         rowLabel: label,
         number,
-        label: `${label}${number}`
+        numberLabel,
+        label: seatLabel(label, numberLabel)
       });
       placed += 1;
     });
   });
 
   return seats;
+}
+
+/**
+ * Carries a zone's per-seat data across a re-labelling.
+ *
+ * Seat ids are the labels the organiser sees ("A-7"), which is what makes them meaningful and
+ * what lets the buyer site and the panel agree on which chair is which. The price of that is that
+ * renaming a row, renumbering a block or switching the whole zone from letters to numbers changes
+ * every id, and the ticket types pinned to those ids would be dropped on the floor. Seats are
+ * matched by where they are, which does not change, so the breakdown survives.
+ */
+export function remapById(before: Seat[], after: Seat[], ids: string[]): string[];
+export function remapById(before: Seat[], after: Seat[], assignments: SeatAssignments): SeatAssignments;
+export function remapById(
+  before: Seat[],
+  after: Seat[],
+  value: string[] | SeatAssignments
+): string[] | SeatAssignments {
+  const key = (seat: Seat) => `${seat.rowIndex}:${seat.colIndex}`;
+  const oldIdToPlace = new Map(before.map((seat) => [seat.id, key(seat)]));
+  const placeToNewId = new Map(after.map((seat) => [key(seat), seat.id]));
+  const translate = (id: string): string | null => {
+    const place = oldIdToPlace.get(id);
+    if (place === undefined) return null;
+    return placeToNewId.get(place) ?? null;
+  };
+
+  if (Array.isArray(value)) {
+    return value.flatMap((id) => {
+      const next = translate(id);
+      return next === null ? [] : [next];
+    });
+  }
+  const next: SeatAssignments = {};
+  for (const [id, groupId] of Object.entries(value)) {
+    const moved = translate(id);
+    if (moved !== null) next[moved] = groupId;
+  }
+  return next;
+}
+
+/**
+ * Slides a seat one position sideways, swapping it with the aisle next to it. Only into an aisle:
+ * anywhere else there is already a chair, and two chairs cannot share a place.
+ */
+export function moveSeatSlot(row: SeatRowSpec, slot: number, direction: -1 | 1): SeatRowSpec {
+  const target = slot + direction;
+  if (target < 1 || target > row.slots) return row;
+  const gaps = new Set(row.gaps ?? []);
+  if (gaps.has(slot) || !gaps.has(target)) return row;
+  gaps.delete(target);
+  gaps.add(slot);
+  const names = { ...(row.names ?? {}) };
+  if (names[String(slot)] !== undefined) {
+    names[String(target)] = names[String(slot)]!;
+    delete names[String(slot)];
+  }
+  return {
+    ...row,
+    gaps: [...gaps].sort((a, b) => a - b),
+    names: Object.keys(names).length > 0 ? names : undefined
+  };
+}
+
+/** Gives one seat a name of its own, or takes it back to the automatic one. */
+export function renameSeatSlot(row: SeatRowSpec, slot: number, name: string | null): SeatRowSpec {
+  const names = { ...(row.names ?? {}) };
+  const trimmed = name?.trim() ?? "";
+  if (trimmed === "") delete names[String(slot)];
+  else names[String(slot)] = trimmed;
+  return { ...row, names: Object.keys(names).length > 0 ? names : undefined };
 }
 
 /** Groups the seats by drawn row, so the UI can render one line per physical row. */
