@@ -24,14 +24,18 @@ function next() {
   fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
 }
 
-/** Los pasos de un evento de una sola sesion, en orden. */
+/**
+ * Los pasos de un evento de una sola sesion, en orden.
+ *
+ * Sin "Invitados": Jorge retiro esa funcion entera del panel el 11/09 y Axel la dio por retirada
+ * el 12/09. Si vuelve, vuelve entre "Puertas" y "Publicar evento".
+ */
 const PASOS_SESION_UNICA = [
   "Informacion del evento",
   "Tipos de entrada",
   "Asientos",
   "Codigos de descuento",
   "Puertas",
-  "Invitados",
   "Publicar evento"
 ];
 
@@ -51,10 +55,10 @@ describe("EventWizardPage", () => {
     expect(screen.getByTestId("wizard-event-id")).toHaveTextContent("sin-id");
     expect(screen.queryByRole("heading", { name: "Antes de crear el evento" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Informaci.n del evento/ })).toBeInTheDocument();
-    expect(screen.getByText(/Paso 1 de 7/)).toBeInTheDocument();
+    expect(screen.getByText(/Paso 1 de 6/)).toBeInTheDocument();
   });
 
-  it("recupera los pasos de descuentos, puertas e invitados, en su orden", async () => {
+  it("recupera los pasos de descuentos y puertas, en su orden", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/nuevo/editar");
 
@@ -84,13 +88,13 @@ describe("EventWizardPage", () => {
 
     expect(screen.getByRole("button", { name: "2. Tipos de entrada" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "4. Codigos de descuento" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "7. Publicar evento" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "6. Publicar evento" })).toBeDisabled();
   });
 
   it("el paso 2 empieza por los limites de compra", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar");
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
 
     next();
     const region = screen.getByRole("region", { name: "Tipos de entrada" });
@@ -103,7 +107,7 @@ describe("EventWizardPage", () => {
   it("los limites de compra se guardan en las reglas del evento, que es lo que se publica", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar");
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
 
     next();
     const porPedido = await screen.findByLabelText("Máximo por pedido");
@@ -121,7 +125,7 @@ describe("EventWizardPage", () => {
   it("no deja guardar un tope por cliente menor que el de pedido", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar");
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
 
     next();
     fireEvent.change(await screen.findByLabelText("Máximo por pedido"), { target: { value: "6" } });
@@ -134,7 +138,7 @@ describe("EventWizardPage", () => {
   it("el paso 3 (asientos) pregunta por los asientos sueltos y lo guarda en las reglas", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-2/editar"); // ya tiene tipos de entrada, asi que se puede avanzar
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
 
     next(); // -> Tipos de entrada
     await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" })).toBeEnabled());
@@ -148,23 +152,22 @@ describe("EventWizardPage", () => {
     await waitFor(() => expect(db.events.find((e) => e.id === "event-2")!.rules?.allowIsolatedSeats).toBe(true));
   });
 
-  it("los pasos 4, 5 y 6 son descuentos, puertas e invitados", async () => {
+  it("los pasos 4 y 5 son descuentos y puertas", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar");
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
 
     fireEvent.click(screen.getByRole("button", { name: "4. Codigos de descuento" }));
     expect(screen.getByRole("region", { name: "Codigos de descuento" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "5. Puertas" }));
     expect(screen.getByRole("region", { name: "Puertas" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "6. Invitados" }));
-    expect(screen.getByRole("region", { name: "Invitados" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Invitados/ })).not.toBeInTheDocument();
   });
 
   it("blocks advancing past the ticket-types step until at least one ticket type exists, but still allows going back", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar"); // seeded with zero ticket types
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
 
     next();
     expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
@@ -178,7 +181,7 @@ describe("EventWizardPage", () => {
   it("includes the multiple-functions step for an event with hasSubEvents set", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-3/editar"); // seeded with hasSubEvents: true
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 8"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
 
     next();
     expect(screen.getByRole("region", { name: "Varias funciones" })).toBeInTheDocument();
@@ -187,7 +190,7 @@ describe("EventWizardPage", () => {
   it("excludes the multiple-functions step for a single-function event", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-1/editar"); // seeded with hasSubEvents: false
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
 
     next();
     expect(screen.queryByRole("region", { name: "Varias funciones" })).not.toBeInTheDocument();
@@ -198,7 +201,7 @@ describe("EventWizardPage", () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     db.ticketTypes.find((t) => t.id === "tt-2-pista")!.quantityTotal = 700; // zone-pista assigns 800 from this ticket type
     renderAt("/eventos/event-2/editar"); // venue-1 (Sala Apolo), Pista already assigned to tt-2-pista
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
 
     next(); // -> Tipos de entrada
     await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" })).toBeEnabled());

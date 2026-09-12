@@ -14,7 +14,6 @@ import { Step5Publish } from "./steps/Step5Publish";
 import { SeatingPlanSection } from "./steps/SeatingPlanSection";
 import { DiscountCodesSection } from "./steps/DiscountCodesSection";
 import { GatesSection } from "./steps/GatesSection";
-import { GuestlistSection } from "./steps/GuestlistSection";
 import { IsolatedSeatsQuestion, PurchaseLimitsQuestion } from "./steps/EventRulesQuestions";
 
 function useEventQuery(eventId: string | null) {
@@ -26,7 +25,7 @@ function useEventQuery(eventId: string | null) {
   });
 }
 
-type StepKey = "info" | "subeventos" | "tipos" | "plano" | "descuentos" | "puertas" | "invitados" | "publicar";
+type StepKey = "info" | "subeventos" | "tipos" | "plano" | "descuentos" | "puertas" | "publicar";
 
 interface WizardStep {
   key: StepKey;
@@ -37,9 +36,13 @@ interface WizardStep {
 /**
  * Los pasos, en el orden en que se piensa un evento.
  *
- * Los codigos de descuento, las puertas y las listas de invitados estaban hechos pero se habian
- * quedado fuera del asistente: solo se podian configurar desde la ficha del evento, despues de
- * crearlo, y quien creaba un evento no los veia nunca. Vuelven aqui, antes de publicar.
+ * Los codigos de descuento y las puertas estaban hechos pero se habian quedado fuera del
+ * asistente: solo se podian configurar desde la ficha del evento, despues de crearlo, y quien
+ * creaba un evento no los veia nunca. Vuelven aqui, antes de publicar.
+ *
+ * Las listas de invitados estuvieron aqui como paso 6 y ya no estan: Jorge retiro la funcion
+ * entera del panel el 11/09 (componente, tipos, permisos y mocks) y Axel confirmo el 12/09 que
+ * se da por buena esa decision. Si vuelve, vuelve entre "Puertas" y "Publicar".
  *
  * Tampoco hay cuestionario previo: sus preguntas estan ahora en el paso al que afectan (ver
  * EventRulesQuestions). Decidir si habra plano antes de ver el editor de asientos obligaba a
@@ -52,7 +55,6 @@ const ALL_STEPS: WizardStep[] = [
   { key: "plano", label: "Asientos", needsEventId: true },
   { key: "descuentos", label: "Codigos de descuento", needsEventId: true },
   { key: "puertas", label: "Puertas", needsEventId: true },
-  { key: "invitados", label: "Invitados", needsEventId: true },
   { key: "publicar", label: "Publicar evento", needsEventId: true }
 ];
 
@@ -165,7 +167,6 @@ export function EventWizardPage() {
         )}
         {activeStep.key === "descuentos" && <DiscountCodesSection eventId={eventId} />}
         {activeStep.key === "puertas" && <GatesSection eventId={eventId} />}
-        {activeStep.key === "invitados" && <GuestlistSection eventId={eventId} />}
         {activeStep.key === "publicar" && <Step5Publish eventId={eventId} onSaved={setEventId} />}
       </section>
     </div>
