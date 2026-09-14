@@ -564,7 +564,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
 
       {selectedZone && selectedZone.kind === "numbered" && (selectedSeats?.length ?? 0) === 0 && (
         <p className="rounded-md border-2 border-border bg-surface p-3 text-sm text-muted-foreground">
-          "{selectedZone.name}" todavia no tiene ninguna butaca. Crea sus filas arriba para poder
+          "{selectedZone.name}" todavía no tiene ninguna butaca. Crea sus filas arriba para poder
           repartirlas por tipo de entrada.
         </p>
       )}

@@ -5,6 +5,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Menu } from "@/components/Menu";
 import { db, resetDb, sessions } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { useInactivityLogout } from "@/shared/auth/useInactivityLogout";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { recordPanelVisit, resetPanelHistory } from "@/shared/ui/panelHistory";
 import { NAV_ITEMS } from "../navItems";
@@ -19,6 +20,10 @@ export function PanelLayout() {
   const location = useLocation();
   const mounted = useRef(false);
   const visibleItems = NAV_ITEMS.filter((item) => has(item.permission));
+
+  // Aqui dentro, y no en el enrutador: vive mientras hay sesion abierta y se va con ella. Al
+  // cerrarse, el enrutador manda solo al login, que es donde se cuenta lo que ha pasado.
+  useInactivityLogout();
 
   // Track which panel routes were visited so "Volver" can return to the previous in-app
   // view without relying on the browser history (which also holds /login and external pages).

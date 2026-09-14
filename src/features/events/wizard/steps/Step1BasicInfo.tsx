@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
@@ -7,9 +7,27 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
+import { borrarBorrador, describirGuardado, guardarBorrador, leerBorrador, type EventDraft } from "../eventDraft";
 import { OptionButton, QuestionSection } from "./EventRulesQuestions";
 import { step1Schema, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";
+
+/**
+ * Que ha pasado, en cristiano.
+ *
+ * Antes cualquier fallo salia como "No se pudo guardar el evento": una sesion caducada, un
+ * servidor caido y un campo mal decian exactamente lo mismo, asi que no habia nada que hacer con
+ * el mensaje salvo volver a pulsar el boton a ver si sonaba la flauta.
+ */
+export function mensajeDeFallo(error: unknown): string {
+  if (error instanceof AppError) {
+    if (error.code === "UNAUTHENTICATED") {
+      return "Se cerró la sesión mientras escribías. Lo que llevabas queda guardado aquí: vuelve a entrar y sigue.";
+    }
+    return error.message;
+  }
+  return "No se pudo guardar el evento. Lo que llevabas escrito queda guardado aquí como borrador.";
+}
 
 export interface Step1BasicInfoProps {
   eventId: string | null;
@@ -88,8 +106,70 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
     .map((item) => item.trim())
     .filter(Boolean) ?? [];
 
+  // Lo que se estaba escribiendo y no llego a guardarse. Se recupera una sola vez por evento:
+  // despues manda lo que haya en el formulario, que es lo que la persona esta viendo.
+  const [borrador, setBorrador] = useState<EventDraft | null>(null);
+  const recuperado = useRef<string | null>(null);
+  const ultimoGuardado = useRef<string>("");
+
   useEffect(() => {
-    if (existingEvent && !isDirty) {
+    const clave = eventId ?? "nuevo";
+    if (recuperado.current === clave) return;
+    recuperado.current = clave;
+    const encontrado = leerBorrador(eventId);
+    if (!encontrado) return;
+    setBorrador(encontrado);
+    reset(encontrado.valores as Step1FormValues);
+  }, [eventId, reset]);
+
+  /**
+   * Se guarda segun se escribe, no al salir ni al fallar. Una sesion que se cae, una pestana que
+   * se cierra sin querer o un fallo de red no avisan antes, y hasta que se pulsa "Guardar y
+   * continuar" esto no existe en ningun sitio.
+   */
+  useEffect(() => {
+    if (!isDirty) return;
+    const serializado = JSON.stringify(values);
+    const id = window.setTimeout(() => {
+      if (serializado === ultimoGuardado.current) return;
+      ultimoGuardado.current = serializado;
+      guardarBorrador(eventId, JSON.parse(serializado) as Record<string, unknown>);
+    }, 600);
+    return () => window.clearTimeout(id);
+  }, [values, isDirty, eventId]);
+
+  function descartarBorrador() {
+    borrarBorrador();
+    setBorrador(null);
+    ultimoGuardado.current = "";
+    if (existingEvent) {
+      const startsAt = dateParts(existingEvent.startsAt);
+      const datePending = existingEvent.datePending ?? !existingEvent.startsAt;
+      reset({
+        coverImageUrl: existingEvent.coverImageUrl ?? "",
+        gallery: existingEvent.gallery?.join("\n") ?? "",
+        category: existingEvent.category,
+        title: existingEvent.title,
+        startDate: startsAt.startDate,
+        startTime: startsAt.startTime,
+        datePending,
+        notifyWhenDateConfirmed: existingEvent.notifyWhenDateConfirmed ?? datePending,
+        location: existingEvent.location ?? "",
+        locality: existingEvent.locality ?? "",
+        description: existingEvent.description,
+        serviceFeeType: existingEvent.serviceFeeType ?? "none",
+        serviceFeeValue: existingEvent.serviceFeeValue ?? 0,
+        hasSubEvents: existingEvent.hasSubEvents
+      });
+    } else {
+      reset();
+    }
+  }
+
+  useEffect(() => {
+    // Un borrador recuperado gana: es lo ultimo que escribio esta persona y todavia no esta en
+    // ningun sitio. Lo guardado en el evento se puede volver a traer con "Descartar el borrador".
+    if (existingEvent && !isDirty && !borrador) {
       const startsAt = dateParts(existingEvent.startsAt);
       const datePending = existingEvent.datePending ?? !existingEvent.startsAt;
       reset({
@@ -109,7 +189,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         hasSubEvents: existingEvent.hasSubEvents
       });
     }
-  }, [existingEvent, isDirty, reset]);
+  }, [existingEvent, isDirty, borrador, reset]);
 
   async function onSubmit(formValues: Step1FormValues) {
     setSaveError(null);
@@ -140,10 +220,18 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
       const event = eventId
         ? await apiClient.patch<Event>(`/events/${eventId}`, payload, { token: token! })
         : await apiClient.post<Event>("/events", payload, { token: token! });
+      // Ya esta guardado de verdad: el borrador ha cumplido y estorbaria la proxima vez.
+      borrarBorrador();
+      setBorrador(null);
+      ultimoGuardado.current = "";
       onSaved(event.id);
       goNext?.();
     } catch (error) {
-      setSaveError(error instanceof AppError ? error.message : "No se pudo guardar el evento");
+      // Se vuelca ya, sin esperar al temporizador del guardado automatico: si el guardado ha
+      // fallado, este es justo el momento en que hace falta que este puesto.
+      ultimoGuardado.current = JSON.stringify(formValues);
+      guardarBorrador(eventId, formValues as unknown as Record<string, unknown>);
+      setSaveError(mensajeDeFallo(error));
     }
   }
 
@@ -169,6 +257,21 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)]">
       <div className="grid min-w-0 gap-6">
+        {borrador && (
+          <p
+            role="status"
+            className="!mt-0 flex flex-wrap items-center gap-2 rounded-md border-2 border-foreground bg-accent px-3 py-2 text-sm font-semibold text-accent-foreground"
+          >
+            <span>
+              Recuperado lo que estabas escribiendo ({describirGuardado(borrador.guardadoEn)}).
+              {borrador.imagenesOmitidas && " Las imágenes no cabían en el borrador: vuelve a adjuntarlas."}
+            </span>
+            <button type="button" className="ml-auto underline" onClick={descartarBorrador}>
+              Descartar el borrador
+            </button>
+          </p>
+        )}
+
         <fieldset className="!mt-0">
           <legend>Imagen de portada</legend>
           <input type="hidden" {...register("coverImageUrl")} />

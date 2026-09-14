@@ -408,7 +408,7 @@ describe("SeatingPlanSection", () => {
     });
     // The seat that was A4 is now A3: numbering runs over the real seats, skipping the aisle.
     expect(await screen.findByLabelText(/^Butaca A3\./)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Posicion 3 de la fila A: pasillo/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Posición 3 de la fila A: pasillo/)).toBeInTheDocument();
   });
 
   // Renombrar o renumerar cambia el identificador de cada butaca, que es su nombre. Sin
@@ -424,7 +424,7 @@ describe("SeatingPlanSection", () => {
     renderSection("event-2");
     fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Filas con numeros" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Filas con números" }));
 
     await waitFor(() => {
       const pool = db.capacityPools.find((p) => p.id === "pool-2-grada")!;

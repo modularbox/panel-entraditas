@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { db, demoPasswordFor, resetDb } from "@/mocks/state";
 import { server } from "@/mocks/server";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { borrarBorrador, guardarBorrador, leerBorrador } from "../eventDraft";
 import { Step1BasicInfo, type Step1BasicInfoProps } from "./Step1BasicInfo";
 
 function renderStep1(props: Step1BasicInfoProps) {
@@ -31,6 +32,7 @@ function fillDescription(value: string) {
 describe("Step1BasicInfo", () => {
   afterEach(() => {
     resetDb();
+    borrarBorrador();
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
   });
 
@@ -156,5 +158,86 @@ describe("Step1BasicInfo", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No se pudo guardar el evento"));
     expect(onSaved).not.toHaveBeenCalled();
     expect(goNext).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Hasta que se pulsa "Guardar y continuar", esto no existe en ningun sitio. Una sesion que se
+   * cae, un fallo de red o una pestana cerrada sin querer se lo llevaban entero.
+   */
+  describe("no se pierde lo que se estaba escribiendo", () => {
+    it("lo guarda segun se escribe, sin pulsar nada", async () => {
+      await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+      renderStep1({ eventId: null, onSaved: vi.fn(), goNext: vi.fn() });
+
+      fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "A medio escribir" } });
+
+      await waitFor(() => expect(leerBorrador(null)?.valores).toMatchObject({ title: "A medio escribir" }));
+    });
+
+    it("lo recupera al volver, y dice que lo ha hecho", async () => {
+      await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+      guardarBorrador(null, { title: "Lo que estaba escribiendo", locality: "Albacete", category: "concierto" });
+      renderStep1({ eventId: null, onSaved: vi.fn(), goNext: vi.fn() });
+
+      await waitFor(() => expect(screen.getByLabelText(/T.tulo/)).toHaveValue("Lo que estaba escribiendo"));
+      expect(screen.getByLabelText("Localidad")).toHaveValue("Albacete");
+      expect(screen.getByRole("status")).toHaveTextContent(/Recuperado lo que estabas escribiendo/);
+    });
+
+    it("el borrador gana sobre lo ya guardado del evento, que es mas viejo", async () => {
+      await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+      guardarBorrador("event-3", { title: "Titulo sin guardar", category: "teatro", description: "algo" });
+      renderStep1({ eventId: "event-3", onSaved: vi.fn(), goNext: vi.fn() });
+
+      await waitFor(() => expect(screen.getByLabelText(/T.tulo/)).toHaveValue("Titulo sin guardar"));
+    });
+
+    it("descartarlo devuelve lo que hay guardado en el evento", async () => {
+      await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+      guardarBorrador("event-3", { title: "Titulo sin guardar", category: "teatro", description: "algo" });
+      renderStep1({ eventId: "event-3", onSaved: vi.fn(), goNext: vi.fn() });
+      await waitFor(() => expect(screen.getByLabelText(/T.tulo/)).toHaveValue("Titulo sin guardar"));
+
+      fireEvent.click(screen.getByRole("button", { name: "Descartar el borrador" }));
+
+      await waitFor(() => expect(screen.getByLabelText(/T.tulo/)).toHaveValue("La Casa de Bernarda Alba"));
+      expect(leerBorrador("event-3")).toBeNull();
+    });
+
+    it("sobrevive a que falle el guardado, que es cuando mas falta hace", async () => {
+      await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+      server.use(
+        http.post("http://localhost:4000/api/v1/events", () =>
+          HttpResponse.json(
+            { error: { code: "UNAUTHENTICATED", message: "Sesion no valida", requestId: "req_fail" } },
+            { status: 401 }
+          )
+        )
+      );
+      renderStep1({ eventId: null, onSaved: vi.fn(), goNext: vi.fn() });
+
+      fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Concierto de prueba" } });
+      fillDescription("Una descripcion valida");
+      fillRequiredLocation();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
+
+      // Y el mensaje dice lo que ha pasado, no "no se pudo guardar".
+      await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/Se cerró la sesión mientras escribías/));
+      expect(leerBorrador(null)?.valores).toMatchObject({ title: "Concierto de prueba" });
+    });
+
+    it("se tira una vez guardado de verdad: la proxima vez no tiene nada que decir", async () => {
+      await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+      const onSaved = vi.fn();
+      renderStep1({ eventId: null, onSaved, goNext: vi.fn() });
+
+      fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Concierto de prueba" } });
+      fillDescription("Una descripcion valida");
+      fillRequiredLocation();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
+
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(leerBorrador(null)).toBeNull();
+    });
   });
 });

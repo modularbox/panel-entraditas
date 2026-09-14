@@ -131,11 +131,11 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
       type="button"
       variant="outline"
       className="h-9 w-full justify-center gap-2 text-xs"
-      {...tip(donde === "arriba" ? "Anadir una fila delante de todas" : "Anadir una fila detras de todas")}
+      {...tip(donde === "arriba" ? "Añade una fila delante de todas" : "Añade una fila detrás de todas")}
       onClick={() => anadirFila(donde)}
     >
       <Icon name="plus" size={14} />
-      Anadir fila {donde === "arriba" ? "arriba" : "abajo"}
+      Añadir fila {donde === "arriba" ? "arriba" : "abajo"}
     </Button>
   );
 
@@ -159,8 +159,8 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
               aria-pressed={modo === opcion}
               {...tip(
                 opcion === "multiplicar"
-                  ? "Se cuantas filas hay y cuantas butacas tiene cada una"
-                  : "Se el total de butacas y en cuantas filas va"
+                  ? "Sé cuántas filas hay y cuántas butacas tiene cada una"
+                  : "Sé el total de butacas y en cuántas filas va"
               )}
               onClick={() => {
                 setModo(opcion);
@@ -251,9 +251,9 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Para una sala rectangular, con esto ya esta. Despues puedes retocar fila a fila: pulsa
+          Para una sala rectangular, con esto ya está. Después puedes retocar fila a fila: pulsa
           una butaca para quitarla, moverla o cambiarle el nombre, y usa las flechas para
-          desplazar la fila media butaca, que es como se dibujan los graderios curvos.
+          desplazar la fila media butaca, que es como se dibujan los graderíos curvos.
         </p>
       </div>
 
@@ -318,7 +318,7 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
                   value={row.label ?? ""}
                   placeholder={name}
                   maxLength={8}
-                  {...tip(`Como se llama esta fila en la sala (ahora, ${name})`)}
+                  {...tip(`Cómo se llama esta fila en la sala (ahora, ${name})`)}
                   onChange={(e) => patchRow(index, { label: e.target.value || null })}
                   className="h-8 w-14 shrink-0 rounded-md border-2 border-foreground bg-surface px-1 text-center text-sm font-semibold"
                 />
@@ -342,7 +342,7 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
                     type="button"
                     variant="outline"
                     className="h-8 w-7 shrink-0 p-0 shadow-none"
-                    aria-label={`Anadir una butaca a la fila ${name}`}
+                    aria-label={`Añadir una butaca a la fila ${name}`}
                     {...tip(`Una butaca mas en la fila ${name}`)}
                     disabled={row.slots >= 120}
                     onClick={() => patchRow(index, { slots: row.slots + 1 })}
@@ -378,7 +378,7 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
                 </div>
 
                 <label className="sr-only" htmlFor={`row-start-${index}`}>
-                  Primer numero de la fila {name}
+                  Primer número de la fila {name}
                 </label>
                 <input
                   id={`row-start-${index}`}
@@ -386,7 +386,7 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
                   min="1"
                   inputMode="numeric"
                   value={row.startNumber ?? 1}
-                  {...tip("Por que numero empieza la fila (hay salas que empiezan en 101)")}
+                  {...tip("Por qué número empieza la fila (hay salas que empiezan en 101)")}
                   onChange={(e) => patchRow(index, { startNumber: Math.max(1, Number(e.target.value) || 1) })}
                   className="h-8 w-14 shrink-0 rounded-md border-2 border-foreground bg-surface px-1 text-center text-sm"
                 />
@@ -448,7 +448,7 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
                         type="button"
                         aria-label={
                           esPasillo
-                            ? `Posicion ${slot} de la fila ${name}: pasillo. Pulsa para poner una butaca`
+                            ? `Posición ${slot} de la fila ${name}: pasillo. Pulsa para poner una butaca`
                             : `Butaca ${name}${numero}. Pulsa para quitarla, moverla o cambiarle el nombre`
                         }
                         aria-expanded={estaAbierta}
@@ -532,18 +532,18 @@ function AccionesDeButaca({
   return (
     <div
       role="group"
-      aria-label={`Acciones de la posicion ${slot} de la fila ${nombreFila}`}
+      aria-label={`Acciones de la posición ${slot} de la fila ${nombreFila}`}
       className="ml-6 flex min-w-max flex-wrap items-center gap-2 rounded-b-md border-2 border-t-0 border-foreground bg-surface-alt p-2"
     >
       <span className="text-xs font-semibold">
-        {esPasillo ? `Pasillo (posicion ${slot})` : `Butaca ${nombreFila}${nombreActual}`}
+        {esPasillo ? `Pasillo (posición ${slot})` : `Butaca ${nombreFila}${nombreActual}`}
       </span>
 
       <Button
         type="button"
         variant="outline"
         className="h-8 px-2 text-xs shadow-none"
-        {...tip(esPasillo ? "Vuelve a haber butaca aqui" : "Aqui no hay butaca: es pasillo o hueco")}
+        {...tip(esPasillo ? "Vuelve a haber butaca aquí" : "Aquí no hay butaca: es pasillo o hueco")}
         onClick={() => onFila(toggleRowGap(fila, slot))}
       >
         {esPasillo ? "Poner butaca" : "Quitar (pasillo)"}
@@ -555,7 +555,7 @@ function AccionesDeButaca({
             type="button"
             variant="outline"
             className="h-8 w-8 p-0 text-xs shadow-none"
-            aria-label="Mover la butaca una posicion a la izquierda"
+            aria-label="Mover la butaca una posición a la izquierda"
             {...tip("Solo se puede mover al hueco de al lado")}
             disabled={!puedeMover(-1)}
             onClick={() => {
@@ -569,7 +569,7 @@ function AccionesDeButaca({
             type="button"
             variant="outline"
             className="h-8 w-8 p-0 text-xs shadow-none"
-            aria-label="Mover la butaca una posicion a la derecha"
+            aria-label="Mover la butaca una posición a la derecha"
             {...tip("Solo se puede mover al hueco de al lado")}
             disabled={!puedeMover(1)}
             onClick={() => {
@@ -589,7 +589,7 @@ function AccionesDeButaca({
             value={nombreNuevo}
             maxLength={8}
             placeholder={nombreActual}
-            {...tip("Como la llama la sala, si no es el numero que le toca")}
+            {...tip("Cómo la llama la sala, si no es el número que le toca")}
             onChange={(e) => onNombreNuevo(e.target.value)}
             onKeyDown={(e) => {
               if (e.key !== "Enter") return;
@@ -612,7 +612,7 @@ function AccionesDeButaca({
               type="button"
               variant="outline"
               className="h-8 px-2 text-xs shadow-none"
-              {...tip("Vuelve al numero que le toca por su sitio")}
+              {...tip("Vuelve al número que le toca por su sitio")}
               onClick={() => {
                 onNombreNuevo("");
                 onFila(renameSeatSlot(fila, slot, null));
@@ -690,8 +690,8 @@ function Alternador({
             key={opcion}
             type="button"
             aria-pressed={valor === opcion}
-            aria-label={`${etiqueta} con ${opcion === "letters" ? "letras" : "numeros"}`}
-            {...tip(`${etiqueta} con ${opcion === "letters" ? "letras" : "numeros"}`)}
+            aria-label={`${etiqueta} con ${opcion === "letters" ? "letras" : "números"}`}
+            {...tip(`${etiqueta} con ${opcion === "letters" ? "letras" : "números"}`)}
             onClick={() => onChange(opcion)}
             className={cn(
               "rounded-sm px-2 py-1 text-[11px] font-extrabold",

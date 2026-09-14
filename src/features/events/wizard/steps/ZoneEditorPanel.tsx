@@ -18,10 +18,10 @@ export interface ZoneEditorPanelProps {
 // editor de asientos, porque esas plazas van repartidas dentro del patio de butacas y no en un
 // bloque aparte. El tipo "accessible" sigue existiendo para planos antiguos que ya lo usaban.
 const ADD_BUTTONS: { kind: Zone["kind"]; label: string; ayuda: string }[] = [
-  { kind: "numbered", label: "+ Zona numerada", ayuda: "Butacas con fila y numero: patio, anfiteatro, grada" },
+  { kind: "numbered", label: "+ Zona numerada", ayuda: "Butacas con fila y número: patio, anfiteatro, grada" },
   { kind: "standing", label: "+ Zona de pie", ayuda: "Aforo libre, sin asiento asignado: pista, foso" },
   { kind: "stage", label: "+ Escenario/Pantalla", ayuda: "Solo para orientar al comprador; no se vende" },
-  { kind: "gate", label: "+ Puerta", ayuda: "Acceso por donde entra el publico; no se vende" }
+  { kind: "gate", label: "+ Puerta", ayuda: "Acceso por donde entra el público; no se vende" }
 ];
 
 /** El lienzo guarda porcentajes con todos sus decimales; en una casilla solo estorban. */
@@ -96,7 +96,7 @@ export function ZoneEditorPanel({
           {selectedZone.kind === "numbered" && (
             <p className="rounded-md border-2 border-border bg-background px-2 py-1.5 text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">{selectedZone.capacity} plazas</span>, contadas
-              de sus filas. Se cambian abajo, en "Filas y butacas": la fila A es la mas cercana al escenario.
+              de sus filas. Se cambian abajo, en "Filas y butacas": la fila A es la más cercana al escenario.
             </p>
           )}
 
