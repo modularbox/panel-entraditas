@@ -24,11 +24,6 @@ const CHANNEL_LABELS: Record<Order["channel"], string> = {
   courtesy: "Cortesía"
 };
 
-const PAYMENT_LABELS: Record<"card" | "cash", string> = {
-  card: "Tarjeta",
-  cash: "Efectivo"
-};
-
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const number = new Intl.NumberFormat("es-ES");
 
@@ -96,7 +91,6 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
               <th className="px-4 py-3 font-medium text-muted-foreground">Evento</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Canal</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">Pago</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Total</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
             </tr>
@@ -110,7 +104,6 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
                 <td className="px-4 py-3">{order.eventTitle}</td>
                 <td className="px-4 py-3">{STATUS_LABELS[order.status]}</td>
                 <td className="px-4 py-3">{CHANNEL_LABELS[order.channel]}</td>
-                <td className="px-4 py-3">{PAYMENT_LABELS[order.paymentMethod]}</td>
                 <td className="px-4 py-3">{euro.format(order.total / 100)}</td>
                 <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString("es-ES")}</td>
               </tr>

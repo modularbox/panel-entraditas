@@ -33,7 +33,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
       effectivePermissions: new Set(["events:read"]),
       eventScopes: []
     });
@@ -45,7 +45,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
       effectivePermissions: new Set(["users:manage"]),
       eventScopes: []
     });
@@ -57,7 +57,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
       effectivePermissions: new Set(["orders:read"]),
       eventScopes: []
     });
@@ -69,7 +69,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
       effectivePermissions: new Set(["orders:read"]),
       eventScopes: []
     });
@@ -81,7 +81,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
       effectivePermissions: new Set(["orders:read"]),
       eventScopes: []
     });
@@ -93,7 +93,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
       effectivePermissions: new Set(["orders:read"]),
       eventScopes: []
     });
@@ -105,7 +105,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
       effectivePermissions: new Set(["orders:read"]),
       eventScopes: []
     });
@@ -117,7 +117,7 @@ describe("AppRoutes", () => {
     useSessionStore.setState({
       status: "authenticated",
       token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "organizador", organizationId: "org-1" },
+      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
       effectivePermissions: new Set(["scan:validate"]),
       eventScopes: []
     });

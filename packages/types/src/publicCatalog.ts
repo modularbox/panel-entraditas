@@ -34,7 +34,9 @@ export const PublicVenueSchema = z.object({
   city: z.string(),
   province: z.string().nullable(),
   address: z.string().nullable(),
-  coordinates: z.object({ lat: z.number(), lng: z.number() }).nullable()
+  // Como venues del script: latitude/longitude DECIMAL(10,7).
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable()
 });
 export type PublicVenue = z.infer<typeof PublicVenueSchema>;
 

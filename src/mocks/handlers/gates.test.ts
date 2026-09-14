@@ -79,11 +79,11 @@ describe("gates handlers", () => {
     expect(db.gates.some((g) => g.id === "gate-2-norte")).toBe(false);
   });
 
-  it("GET /events/:eventId/team returns only the suborganizadores of the event's organization", async () => {
+  it("GET /events/:eventId/team returns only the gate team (user y subuser) of the event's organization", async () => {
     const token = await login();
     const members = await apiClient.get<User[]>("/events/event-2/team", { token });
     expect(members).toHaveLength(2);
-    expect(members.every((member) => member.role === "suborganizador")).toBe(true);
+    expect(members.every((member) => member.role === "user" || member.role === "subuser")).toBe(true);
     expect(members.map((member) => member.fullName).sort()).toEqual(["Javier Ortega López", "Marta Gutiérrez Vega"].sort());
   });
 

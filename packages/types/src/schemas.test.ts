@@ -203,7 +203,10 @@ describe("OrderSchema", () => {
   const validOrder = {
     id: "order-1", orderNumber: "PED-2026-0001", eventId: "event-1", organizationId: "org-1",
     customerName: "Marta Ruiz", customerEmail: "marta.ruiz@example.com", status: "paid",
-    total: 5000, refundedAmount: 0, currency: "EUR", channel: "web", paymentMethod: "card", createdAt: "2026-08-05T10:00:00.000Z"
+    subtotal: 5000, discountAmount: 0, serviceFee: 0,
+    total: 5000, refundedAmount: 0, currency: "EUR", channel: "web",
+    paymentReference: "PAY-STRIPE-0001", paidAt: "2026-08-05T10:00:00.000Z",
+    createdAt: "2026-08-05T10:00:00.000Z", updatedAt: "2026-08-05T10:00:00.000Z"
   };
 
   it("accepts a valid paid order with refundedAmount", () => {

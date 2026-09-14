@@ -1,7 +1,7 @@
 ﻿import { z } from "zod";
 import { EventCategorySchema } from "./publicCatalog";
 
-export const RoleSlugSchema = z.enum(["superadmin", "organizador", "suborganizador"]);
+export const RoleSlugSchema = z.enum(["superadmin", "admin", "user", "subuser"]);
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
 
 export const PermissionEffectSchema = z.enum(["allow", "deny"]);
@@ -15,7 +15,14 @@ export type PermissionOverride = z.infer<typeof PermissionOverrideSchema>;
 export const OrganizationSchema = z.object({
   id: z.string(),
   name: z.string(),
-  slug: z.string()
+  slug: z.string(),
+  // NIF/CIF fiscal. Opcional porque las organizaciones creadas antes de que existiera no lo tienen.
+  taxId: z.string().nullable().optional(),
+  // Fracción, no porcentaje: 0.08 es un 8%. Default 0 = sin comisión.
+  commissionRate: z.number().nonnegative().optional(),
+  contactEmail: z.string().nullable().optional(),
+  contactPhone: z.string().nullable().optional(),
+  status: z.enum(["active", "suspended"]).optional()
 });
 export type Organization = z.infer<typeof OrganizationSchema>;
 
@@ -26,6 +33,7 @@ export const UserSchema = z.object({
   role: RoleSlugSchema,
   email: z.string().email(),
   fullName: z.string(),
+  phone: z.string().nullable().optional(), // teléfono de contacto del personal, como en staff_users
   status: z.enum(["active", "invited", "disabled"]),
   permissionOverrides: z.array(PermissionOverrideSchema),
   eventScopes: z.array(z.string()), // event ids this user is restricted to; empty means unrestricted (organizador/superadmin)
@@ -54,7 +62,10 @@ export const VenueSchema = z.object({
   // be able to capture them. Optional because venues created before this existed have neither.
   province: z.string().nullable().optional(),
   address: z.string().nullable().optional(),
-  coordinates: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(),
+  // Latitud y longitud como en venues (DECIMAL(10,7)). Optional porque las venues creadas antes
+  // de que existieran no las tienen.
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
   totalCapacity: z.number().int().positive()
 });
 export type Venue = z.infer<typeof VenueSchema>;
@@ -165,7 +176,20 @@ export const EVENT_RULE_DEFAULTS: Required<EventRules> = {
   wheelchairAccessible: false
 };
 
-export const EventStatusSchema = z.enum(["draft", "pending_review", "published", "rejected", "finished"]);
+// Los 10 estados de events.status en entraditas.sql: borrador, los tres de la revision
+// (pendiente, en revision, publicada/rechazada) y los operativos una vez publicada la venta.
+export const EventStatusSchema = z.enum([
+  "draft",
+  "pending_review",
+  "in_review",
+  "published",
+  "rejected",
+  "on_sale",
+  "sold_out",
+  "paused",
+  "finished",
+  "cancelled"
+]);
 export type EventStatus = z.infer<typeof EventStatusSchema>;
 
 export const EventSchema = z.object({
@@ -357,11 +381,24 @@ export const VenuePlanTemplateSchema = z.object({
 export type VenuePlanTemplate = z.infer<typeof VenuePlanTemplateSchema>;
 export const OrderSchema = z.object({
   id: z.string(), orderNumber: z.string(), eventId: z.string(), organizationId: z.string(), customerName: z.string(), customerEmail: z.string().email(),
+  // El teléfono del comprador lo deja la web al confirmar; en taquilla suele quedar vacío.
+  customerPhone: z.string().nullable().optional(),
+  // Quién del panel tramitó la venta. null cuando la compra vino de la web.
+  userId: z.string().nullable().optional(),
   status: z.enum(["pending", "reserved", "paid", "cancelled", "expired", "refunded", "partially_refunded"]),
+  // Dinero en céntimos enteros, como en orders del script. channels/web usan los mismos campos.
+  subtotal: z.number().int().nonnegative(),
+  discountAmount: z.number().int().nonnegative(),
+  serviceFee: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(), refundedAmount: z.number().int().nonnegative(), currency: z.string().length(3), channel: z.enum(["web", "panel", "box_office", "courtesy"]),
-  // Método de pago de la venta. Siempre presente: taquilla elige tarjeta/efectivo y las
-  // compras online/web se pagan con tarjeta.
-  paymentMethod: z.enum(["card", "cash"]), createdAt: z.string()
+  // Referencia del pago (id de la pasarela o del TPV) y cuándo se pagó. La web los rellena;
+  // un pedido de taquilla pendiente de cobro los tiene vacíos hasta que se confirma el pago.
+  paymentReference: z.string().nullable().optional(),
+  paidAt: z.string().nullable().optional(),
+  // Vencimiento de la reserva. La web reserva un número de entradas durante unos minutos y
+  // expira si el pago no llega a tiempo; taquilla no reserva.
+  expiresAt: z.string().nullable().optional(),
+  createdAt: z.string(), updatedAt: z.string()
 });
 export type Order = z.infer<typeof OrderSchema>;
 
@@ -481,3 +518,34 @@ export const GateSchema = z.object({
   isActive: z.boolean()
 });
 export type Gate = z.infer<typeof GateSchema>;
+
+/**
+ * Lista de invitados (entradas de cortesia) de un evento, equivalente a la tabla guest_lists.
+ * Varias listas por evento: "prensa", "staff", etc. Cada una tiene un tope de invitados.
+ */
+export const GuestListSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  name: z.string(),
+  maxCapacity: z.number().int().nonnegative(),
+  // Solo el admin de la organizacion puede tocar una lista con columnas privadas ("ocs" si trae
+  // o no a su acompañante), para mantener esa informacion fuera del alcance de curiosos.
+  hasPrivateColumns: z.boolean(),
+  createdAt: z.string()
+});
+export type GuestList = z.infer<typeof GuestListSchema>;
+
+/**
+ * Un invitado concreto dentro de una lista (tabla guest_list_entries).
+ */
+export const GuestListEntrySchema = z.object({
+  id: z.string(),
+  guestListId: z.string(),
+  fullName: z.string(),
+  email: z.string().nullable().optional(),
+  plusOneName: z.string().nullable().optional(),
+  // Los valores aceptados quedan cerrados de a proposito: no hay campo libre que rellenar.
+  status: z.enum(["confirmed", "pending", "declined", "cancelled"]),
+  createdAt: z.string()
+});
+export type GuestListEntry = z.infer<typeof GuestListEntrySchema>;

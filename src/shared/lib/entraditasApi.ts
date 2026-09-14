@@ -29,7 +29,7 @@ export interface ApiStaff {
   id: string;
   email: string;
   fullName: string;
-  role: "superadmin" | "organizador" | "suborganizador";
+  role: "superadmin" | "admin" | "user" | "subuser";
   organizationId: string | null;
   status: string;
 }

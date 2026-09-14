@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   createSeedDatabase,
+  DEMO_ADMIN_ID,
   DEMO_ORGANIZADOR_ID,
   DEMO_SUBORGANIZADOR_ID,
+  DEMO_SUBUSER_ID,
   DEMO_SUPERADMIN_ID,
   DEMO_USER_ID
 } from "./db";
-import { EventSchema, GateSchema, OrderItemSchema, OrderSchema, RefundSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
+import { EventSchema, GateSchema, GuestListEntrySchema, GuestListSchema, OrderItemSchema, OrderSchema, RefundSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
 import { resolveEffectivePermissions } from "@/shared/auth/permissions";
 
 describe("createSeedDatabase", () => {
@@ -55,30 +57,34 @@ describe("createSeedDatabase", () => {
     expect(subEvents).toHaveLength(1);
   });
 
-  it("gives the 3 demo org roles the expected effective permissions", () => {
+  it("gives the demo roles the expected effective permissions", () => {
     const db = createSeedDatabase();
     const byId = (id: string) => db.users.find((u) => u.id === id)!;
 
     const superadmin = byId(DEMO_SUPERADMIN_ID);
     expect(resolveEffectivePermissions(superadmin.role, superadmin.permissionOverrides).has("organizations:manage")).toBe(true);
 
-    const organizador = byId(DEMO_ORGANIZADOR_ID);
-    expect(resolveEffectivePermissions(organizador.role, organizador.permissionOverrides).has("users:manage")).toBe(true);
+    const admin = byId(DEMO_ADMIN_ID);
+    expect(admin.role).toBe("admin");
+    expect(resolveEffectivePermissions(admin.role, admin.permissionOverrides).has("users:manage")).toBe(true);
+    expect(resolveEffectivePermissions(admin.role, admin.permissionOverrides).has("guestlist:manage")).toBe(true);
+    expect(resolveEffectivePermissions(admin.role, admin.permissionOverrides).has("organizations:manage")).toBe(false);
 
-    // Both demo accounts beyond the organizer are suborganizadores: no base access, only what the
-    // organizer granted via allow overrides in the seed (the exact grants differ per account).
+    // Los dos cuentas de equipo del seed (user y subuser) parten de cero de base: solo tienen lo que
+    // el admin concedió con overrides allow (los grants exactos difieren por cuenta).
     const user = byId(DEMO_USER_ID);
-    expect(user.role).toBe("suborganizador");
+    expect(user.role).toBe("user");
     expect(user.eventScopes).toHaveLength(2);
     const userEffective = resolveEffectivePermissions(user.role, user.permissionOverrides);
     expect(userEffective.has("users:manage")).toBe(false);
-    expect(userEffective.has("orders:read")).toBe(true); // granted by the organizer in seed
+    expect(userEffective.has("orders:read")).toBe(true); // concedido por el admin en el seed
 
-    const suborganizador = byId(DEMO_SUBORGANIZADOR_ID);
-    expect(suborganizador.role).toBe("suborganizador");
-    const suborganizadorEffective = resolveEffectivePermissions(suborganizador.role, suborganizador.permissionOverrides);
-    expect(suborganizadorEffective.has("users:manage")).toBe(false);
-    expect(suborganizadorEffective.has("orders:read")).toBe(false); // this account wasn't granted orders
+    const subuser = byId(DEMO_SUBUSER_ID);
+    expect(subuser.role).toBe("subuser");
+    const subuserEffective = resolveEffectivePermissions(subuser.role, subuser.permissionOverrides);
+    expect(subuserEffective.has("users:manage")).toBe(false);
+    expect(subuserEffective.has("orders:read")).toBe(false); // esta cuenta no recibió orders
+    expect(subuserEffective.has("guestlist:manage")).toBe(false);
   });
 
   it("seeds two schema-valid gates across different organizations", () => {
@@ -96,18 +102,30 @@ describe("createSeedDatabase", () => {
     expect(entrada.operatorUserIds).toEqual([]);
   });
 
-  it("seeds an active organizador account for every organization", () => {
+  it("seeds an active admin account for every organization", () => {
     const db = createSeedDatabase();
     for (const organization of db.organizations) {
-      const organizador = db.users.find((u) => u.organizationId === organization.id && u.role === "organizador" && u.status === "active");
-      expect(organizador).toBeDefined();
+      const admin = db.users.find((u) => u.organizationId === organization.id && u.role === "admin" && u.status === "active");
+      expect(admin).toBeDefined();
     }
   });
 
-  it("seeds 9 schema-valid orders with schema-valid line items, and keeps sold counts consistent with paid quantities", () => {
+  it("seeds 9 schema-valid orders where total = subtotal - discount + service fee", () => {
     const db = createSeedDatabase();
     expect(db.orders).toHaveLength(9);
-    for (const order of db.orders) expect(() => OrderSchema.parse(order)).not.toThrow();
+    for (const order of db.orders) {
+      expect(() => OrderSchema.parse(order)).not.toThrow();
+      expect(order.total).toBe(order.subtotal - order.discountAmount + order.serviceFee);
+      // Un pedido pagado (o que pagó antes de un reembolso) tiene referencia y fecha de pago;
+      // uno pendiente de pago, ninguna.
+      if (["paid", "refunded", "partially_refunded"].includes(order.status)) {
+        expect(order.paymentReference).toBeTruthy();
+        expect(order.paidAt).toBeTruthy();
+      } else {
+        expect(order.paymentReference).toBeNull();
+        expect(order.paidAt).toBeNull();
+      }
+    }
     for (const item of db.orderItems) expect(() => OrderItemSchema.parse(item)).not.toThrow();
 
     const tt1 = db.ticketTypes.find((tt) => tt.id === "tt-1")!;
@@ -126,6 +144,17 @@ describe("createSeedDatabase", () => {
     const order5Items = db.orderItems.filter((item) => item.orderId === "order-5");
     expect(order5Items).toHaveLength(2);
     expect(order5Items.reduce((sum, item) => sum + item.subtotal, 0)).toBe(22000);
+  });
+
+  it("seeds 3 schema-valid guest lists with entries, none over its capacity", () => {
+    const db = createSeedDatabase();
+    expect(db.guestLists).toHaveLength(3);
+    for (const list of db.guestLists) expect(() => GuestListSchema.parse(list)).not.toThrow();
+    for (const entry of db.guestListEntries) expect(() => GuestListEntrySchema.parse(entry)).not.toThrow();
+
+    const prensa = db.guestLists.find((l) => l.id === "gl-1")!;
+    expect(prensa.eventId).toBe("event-1");
+    expect(db.guestListEntries.filter((e) => e.guestListId === prensa.id).length).toBeLessThanOrEqual(prensa.maxCapacity);
   });
 
   it("seeds 2 refunds consistent with the 2 orders that already carry a refundedAmount", () => {

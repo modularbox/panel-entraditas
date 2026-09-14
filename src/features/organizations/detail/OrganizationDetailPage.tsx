@@ -68,13 +68,13 @@ export function OrganizationDetailPage() {
 
       {connectError && <p role="alert">{connectError}</p>}
 
-      {/* ORGANIZADOR */}
-      <section aria-labelledby="organizador-heading">
-        <h2 id="organizador-heading" className="mb-3 font-display text-lg font-semibold uppercase tracking-wide">Organizador</h2>
+      {/* ADMINISTRADOR */}
+      <section aria-labelledby="admin-heading">
+        <h2 id="admin-heading" className="mb-3 font-display text-lg font-semibold uppercase tracking-wide">Administrador</h2>
         <div className="rounded-lg border-2 border-foreground bg-surface shadow-flat">
           <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3">
             <div className="flex items-baseline gap-2">
-              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Nombre organizador</span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Nombre administrador</span>
               <span className="font-display text-lg font-semibold">
                 {organizer ? organizer.fullName : <span className="text-muted-foreground">—</span>}
               </span>
@@ -87,7 +87,7 @@ export function OrganizationDetailPage() {
                 disabled={!organizer || connectingId === organizer.id}
                 onClick={() => organizer && connectAs(organizer.id)}
               >
-                {connectingId === organizer?.id ? "Conectando…" : organizer ? "CONECTAR" : "Sin organizador"}
+                {connectingId === organizer?.id ? "Conectando…" : organizer ? "CONECTAR" : "Sin administrador"}
               </Button>
             </div>
           </div>
@@ -104,11 +104,42 @@ export function OrganizationDetailPage() {
         </div>
       </section>
 
-      {/* SUBORGANIZADORES */}
-      <section aria-labelledby="suborganizadores-heading">
-        <h2 id="suborganizadores-heading" className="mb-3 font-display text-lg font-semibold uppercase tracking-wide">Suborganizadores</h2>
+      {/* DATOS FISCALES Y CONTACTO */}
+      <section aria-labelledby="fiscal-heading">
+        <h2 id="fiscal-heading" className="mb-3 font-display text-lg font-semibold uppercase tracking-wide">Datos fiscales y contacto</h2>
+        <dl className="grid gap-x-8 gap-y-3 rounded-lg border-2 border-foreground bg-surface px-4 py-3 shadow-flat sm:grid-cols-3">
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">CIF / NIF</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{organization.taxId ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Comisión</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">
+              {Math.round((organization.commissionRate ?? 0) * 100)} %
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Estado</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">
+              {organization.status === "suspended" ? "Suspendida" : "Activa"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Correo de contacto</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{organization.contactEmail ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Teléfono de contacto</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{organization.contactPhone ?? "—"}</dd>
+          </div>
+        </dl>
+      </section>
+
+      {/* EQUIPO */}
+      <section aria-labelledby="team-heading">
+        <h2 id="team-heading" className="mb-3 font-display text-lg font-semibold uppercase tracking-wide">Equipo</h2>
         {organization.subOrganizers.length === 0 ? (
-          <p className="text-muted-foreground">Esta organización no tiene suborganizadores.</p>
+          <p className="text-muted-foreground">Esta organización no tiene miembros de equipo.</p>
         ) : (
           <div className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
             <table className="w-full text-left text-sm">

@@ -27,11 +27,6 @@ const CHANNEL_LABELS: Record<Order["channel"], string> = {
   courtesy: "Cortesía"
 };
 
-const PAYMENT_LABELS: Record<"card" | "cash", string> = {
-  card: "Tarjeta",
-  cash: "Efectivo"
-};
-
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 
 function RefundForm({
@@ -133,7 +128,7 @@ export function OrderDetailPage() {
         <header>
           <h1 className="font-display text-2xl font-semibold">{order.orderNumber}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {STATUS_LABELS[order.status]} · {CHANNEL_LABELS[order.channel]} · {PAYMENT_LABELS[order.paymentMethod]} · {new Date(order.createdAt).toLocaleDateString("es-ES")}
+            {STATUS_LABELS[order.status]} · {CHANNEL_LABELS[order.channel]} · {new Date(order.createdAt).toLocaleDateString("es-ES")}
           </p>
         </header>
       </div>
@@ -165,6 +160,22 @@ export function OrderDetailPage() {
             ))}
           </tbody>
           <tfoot>
+            <tr className="border-t-2 border-foreground">
+              <td colSpan={3} className="px-4 py-3 text-right text-muted-foreground">Subtotal</td>
+              <td className="px-4 py-3">{euro.format(order.subtotal / 100)}</td>
+            </tr>
+            {order.discountAmount > 0 && (
+              <tr className="border-t border-border">
+                <td colSpan={3} className="px-4 py-3 text-right text-muted-foreground">Descuento</td>
+                <td className="px-4 py-3">−{euro.format(order.discountAmount / 100)}</td>
+              </tr>
+            )}
+            {order.serviceFee > 0 && (
+              <tr className="border-t border-border">
+                <td colSpan={3} className="px-4 py-3 text-right text-muted-foreground">Costes de servicio</td>
+                <td className="px-4 py-3">{euro.format(order.serviceFee / 100)}</td>
+              </tr>
+            )}
             <tr className="border-t-2 border-foreground">
               <td colSpan={3} className="px-4 py-3 text-right font-semibold">Total</td>
               <td className="px-4 py-3 font-semibold">{euro.format(order.total / 100)}</td>

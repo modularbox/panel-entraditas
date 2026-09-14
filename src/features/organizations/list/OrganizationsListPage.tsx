@@ -49,7 +49,7 @@ export function OrganizationsListPage() {
       }),
       columnHelper.accessor("slug", { header: "Slug", cell: (info) => <span className="text-muted-foreground">{info.getValue()}</span> }),
       columnHelper.accessor("organizer", {
-        header: "Organizador",
+        header: "Administrador",
         cell: (info) => {
           const organizer = info.getValue();
           return organizer ? (
@@ -58,7 +58,7 @@ export function OrganizationsListPage() {
               <span className="text-muted-foreground">{organizer.email}</span>
             </div>
           ) : (
-            <span className="text-muted-foreground">Sin organizador</span>
+            <span className="text-muted-foreground">Sin administrador</span>
           );
         }
       }),
@@ -76,7 +76,7 @@ export function OrganizationsListPage() {
               disabled={!organizer || connectingId === row.original.id}
               onClick={() => connect(row.original)}
             >
-              {connectingId === row.original.id ? "Conectando…" : organizer ? "Conectar" : "Sin organizador"}
+              {connectingId === row.original.id ? "Conectando…" : organizer ? "Conectar" : "Sin administrador"}
             </Button>
           );
         }
@@ -100,7 +100,7 @@ export function OrganizationsListPage() {
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="font-display text-2xl font-semibold">Organizaciones</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Organizadores que venden a través de Entraditas. Al pulsar &quot;Conectar&quot; pasarás a la sesión de su organizador; para volver, usa &quot;Volver a superadmin&quot; en el menú.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Organizadores que venden a través de Entraditas. Al pulsar &quot;Conectar&quot; pasarás a la sesión de su administrador; para volver, usa &quot;Volver a superadmin&quot; en el menú.</p>
       </header>
       {connectError && <p role="alert">{connectError}</p>}
       {error && <p role="alert">No se pudieron cargar las organizaciones.</p>}

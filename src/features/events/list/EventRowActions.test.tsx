@@ -29,13 +29,15 @@ describe("EventRowActions", () => {
   });
 
   describe("revision", () => {
-    it("un superadmin aprueba un evento en revision y pasa a publicado", async () => {
+    it("un superadmin pone en revision un evento pendiente y luego lo aprueba", async () => {
       await loginAs("superadmin@entraditas.com");
       eventById("event-5").status = "pending_review";
 
       renderActions(eventById("event-5"));
-      fireEvent.click(screen.getByRole("button", { name: "Aprobar y publicar" }));
+      fireEvent.click(screen.getByRole("button", { name: "Poner en revisión" }));
+      await waitFor(() => expect(eventById("event-5").status).toBe("in_review"));
 
+      fireEvent.click(screen.getByRole("button", { name: "Aprobar y publicar" }));
       await waitFor(() => expect(eventById("event-5").status).toBe("published"));
     });
 
@@ -44,18 +46,22 @@ describe("EventRowActions", () => {
       eventById("event-5").status = "pending_review";
 
       renderActions(eventById("event-5"));
+      fireEvent.click(screen.getByRole("button", { name: "Poner en revisión" }));
+      await waitFor(() => expect(eventById("event-5").status).toBe("in_review"));
+
       fireEvent.click(screen.getByRole("button", { name: "Aprobar y publicar" }));
 
       await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/no se envio a la web/));
       expect(eventById("event-5").status).toBe("published");
     });
 
-    it("un admin de organizacion no puede aprobar su propio evento", async () => {
+    it("un admin de organizacion no puede revisar su propio evento", async () => {
       await loginAs("admin@entraditas.com");
       eventById("event-5").status = "pending_review";
 
       renderActions(eventById("event-5"));
 
+      expect(screen.queryByRole("button", { name: "Poner en revisión" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Aprobar y publicar" })).not.toBeInTheDocument();
     });
   });

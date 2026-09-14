@@ -27,7 +27,8 @@ const VENUE: Venue = {
   city: "Badajoz",
   province: "Badajoz",
   address: "Calle Mayor 1",
-  coordinates: { lat: 38.8, lng: -6.97 },
+  latitude: 38.8,
+  longitude: -6.97,
   totalCapacity: 400
 };
 

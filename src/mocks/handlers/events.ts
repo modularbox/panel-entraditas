@@ -32,7 +32,7 @@ function requireUser(request: Request): User | null {
  * acciones solo comprobaban `events:read`, asi que el personal de puerta podia borrar eventos.
  */
 function canManageEvent(user: User): boolean {
-  return user.role === "superadmin" || user.role === "organizador";
+  return user.role === "superadmin" || user.role === "admin";
 }
 
 function forbidden(requestId: string, message: string) {
@@ -269,18 +269,38 @@ maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
     db.ticketTypePrices = db.ticketTypePrices.filter((p) => !ticketTypeIds.has(p.ticketTypeId));
     db.discountCodes = db.discountCodes.filter((d) => d.eventId !== event.id);
     db.gates = db.gates.filter((g) => g.eventId !== event.id);
+    const guestListIds = new Set(db.guestLists.filter((l) => l.eventId === event.id).map((l) => l.id));
+    db.guestLists = db.guestLists.filter((l) => l.eventId !== event.id);
+    db.guestListEntries = db.guestListEntries.filter((e) => !guestListIds.has(e.guestListId));
     return HttpResponse.json({ data: {}, meta: { requestId: "req_events_delete" } });
   }),
 
-  // Publicar manda a revision, aprobar/rechazar resuelve eso y retirar vuelve a borrador.
-  // Son transiciones propias, no un PATCH del estado: el PATCH general deja escribir cualquier
-  // campo, asi que por ahi se podria saltar la revision poniendo "published" a mano en un
-  // borrador.
+  // Enviar a revision es del organizador (draft o rechazado), y ponerse en revision/aprobar/
+  // rechazar es del superadmin. Son las transiciones del ciclo de los 10 estados de
+  // events.status, no un PATCH del estado: el PATCH general deja escribir cualquier campo, asi
+  // que por ahi se podria saltar la revision poniendo "published" a mano en un borrador.
+  //
+  // Borrador ─enviar─> pendiente ─revisar─> en revision ─aprobar─> publicado
+  //                                        en revision ─rechazar─> rechazado ─enviar─> (vuelta
+  //                                        arriba). Lo publicado pasa a borrador al retirarlo.
   http.post(`${BASE}/events/:id/publish`, ({ request, params }) => {
     const user = requireUser(request);
     if (!user) return unauthenticated("req_events_publish");
     const event = db.events.find((e) => e.id === params.id);
     if (!event || !canAccessEvent(event, user)) return notFound("req_events_publish");
+    if (!canManageEvent(user)) return forbidden("req_events_publish", "Solo un admin puede enviar un evento a revision");
+    if (event.status !== "draft" && event.status !== "rejected") {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Solo un borrador (o un rechazado corregido) se puede enviar a revision",
+            requestId: "req_events_publish"
+          }
+        },
+        { status: 409 }
+      );
+    }
     const hasTicketTypes = db.ticketTypes.some((t) => t.eventId === event.id);
     if (!hasTicketTypes) {
       return HttpResponse.json(
@@ -299,9 +319,39 @@ maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_publish" } });
   }),
 
-  // Aprobar o rechazar lo que un organizador mando a revision. Sin esto nada pasaba nunca de
-  // "pendiente de revision" a "publicado", asi que un evento creado en el panel no podia llegar
-  // a la web publica.
+  // Pasar de "pendiente de revision" a "en revision": lo hace el superadmin al ponerse a mirar
+  // el evento. Sin esto no habria forma de distinguir lo enviado pero no mirado de lo que ya
+  // esta sobre la mesa.
+  http.post(`${BASE}/events/:id/start-review`, ({ request, params }) => {
+    const user = requireUser(request);
+    if (!user) return unauthenticated("req_events_start_review");
+    const event = db.events.find((e) => e.id === params.id);
+    if (!event || !canAccessEvent(event, user)) return notFound("req_events_start_review");
+    if (user.role !== "superadmin") {
+      return HttpResponse.json(
+        { error: { code: "FORBIDDEN", message: "Solo un superadmin puede revisar un evento", requestId: "req_events_start_review" } },
+        { status: 403 }
+      );
+    }
+    if (event.status !== "pending_review") {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Solo se puede poner en revision un evento pendiente",
+            requestId: "req_events_start_review"
+          }
+        },
+        { status: 409 }
+      );
+    }
+    event.status = "in_review";
+    return HttpResponse.json({ data: event, meta: { requestId: "req_events_start_review" } });
+  }),
+
+  // Aprobar o rechazar lo que un superadmin tiene en revision. Sin esto nada pasaba nunca de
+  // "en revision" a "publicado", asi que un evento creado en el panel no podia llegar a la web
+  // publica.
   http.post(`${BASE}/events/:id/approve`, ({ request, params }) => {
     const user = requireUser(request);
     if (!user) return unauthenticated("req_events_approve");
@@ -314,7 +364,7 @@ maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
         { status: 403 }
       );
     }
-    if (event.status !== "pending_review") {
+    if (event.status !== "in_review") {
       return HttpResponse.json(
         {
           error: {
@@ -342,6 +392,18 @@ maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
         { status: 403 }
       );
     }
+    if (event.status !== "in_review") {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Solo se puede rechazar un evento que este en revision",
+            requestId: "req_events_reject"
+          }
+        },
+        { status: 409 }
+      );
+    }
     event.status = "rejected";
     event.publishedAt = null;
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_reject" } });
@@ -353,6 +415,18 @@ maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
     const event = db.events.find((e) => e.id === params.id);
     if (!event || !canAccessEvent(event, user)) return notFound("req_events_unpublish");
     if (!canManageEvent(user)) return forbidden("req_events_unpublish", "Solo un admin puede retirar un evento");
+    if (event.status !== "published" && event.status !== "on_sale" && event.status !== "sold_out" && event.status !== "paused") {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Solo se puede retirar un evento que este publicado",
+            requestId: "req_events_unpublish"
+          }
+        },
+        { status: 409 }
+      );
+    }
     event.status = "draft";
     event.publishedAt = null;
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_unpublish" } });

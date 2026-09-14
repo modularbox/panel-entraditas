@@ -22,9 +22,9 @@ describe("users handlers", () => {
     await expect(apiClient.post("/users/invite", { email: "x@example.com", fullName: "X", role: "superadmin" }, { token })).rejects.toMatchObject({ code: "PRIVILEGE_ESCALATION" });
   });
 
-  it("blocks an organizer from creating another organizer", async () => {
+  it("blocks an admin from creating another admin", async () => {
     const token = await login("admin@entraditas.com");
-    await expect(apiClient.post("/users/invite", { email: "y@example.com", fullName: "Y", role: "organizador" }, { token })).rejects.toMatchObject({ code: "PRIVILEGE_ESCALATION" });
+    await expect(apiClient.post("/users/invite", { email: "y@example.com", fullName: "Y", role: "admin" }, { token })).rejects.toMatchObject({ code: "PRIVILEGE_ESCALATION" });
   });
 
   it("disables a member and revokes every active session", async () => {

@@ -10,9 +10,10 @@ import {
   removeFromPublicSite,
   type PublishOutcome
 } from "@/features/publish/publishToPublicSite";
+import { isPubliclyVisible } from "@/shared/lib/eventLifecycle";
 
-/** Estados desde los que tiene sentido revisar: lo que el organizador ya ha enviado. */
-const REVIEWABLE: Event["status"][] = ["pending_review"];
+/** Estados en los que la revision ya ha entrado y el superadmin puede aprobar o rechazar. */
+const REVIEWABLE: Event["status"][] = ["in_review"];
 
 /**
  * Acciones de un evento en el listado: revisarlo, retirarlo de la web y borrarlo.
@@ -45,6 +46,16 @@ export function EventRowActions({ event }: { event: Event }) {
     setFailed(true);
     setMessage(error instanceof AppError ? error.message : fallback);
   }
+
+  const startReview = useMutation({
+    mutationFn: () => apiClient.post<Event>(`/events/${event.id}/start-review`, undefined, { token: token! }),
+    onSuccess: async () => {
+      setFailed(false);
+      setMessage("En revisión: el superadmin lo comprueba antes de publicarlo.");
+      await refresh();
+    },
+    onError: (error) => reportError(error, "No se pudo poner el evento en revisión.")
+  });
 
   const approve = useMutation({
     mutationFn: async () => {
@@ -102,18 +113,21 @@ export function EventRowActions({ event }: { event: Event }) {
 
   // Cambiar estados y borrar es cosa de quien administra, no de quien solo consulta. El servidor
   // lo vuelve a comprobar.
-  const canManage = role === "superadmin" || role === "organizador";
+  const canManage = role === "superadmin" || role === "admin";
   const canReview = role === "superadmin";
   const reviewable = REVIEWABLE.includes(event.status);
 
-  const working = approve.isPending || reject.isPending || unpublish.isPending || remove.isPending;
+  const working = approve.isPending || reject.isPending || startReview.isPending || unpublish.isPending || remove.isPending;
 
   const acciones: { label: string; onClick: () => void; variant?: "outline" | "destructive" }[] = [];
+  if (canReview && event.status === "pending_review") {
+    acciones.push({ label: startReview.isPending ? "Poniendo en revisión..." : "Poner en revisión", onClick: () => startReview.mutate(), variant: "outline" });
+  }
   if (canReview && reviewable) {
     acciones.push({ label: approve.isPending ? "Publicando..." : "Aprobar y publicar", onClick: () => approve.mutate() });
     acciones.push({ label: "Rechazar", onClick: () => reject.mutate(), variant: "outline" });
   }
-  if (canManage && !reviewable && event.status === "published") {
+  if (canManage && isPubliclyVisible(event.status)) {
     acciones.push({ label: "Retirar de la web", onClick: () => unpublish.mutate(), variant: "outline" });
   }
 

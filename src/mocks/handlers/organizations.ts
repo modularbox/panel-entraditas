@@ -25,21 +25,31 @@ function requireOrganizationManager(request: Request, requestId: string) {
   return { actor, effective };
 }
 
-// The organizer account "Conectar" switches the session to: the first active owner (top-level)
-// organizer of the organization, falling back to any active organizer when none is owner.
+// The admin account "Conectar" switches the session to: the first active owner (top-level) admin
+// of the organization, falling back to any active admin when none is owner.
 function organizationOrganizer(organization: Organization): OrganizationOrganizer | null {
-  const activeOrganizers = db.users.filter((user) => user.organizationId === organization.id && user.role === "organizador" && user.status === "active");
+  const activeOrganizers = db.users.filter((user) => user.organizationId === organization.id && user.role === "admin" && user.status === "active");
   if (activeOrganizers.length === 0) return null;
   const primary = activeOrganizers.find((user) => user.parentUserId === null) ?? activeOrganizers[0]!;
   return { id: primary.id, fullName: primary.fullName, email: primary.email, bankAccount: primary.bankAccount ?? null };
 }
 
 function toListItem(organization: Organization): OrganizationListItem {
-  return { id: organization.id, name: organization.name, slug: organization.slug, organizer: organizationOrganizer(organization) };
+  return {
+    id: organization.id,
+    name: organization.name,
+    slug: organization.slug,
+    taxId: organization.taxId ?? null,
+    commissionRate: organization.commissionRate ?? 0,
+    contactEmail: organization.contactEmail ?? null,
+    contactPhone: organization.contactPhone ?? null,
+    status: organization.status ?? "active",
+    organizer: organizationOrganizer(organization)
+  };
 }
 
-// Users of the organization with access to an event: every organizador (unscoped) plus the
-// suborganizadores whose eventScopes include it.
+// Users of the organization with access to an event: every admin (unscoped) plus the user/subuser
+// whose eventScopes include it.
 function usersWithEventAccess(organizationId: string, eventId: string): OrganizationEvent["accessUsers"] {
   return db.users
     .filter(
@@ -48,7 +58,7 @@ function usersWithEventAccess(organizationId: string, eventId: string): Organiza
         user.status === "active" &&
         (user.eventScopes.length === 0 || user.eventScopes.includes(eventId))
     )
-    .sort((a, b) => (a.role === "organizador" ? -1 : 1))
+    .sort((a, b) => (a.role === "admin" ? -1 : 1))
     .map((user) => ({ id: user.id, fullName: user.fullName, email: user.email, role: user.role }));
 }
 
@@ -60,8 +70,9 @@ function eventsFor(organization: Organization): OrganizationEvent[] {
 
 function toDetail(organization: Organization): OrganizationDetail {
   const organizer = organizationOrganizer(organization);
+  // El equipo con acceso por evento: los user y subuser activos de la organización.
   const subOrganizers: OrganizationSubOrganizer[] = db.users
-    .filter((user) => user.organizationId === organization.id && user.role === "suborganizador" && user.status === "active")
+    .filter((user) => user.organizationId === organization.id && (user.role === "user" || user.role === "subuser") && user.status === "active")
     .map((sub) => ({
       id: sub.id,
       fullName: sub.fullName,
@@ -73,6 +84,11 @@ function toDetail(organization: Organization): OrganizationDetail {
     id: organization.id,
     name: organization.name,
     slug: organization.slug,
+    taxId: organization.taxId ?? null,
+    commissionRate: organization.commissionRate ?? 0,
+    contactEmail: organization.contactEmail ?? null,
+    contactPhone: organization.contactPhone ?? null,
+    status: organization.status ?? "active",
     organizer,
     subOrganizers,
     events: eventsFor(organization)
@@ -101,13 +117,13 @@ export const organizationsHandlers = [
     const organization = db.organizations.find((org) => org.id === params.id);
     if (!organization) return errorResponse("NOT_FOUND", "Organización no encontrada", "req_orgs_connect", 404);
     const organizer = organizationOrganizer(organization);
-    if (!organizer) return errorResponse("CONFLICT", "Esta organización no tiene organizador", "req_orgs_connect", 409);
+    if (!organizer) return errorResponse("CONFLICT", "Esta organización no tiene administrador", "req_orgs_connect", 409);
     const token = `token_${organizer.id}_${sessions.size}`;
     sessions.set(token, organizer.id);
     return HttpResponse.json({ data: { accessToken: token, ...serializeSession(organizer.id) }, meta: { requestId: "req_orgs_connect" } });
   }),
 
-  // "Conectar" como un miembro concreto de la organización (organizador o suborganizador): crea una
+  // "Conectar" como un miembro concreto de la organización (admin, user o subuser): crea una
   // sesión para ese usuario. El superadmin puede volver con "Volver a superadmin" en el menú.
   http.post(`${BASE}/organizations/:id/users/:userId/connect`, ({ request, params }) => {
     const result = requireOrganizationManager(request, "req_orgs_connect_user");

@@ -107,8 +107,8 @@ describe("orders handlers - creating a box office sale", () => {
 
     expect(result.status).toBe("paid");
     expect(result.channel).toBe("box_office");
-    expect(result.paymentMethod).toBe("card");
-    expect(result.total).toBe(2 * 3000 + 1 * 5000);
+    expect(result.subtotal).toBe(2 * 3000 + 1 * 5000);
+    expect(result.total).toBe(result.subtotal);
     expect(result.items).toHaveLength(2);
     expect(result.refunds).toEqual([]);
 
@@ -130,38 +130,25 @@ describe("orders handlers - creating a box office sale", () => {
     ).rejects.toMatchObject({ code: "INSUFFICIENT_CAPACITY" });
   });
 
-  it("stores the chosen payment method (card or cash) on the order", async () => {
+  it("records the buyer, the sale user and the payment date on the order", async () => {
     const token = await loginAs("admin@entraditas.com");
     const result = await apiClient.post<Order & { items: OrderItem[]; refunds: Refund[] }>(
       "/orders",
       {
         eventId: "event-2",
         customerName: "Cliente en taquilla",
-        customerEmail: "cash@example.com",
-        paymentMethod: "cash",
+        customerEmail: "taquilla@example.com",
         items: [{ ticketTypeId: "tt-2-pista", quantity: 1 }]
       },
       { token }
     );
-    expect(result.paymentMethod).toBe("cash");
-    expect(db.orders.find((o) => o.id === result.id)!.paymentMethod).toBe("cash");
-  });
-
-  it("rejects an invalid payment method", async () => {
-    const token = await loginAs("admin@entraditas.com");
-    await expect(
-      apiClient.post(
-        "/orders",
-        {
-          eventId: "event-2",
-          customerName: "Cliente",
-          customerEmail: "cliente@example.com",
-          paymentMethod: "bitcoin",
-          items: [{ ticketTypeId: "tt-2-pista", quantity: 1 }]
-        },
-        { token }
-      )
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(result.customerName).toBe("Cliente en taquilla");
+    expect(result.customerEmail).toBe("taquilla@example.com");
+    expect(result.userId).toBe("user-admin");
+    expect(result.subtotal).toBe(3000);
+    expect(result.discountAmount).toBe(0);
+    expect(result.serviceFee).toBe(0);
+    expect(result.paidAt).toBeTruthy();
   });
 
   it("rejects a ticket type that doesn't belong to the given event", async () => {

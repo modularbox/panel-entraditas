@@ -237,7 +237,8 @@ export function toPublicEvent(input: PublishInput): PublicEvent {
           city: venue.city,
           province: venue.province ?? null,
           address: venue.address ?? null,
-          coordinates: venue.coordinates ?? null
+          latitude: venue.latitude ?? null,
+          longitude: venue.longitude ?? null
         }
       : null,
     // A pending date is the buyer site's cue to show "Fecha por confirmar" + the alert bell

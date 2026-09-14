@@ -87,7 +87,7 @@ export const ordersHandlers = [
       eventId?: string;
       customerName?: string;
       customerEmail?: string;
-      paymentMethod?: "card" | "cash";
+      customerPhone?: string;
       items?: { ticketTypeId: string; quantity: number }[];
     };
 
@@ -101,9 +101,6 @@ export const ordersHandlers = [
     if (items.length === 0) return validationError("req_orders_create", "Añade al menos una línea a la venta");
     if (!body.customerName?.trim() || !body.customerEmail?.trim()) {
       return validationError("req_orders_create", "El nombre y el email del comprador son obligatorios");
-    }
-    if (body.paymentMethod !== undefined && body.paymentMethod !== "card" && body.paymentMethod !== "cash") {
-      return validationError("req_orders_create", "El método de pago debe ser tarjeta o efectivo");
     }
 
     const lines: { ticketType: TicketType; quantity: number }[] = [];
@@ -130,22 +127,34 @@ export const ordersHandlers = [
     }, 0) + 1;
     const orderId = `order-${nextOrderIndex}`;
     const orderNumber = `PED-2026-${String(nextOrderIndex).padStart(4, "0")}`;
-    const total = lines.reduce((sum, line) => sum + line.ticketType.basePrice * line.quantity, 0);
+    // Una venta de taquilla no aplica descuento ni gasto de gestión extra sobre el marcado base:
+    // subtotal y total son la suma de las líneas.
+    const subtotal = lines.reduce((sum, line) => sum + line.ticketType.basePrice * line.quantity, 0);
+    const now = new Date().toISOString();
 
     const order: Order = {
       id: orderId,
       orderNumber,
       eventId: event.id,
       organizationId: event.organizationId,
+      userId: user.id,
       customerName: body.customerName.trim(),
       customerEmail: body.customerEmail.trim(),
+      customerPhone: body.customerPhone?.trim() || null,
       status: "paid",
-      total,
+      subtotal,
+      discountAmount: 0,
+      serviceFee: 0,
+      total: subtotal,
       refundedAmount: 0,
       currency: "EUR",
       channel: "box_office",
-      paymentMethod: body.paymentMethod ?? "card",
-      createdAt: new Date().toISOString()
+      // En taquilla el pago se confirma al momento (tarjeta del TPV o efectivo en caja), pero el
+      // panel no elige el método: queda registrado en la referencia del TPV cuando lo haya.
+      paymentReference: null,
+      paidAt: now,
+      createdAt: now,
+      updatedAt: now
     };
     db.orders.push(order);
 

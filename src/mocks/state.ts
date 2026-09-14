@@ -2,7 +2,7 @@ import { createSeedDatabase, type Database } from "./db";
 
 // Local persistence: the whole mock database is written to localStorage as a JSON snapshot after
 // every mutation. On reload it is restored on top of the seed instead of starting from scratch.
-export const STORAGE_KEY = "entraditas.mock.db.v1";
+export const STORAGE_KEY = "entraditas.mock.db.v2";
 
 function wrapValue(value: unknown, onChange: () => void): unknown {
   if (Array.isArray(value)) return reactive(value, onChange);
@@ -62,6 +62,8 @@ function isDatabase(value: unknown): value is Database {
     Array.isArray(candidate.discountCodes) &&
     Array.isArray(candidate.gates) &&
     Array.isArray(candidate.invitations) &&
+    Array.isArray(candidate.guestLists) &&
+    Array.isArray(candidate.guestListEntries) &&
     Array.isArray(candidate.orders) &&
     Array.isArray(candidate.orderItems) &&
     Array.isArray(candidate.refunds)

@@ -1,5 +1,5 @@
 import type {
-  CapacityPool, DiscountCode, Event, Gate, Invitation, Order, OrderItem, Organization, Refund, SubEvent, TicketType, TicketTypePrice, User, Venue, VenuePlanTemplate, Zone
+  CapacityPool, DiscountCode, Event, Gate, GuestList, GuestListEntry, Invitation, Order, OrderItem, Organization, Refund, SubEvent, TicketType, TicketTypePrice, User, Venue, VenuePlanTemplate, Zone
 } from "@entraditas/types";
 import seedData from "./data/db.seed.json";
 
@@ -17,14 +17,18 @@ export interface Database {
   discountCodes: DiscountCode[];
   gates: Gate[];
   invitations: Invitation[];
+  guestLists: GuestList[];
+  guestListEntries: GuestListEntry[];
   orders: Order[];
   orderItems: OrderItem[];
   refunds: Refund[];
 }
 
 export const DEMO_SUPERADMIN_ID = "user-superadmin";
+export const DEMO_ADMIN_ID = "user-admin";
 export const DEMO_ORGANIZADOR_ID = "user-admin";
 export const DEMO_USER_ID = "user-limited";
+export const DEMO_SUBUSER_ID = "user-subuser";
 export const DEMO_SUBORGANIZADOR_ID = "user-subuser";
 
 // The seed lives in a plain JSON file (src/mocks/data/db.seed.json) so it can be read by hand and

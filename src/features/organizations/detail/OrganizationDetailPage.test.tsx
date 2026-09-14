@@ -29,10 +29,15 @@ describe("OrganizationDetailPage", () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
   }
 
-  it("shows the organization's organizer account with its bank account and its suborganizadores", async () => {
+  it("shows the organization's admin account, fiscal data and its team", async () => {
     await login();
     renderPage("org-1");
     await waitFor(() => expect(screen.getByRole("heading", { name: "Producciones Norte" })).toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "Administrador" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Equipo" })).toBeInTheDocument();
+    expect(screen.getByText("B12345678")).toBeInTheDocument();
+    expect(screen.getByText("8 %")).toBeInTheDocument();
+    expect(screen.getByText("admin@produccionesnorte.es")).toBeInTheDocument();
     expect(screen.getAllByText("Admin de Producciones Norte").length).toBeGreaterThan(0);
     expect(screen.getByText("admin@entraditas.com")).toBeInTheDocument();
     expect(screen.getByText("ES77 2100 1234 5678 9012 3456")).toBeInTheDocument();
@@ -40,7 +45,7 @@ describe("OrganizationDetailPage", () => {
     expect(screen.getByRole("row", { name: /Javier Ortega López javier\.ortega@entraditas\.com/ })).toBeInTheDocument();
   });
 
-  it("shows the suborganizador's row with the events each can access", async () => {
+  it("shows the team member's row with the events each can access", async () => {
     await login();
     renderPage("org-1");
     await waitFor(() => expect(screen.getByRole("heading", { name: "Producciones Norte" })).toBeInTheDocument());
@@ -51,22 +56,22 @@ describe("OrganizationDetailPage", () => {
     expect(javierRow).toBeInTheDocument();
   });
 
-  it("lists the suborganizadores separately from the primary organizador", async () => {
+  it("lists the team separately from the primary admin", async () => {
     await login();
     db.users.push({
-      id: "sub-organizador-norte",
+      id: "sub-user-norte",
       organizationId: "org-1",
       parentUserId: "user-admin",
-      role: "suborganizador",
+      role: "subuser",
       email: "sub.norte@entraditas.com",
-      fullName: "Sub Organizador Norte",
+      fullName: "Sub Usuario Norte",
       status: "active",
       permissionOverrides: [],
       eventScopes: []
     });
     renderPage("org-1");
-    await waitFor(() => expect(screen.getByRole("row", { name: /Sub Organizador Norte sub\.norte@entraditas\.com/ })).toBeInTheDocument());
-    // The primary organizador card and the suborganizador row are distinct entries.
+    await waitFor(() => expect(screen.getByRole("row", { name: /Sub Usuario Norte sub\.norte@entraditas\.com/ })).toBeInTheDocument());
+    // The primary admin card and the team row are distinct entries.
     expect(screen.getByRole("heading", { name: "Producciones Norte" })).toBeInTheDocument();
   });
 
@@ -82,14 +87,14 @@ describe("OrganizationDetailPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows a dash when the organization has no organizador", async () => {
+  it("shows a dash when the organization has no admin", async () => {
     await login();
     db.users.forEach((user) => {
       if (user.organizationId === "org-1") user.status = "disabled";
     });
     renderPage("org-1");
     await waitFor(() => expect(screen.getAllByText("—").length).toBeGreaterThan(0));
-    expect(screen.getByText("Esta organización no tiene suborganizadores.")).toBeInTheDocument();
+    expect(screen.getByText("Esta organización no tiene miembros de equipo.")).toBeInTheDocument();
   });
 
   it("shows a 404 message for an unknown organization id", async () => {

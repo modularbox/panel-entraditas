@@ -13,9 +13,9 @@ import { Button } from "@/shared/ui/button";
 import { useTeamQuery } from "../list/useTeamQuery";
 import { teamMemberSchema, type TeamMemberFormValues } from "./teamMemberSchema";
 
-const ROLE_LABELS: Record<RoleSlug, string> = { superadmin: "Superadministrador", organizador: "Organizador", suborganizador: "Suborganizador" };
-const ALL_ROLES: RoleSlug[] = ["superadmin", "organizador", "suborganizador"];
-const SCOPABLE_ROLES: RoleSlug[] = ["suborganizador"];
+const ROLE_LABELS: Record<RoleSlug, string> = { superadmin: "Superadministrador", admin: "Administrador", user: "Usuario", subuser: "Subusuario" };
+const ALL_ROLES: RoleSlug[] = ["superadmin", "admin", "user", "subuser"];
+const SCOPABLE_ROLES: RoleSlug[] = ["user", "subuser"];
 
 export function TeamMemberFormPage() {
   const { id } = useParams<{ id?: string }>();

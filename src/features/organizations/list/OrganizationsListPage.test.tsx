@@ -42,19 +42,19 @@ describe("OrganizationsListPage", () => {
     expect(screen.getByText("Admin de Sur Live")).toBeInTheDocument();
   });
 
-  it("shows Conectar enabled only for organizations with an organizador account", async () => {
+  it("shows Conectar enabled only for organizations with an admin account", async () => {
     await login();
-    // org-2 loses its organizador -> its button should degrade to "Sin organizador" and be disabled.
+    // org-2 loses its admin -> its button should degrade to "Sin administrador" and be disabled.
     db.users.find((u) => u.organizationId === "org-2")!.status = "disabled";
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(3));
     const norteRow = screen.getByText("Producciones Norte").closest("tr")!;
     const surRow = screen.getByText("Sur Live").closest("tr")!;
     expect(within(norteRow).getByRole("button", { name: "Conectar" })).toBeEnabled();
-    expect(within(surRow).getByRole("button", { name: "Sin organizador" })).toBeDisabled();
+    expect(within(surRow).getByRole("button", { name: "Sin administrador" })).toBeDisabled();
   });
 
-  it("shows a dash for an organization without an organizador", async () => {
+  it("shows a dash for an organization without an admin", async () => {
     await login();
     db.users.forEach((user) => {
       if (user.organizationId === "org-2") user.status = "disabled";
@@ -62,7 +62,7 @@ describe("OrganizationsListPage", () => {
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(3));
     const surRow = screen.getByText("Sur Live").closest("tr")!;
-    expect(within(surRow).getAllByText("Sin organizador")).toHaveLength(2);
+    expect(within(surRow).getAllByText("Sin administrador")).toHaveLength(2);
   });
 
   it("Conectar switches the session to the organization's admin and lands on Eventos", async () => {
