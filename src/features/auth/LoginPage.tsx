@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { leerCierre, mensajeDeCierre } from "@/shared/auth/sessionExpiry";
+import { MINUTOS_DE_INACTIVIDAD } from "@/shared/auth/useInactivityLogout";
 import { Button } from "@/shared/ui/button";
 import { NotARobotCaptcha } from "@/shared/ui/notARobotCaptcha";
 import { loginSchema, type LoginFormValues } from "./loginSchema";
@@ -12,6 +14,9 @@ export function LoginPage() {
   const navigate = useNavigate();
   const login = useSessionStore((s) => s.login);
   const [loginError, setLoginError] = useState<string | null>(null);
+  // Por que se acabo la sesion anterior. Se lee una vez al abrir la pantalla: entrar la borra, y
+  // sin esto el mensaje desapareceria a media animacion de salida.
+  const [cierre] = useState(() => leerCierre());
   const {
     register,
     handleSubmit,
@@ -46,6 +51,15 @@ export function LoginPage() {
       <div className="w-full max-w-sm rounded-lg border-2 border-foreground bg-surface p-8 shadow-flat">
         <p className="font-display text-2xl font-semibold text-primary">entraditas</p>
         <h1 className="mt-1 text-sm text-muted-foreground">Panel de administración</h1>
+
+        {cierre && (
+          <p
+            role="status"
+            className="mt-4 rounded-md border-2 border-foreground bg-accent px-3 py-2 text-sm font-semibold text-accent-foreground"
+          >
+            {mensajeDeCierre(cierre, MINUTOS_DE_INACTIVIDAD)}
+          </p>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">

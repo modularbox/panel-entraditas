@@ -31,7 +31,7 @@ describe("SeatingPlanSection", () => {
 
   it("shows a placeholder message when the event has not been saved yet", () => {
     renderSection(null);
-    expect(screen.getByText(/Guarda la informaci�n del evento/)).toBeInTheDocument();
+    expect(screen.getByText(/Guarda la informacion del evento/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "+ Zona numerada" })).not.toBeInTheDocument();
   });
 
@@ -328,15 +328,22 @@ describe("SeatingPlanSection", () => {
     await waitFor(() => expect(db.zones.filter((z) => z.venueId === "venue-1")).toHaveLength(zonesBefore + 2));
   });
 
-  // An event whose date is still to be confirmed has no session yet, and capacity pools hang off
-  // the session. Without one, every seat assignment used to be dropped without a word.
-  it("says what is missing when the event has no session to hang the capacity on", async () => {
+  // Capacity hangs off a session, and the seat breakdown hangs off that capacity. An event with
+  // no session (a single-date event: nothing in the panel ever created one) silently dropped
+  // every seat assignment -- you pressed OK and nothing happened. It now creates its own.
+  it("gives an event with no session one of its own, so the seat breakdown can be saved", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     seedNumberedGrada();
     db.subEvents = db.subEvents.filter((s) => s.eventId !== "event-2");
+    db.capacityPools = db.capacityPools.filter((p) => p.id !== "pool-2-grada" && p.id !== "pool-2-pista");
     renderSection("event-2");
 
-    expect(await screen.findByText(/no tiene ninguna fecha o sesion todavia/i)).toBeInTheDocument();
+    await waitFor(() => expect(db.subEvents.filter((s) => s.eventId === "event-2")).toHaveLength(1));
+    const session = db.subEvents.find((s) => s.eventId === "event-2")!;
+    expect(session.name).toBe("Funcion unica");
+    // And the capacity the seats hang off follows the session.
+    await waitFor(() => expect(db.capacityPools.some((p) => p.subEventId === session.id && p.zoneId === "zone-grada")).toBe(true));
+    expect(screen.queryByText(/no tiene ninguna fecha o sesion todavia/i)).not.toBeInTheDocument();
   });
 
   it("duplicates a zone without carrying its seat breakdown over", async () => {
@@ -364,19 +371,102 @@ describe("SeatingPlanSection", () => {
     });
   });
 
-  it("applies a custom seats-per-row distribution and takes its capacity from it", async () => {
+  it("builds the zone as a grid of rows by seats and takes its capacity from it", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     seedNumberedGrada();
     renderSection("event-2");
     fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
 
-    fireEvent.change(screen.getByLabelText("Asientos por fila"), { target: { value: "12, 11, 11, 9" } });
-    fireEvent.blur(screen.getByLabelText("Asientos por fila"));
+    fireEvent.change(await screen.findByLabelText("Filas"), { target: { value: "4" } });
+    fireEvent.change(screen.getByLabelText("Butacas por fila"), { target: { value: "12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear la rejilla" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rehacer" }));
 
     await waitFor(() => {
       const zone = db.zones.find((z) => z.id === "zone-grada")!;
-      expect(zone.rowSeats).toEqual([12, 11, 11, 9]);
-      expect(zone.capacity).toBe(43);
+      expect(zone.seatRows).toHaveLength(4);
+      expect(zone.capacity).toBe(48);
+    });
+  });
+
+  // A real room is not a rectangle. Turning a position into an aisle has to take a seat off the
+  // zone's capacity, and the seats after it keep their consecutive numbers, because that is what
+  // is printed on the chairs.
+  it("turns a position into an aisle, renumbering the row and lowering the capacity", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+
+    fireEvent.click(await screen.findByLabelText(/^Butaca A3\./));
+    fireEvent.click(await screen.findByRole("button", { name: "Quitar (pasillo)" }));
+
+    await waitFor(() => {
+      const zone = db.zones.find((z) => z.id === "zone-grada")!;
+      expect(zone.capacity).toBe(24);
+      expect(zone.seatRows![0]).toMatchObject({ slots: 5, gaps: [3] });
+    });
+    // The seat that was A4 is now A3: numbering runs over the real seats, skipping the aisle.
+    expect(await screen.findByLabelText(/^Butaca A3\./)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Posición 3 de la fila A: pasillo/)).toBeInTheDocument();
+  });
+
+  // Renombrar o renumerar cambia el identificador de cada butaca, que es su nombre. Sin
+  // reengancharlas, el reparto por tipo de entrada se caia al suelo sin avisar.
+  it("keeps the ticket types on their seats when the zone is renumbered", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    db.capacityPools.find((p) => p.id === "pool-2-grada")!.seatAssignments = [
+      { seatId: "A-1", ticketTypeGroupId: "tt-2-grada" },
+      { seatId: "B-2", ticketTypeGroupId: "tt-2-grada" }
+    ];
+    db.capacityPools.find((p) => p.id === "pool-2-grada")!.accessibleSeatIds = ["A-2"];
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Filas con números" }));
+
+    await waitFor(() => {
+      const pool = db.capacityPools.find((p) => p.id === "pool-2-grada")!;
+      // La fila A pasa a llamarse 1 y la B, 2: las mismas butacas, con su tipo de entrada.
+      expect(pool.seatAssignments!.map((s) => s.seatId).sort()).toEqual(["1-1", "2-2"]);
+      expect(pool.accessibleSeatIds).toEqual(["1-2"]);
+    });
+  });
+
+  it("splits a total between rows when the organiser only knows the capacity", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Total / filas" }));
+    fireEvent.change(await screen.findByLabelText("Total de butacas"), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText("Filas"), { target: { value: "8" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear la rejilla" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rehacer" }));
+
+    await waitFor(() => {
+      const zone = db.zones.find((z) => z.id === "zone-grada")!;
+      expect(zone.capacity).toBe(100);
+      // 100 entre 8 no es exacto: el resto va a las primeras filas.
+      expect(zone.seatRows!.map((r) => r.slots)).toEqual([13, 13, 13, 13, 12, 12, 12, 12]);
+    });
+  });
+
+  it("shifts a whole row half a seat, for stands that are not aligned", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    seedNumberedGrada();
+    renderSection("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Grada" }));
+
+    fireEvent.click(await screen.findByLabelText("Desplazar la fila B a la derecha"));
+
+    await waitFor(() => {
+      const zone = db.zones.find((z) => z.id === "zone-grada")!;
+      expect(zone.seatRows![1]!.offset).toBe(1);
+      // Shifting moves the row, it does not change what it holds.
+      expect(zone.capacity).toBe(25);
     });
   });
 

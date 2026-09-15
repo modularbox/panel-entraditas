@@ -24,7 +24,12 @@ function next() {
   fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
 }
 
-/** Los pasos de un evento de una sola sesion, en orden. */
+/**
+ * Los pasos de un evento de una sola sesion, en orden.
+ *
+ * Sin "Invitados": Jorge retiro esa funcion entera del panel el 11/09 y Axel la dio por retirada
+ * el 12/09. Si vuelve, vuelve entre "Puertas" y "Publicar evento".
+ */
 const PASOS_SESION_UNICA = [
   "Informacion del evento",
   "Tipos de entrada",
@@ -147,7 +152,11 @@ describe("EventWizardPage", () => {
     await waitFor(() => expect(db.events.find((e) => e.id === "event-2")!.rules?.allowIsolatedSeats).toBe(true));
   });
 
+<<<<<<< HEAD
 it("los pasos 4, 5 y 6 son descuentos, puertas y publicar", async () => {
+=======
+  it("los pasos 4 y 5 son descuentos y puertas", async () => {
+>>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar");
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
@@ -156,8 +165,12 @@ it("los pasos 4, 5 y 6 son descuentos, puertas y publicar", async () => {
     expect(screen.getByRole("region", { name: "Codigos de descuento" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "5. Puertas" }));
     expect(screen.getByRole("region", { name: "Puertas" })).toBeInTheDocument();
+<<<<<<< HEAD
     fireEvent.click(screen.getByRole("button", { name: "6. Publicar evento" }));
     expect(screen.getByRole("region", { name: "Publicar evento" })).toBeInTheDocument();
+=======
+    expect(screen.queryByRole("button", { name: /Invitados/ })).not.toBeInTheDocument();
+>>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
   });
 
   it("blocks advancing past the ticket-types step until at least one ticket type exists, but still allows going back", async () => {

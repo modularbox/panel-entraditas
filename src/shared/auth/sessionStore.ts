@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { apiClient } from "@/shared/lib/apiClient";
+import { alPerderLaSesion, apiClient } from "@/shared/lib/apiClient";
 import { estadoSesionApi, iniciarSesionEnLaApi, logoutFromApi } from "@/shared/lib/entraditasApi";
+import { guardarCierre, olvidarCierre, type MotivoDeCierre } from "./sessionExpiry";
 import type { RoleSlug } from "@entraditas/types";
 
 const TOKEN_STORAGE_KEY = "entraditas.panel.devToken";
@@ -32,6 +33,8 @@ interface SessionState {
   impersonatorToken: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Cierra la sesion sin que nadie lo haya pedido, dejando dicho por que. */
+  expire: (motivo: MotivoDeCierre, inactivoMs?: number) => void;
   restore: () => Promise<void>;
   setSession: (session: SessionResponse) => void;
   connectAs: (session: SessionResponse) => void;
@@ -48,6 +51,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   setSession(session) {
     localStorage.setItem(TOKEN_STORAGE_KEY, session.accessToken!);
+    // Ya ha vuelto a entrar: el aviso de por que se cerro la anterior ha cumplido.
+    olvidarCierre();
     // Every fresh session (login, restore-like, or returning to the superadmin) starts clean —
     // any leftover impersonator token from a previous, unrelated session no longer applies.
     localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
@@ -120,7 +125,26 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     await logoutFromApi().catch(() => undefined);
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
+    // Salir por voluntad propia no deja aviso: el de la vez anterior no tiene nada que decir aqui.
+    olvidarCierre();
     set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
+  },
+
+  /**
+   * La sesion se ha caido sola: por no tocar nada en un buen rato, o porque el servidor ha dicho
+   * que el token ya no vale.
+   *
+   * Deja escrito el motivo ANTES de cerrar, porque cerrar hace que el enrutador mande al login de
+   * inmediato: si el motivo se guardara despues, el login ya se habria pintado sin el y la
+   * pantalla diria solo "entra", que es exactamente lo que no ayuda.
+   */
+  expire(motivo, inactivoMs) {
+    if (get().status !== "authenticated") return;
+    guardarCierre({ motivo, ...(inactivoMs !== undefined ? { inactivoMs } : {}) });
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
+    set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
+    void logoutFromApi().catch(() => undefined);
   },
 
   async restore() {
@@ -155,8 +179,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         impersonatorToken: localStorage.getItem(IMPERSONATOR_STORAGE_KEY)
       });
     } catch {
+      // Habia un token guardado y ya no sirve: para quien lo vive, la sesion se ha cerrado sola.
+      guardarCierre({ motivo: "sesion-no-valida" });
       localStorage.removeItem(TOKEN_STORAGE_KEY);
       set({ status: "unauthenticated" });
     }
   }
 }));
+
+/**
+ * Un 401 en cualquier peticion es la sesion diciendo que ya no vale.
+ *
+ * Antes se quedaba en el mensaje de error de la pantalla donde saltara ("No se pudo guardar el
+ * evento") y el panel seguia navegando con una sesion muerta: cada pantalla fallaba a su manera
+ * hasta que alguien recargaba. Ahora se cierra y se manda al login, contando por que.
+ */
+alPerderLaSesion(() => {
+  useSessionStore.getState().expire("sesion-no-valida");
+});

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import type { Zone } from "@entraditas/types";
 import { cn } from "@/shared/lib/cn";
 import { computeDragPosition, computeResizeSize, type ZoneLayout } from "./zoneGeometry";
-import { buildSeatGrid, rowOriginForStage, seatRows, type SeatAssignments } from "./seatMap";
+import { buildSeatGrid, rowOriginForStage, seatGridExtent, type SeatAssignments } from "./seatMap";
 
 export interface ZoneCanvasProps {
   zones: Zone[];
@@ -36,11 +36,6 @@ const ACCESSIBLE_COLOR = "#2563eb";
 // Seat miniature geometry, in the SVG's own units: a seat plus the gap after it.
 const SEAT_SIZE = 0.82;
 const SEAT_STEP = 1;
-
-/** Widest row of the grid, which sets the miniature's horizontal extent. */
-function seatGridColumns(rows: { length: number }[]): number {
-  return rows.reduce((widest, row) => Math.max(widest, row.length), 1);
-}
 
 export function ZoneCanvas({
   zones,
@@ -160,18 +155,13 @@ export function ZoneCanvas({
         const showSeats = zone.kind === "numbered" && zone.capacity > 0;
         const assignments = seatAssignmentsByZone[zone.id] ?? {};
         const accessible = new Set(accessibleSeatsByZone[zone.id] ?? []);
-        const rows = showSeats
-          ? seatRows(
-              buildSeatGrid({
-                capacity: zone.capacity,
-                width: layout.width,
-                height: layout.height,
-                rows: zone.rows,
-                rowSeats: zone.rowSeats,
-                rowAOrigin: rowOriginForStage(layout, stage)
-              })
-            )
+        // The very same seats the row editor and the buyer site use, placed at the very same
+        // columns. Drawing them here by a rule of its own is what used to make the miniature
+        // disagree with the grid below it.
+        const seats = showSeats
+          ? buildSeatGrid({ ...zone, ...layout, rowAOrigin: rowOriginForStage(layout, stage) })
           : [];
+        const extent = seatGridExtent(seats);
         return (
           <button
             key={zone.id}
@@ -187,54 +177,71 @@ export function ZoneCanvas({
               height: `${layout.height}%`
             }}
             className={cn(
-              "absolute flex touch-none select-none flex-col items-center justify-center border-2 p-1 text-xs font-semibold",
+              // El escenario y la puerta iban del mismo negro y no habia forma de distinguirlos
+              // de un vistazo. El escenario es la masa negra de referencia; la puerta, verde y
+              // con el borde a rayas, que es como se marca un acceso en un plano de evacuacion.
+              //
+              // Las zonas con butacas van tenidas, no macizas: lo que tiene que verse son las
+              // butacas. Con la zona a todo color eran manchas claras sobre rojo y no se leia
+              // nada de la sala.
+              "absolute flex touch-none select-none flex-col items-stretch justify-start overflow-hidden border-2 p-1 text-xs font-semibold",
               zone.kind === "stage" && "border-foreground bg-foreground text-background",
               zone.kind === "accessible" && "border-dashed border-success bg-success-bg text-success",
-              zone.kind === "numbered" && "border-primary bg-primary text-primary-foreground",
-              zone.kind === "standing" && "border-accent bg-accent text-accent-foreground",
-              zone.kind === "gate" && "border-foreground bg-foreground text-background",
+              zone.kind === "numbered" && "border-primary bg-[hsl(var(--primary)/0.1)] text-foreground",
+              zone.kind === "standing" && "border-accent bg-[hsl(var(--accent)/0.22)] text-foreground",
+              zone.kind === "gate" && "items-center justify-center border-dashed border-foreground bg-success text-white",
+              zone.kind === "stage" && "items-center justify-center",
               selected && "ring-2 ring-primary"
             )}
           >
-            {showSeats && (
+            {showSeats && seats.length > 0 && (
               // Drawn as SVG rather than flexed boxes: a viewBox keeps every seat square and the
               // whole block centred whatever the zone's proportions, which is what made the
               // miniature look distorted when a zone was wide and short (or tall and narrow).
+              //
+              // `h-full w-full` and not only `inset-1`: an <svg> is a replaced element, so with
+              // width and height left to auto the browser ignores the insets and gives it its
+              // default 300x150. On any zone smaller than that the seats came out huge and spilled
+              // out over the plan, which is exactly what they were doing.
               <svg
                 aria-hidden="true"
-                viewBox={`0 0 ${seatGridColumns(rows) * SEAT_STEP} ${rows.length * SEAT_STEP}`}
+                viewBox={`0 0 ${extent.columns * SEAT_STEP} ${extent.rows * SEAT_STEP}`}
                 preserveAspectRatio="xMidYMid meet"
-                className="absolute inset-1"
+                // Debajo del nombre de la zona, no detras: el nombre tapaba justo las butacas de
+                // las primeras filas, que son las que mas se miran.
+                className="absolute inset-x-1 bottom-1 top-[1.15rem] h-[calc(100%-1.4rem)] w-[calc(100%-0.5rem)]"
               >
-                {rows.map((row, rowIndex) => {
-                  // Short rows (the remainder of an uneven split) sit centred under the long ones.
-                  const offset = (seatGridColumns(rows) - row.length) / 2;
-                  return row.map((seat, colIndex) => {
-                    const groupId = assignments[seat.id];
-                    const color = accessible.has(seat.id)
-                      ? ACCESSIBLE_COLOR
-                      : groupId
-                        ? groupColors[groupId]
-                        : undefined;
-                    return (
-                      <rect
-                        key={seat.id}
-                        x={(offset + colIndex) * SEAT_STEP}
-                        y={rowIndex * SEAT_STEP}
-                        width={SEAT_SIZE}
-                        height={SEAT_SIZE}
-                        rx={SEAT_SIZE / 5}
-                        fill={color ?? "rgba(255,255,255,0.45)"}
-                        stroke="rgba(0,0,0,0.2)"
-                        strokeWidth={0.1}
-                      />
-                    );
-                  });
+                {seats.map((seat) => {
+                  const groupId = assignments[seat.id];
+                  const color = groupId ? groupColors[groupId] : undefined;
+                  // A seat is its ticket type AND, sometimes, a reduced-mobility place. At this
+                  // size a wheelchair symbol would be a smudge, so the place keeps its type's
+                  // colour and is ringed in blue instead of being painted over in it.
+                  const isAccessible = accessible.has(seat.id);
+                  return (
+                    <rect
+                      key={seat.id}
+                      x={(seat.column - extent.left) * SEAT_STEP}
+                      y={seat.rowIndex * SEAT_STEP}
+                      width={SEAT_SIZE}
+                      height={SEAT_SIZE}
+                      rx={SEAT_SIZE / 4}
+                      fill={color ?? "rgba(255,255,255,0.95)"}
+                      stroke={isAccessible ? ACCESSIBLE_COLOR : "rgba(0,0,0,0.45)"}
+                      strokeWidth={isAccessible ? 0.16 : 0.08}
+                    />
+                  );
                 })}
               </svg>
             )}
-            <span className="relative z-10 rounded-sm bg-black/25 px-1">{zone.name}</span>
-            {sellable && <span className="relative z-10 rounded-sm bg-black/25 px-1">{zone.capacity} plazas</span>}
+            {sellable ? (
+              <span className="relative z-10 flex items-baseline gap-1.5 truncate rounded-sm px-0.5 text-[10px] leading-none">
+                <span className="truncate font-bold">{zone.name}</span>
+                <span className="shrink-0 font-semibold text-muted-foreground">{zone.capacity}</span>
+              </span>
+            ) : (
+              <span className="relative z-10 truncate px-0.5">{zone.name}</span>
+            )}
             {selected && (
               <span
                 role="presentation"
