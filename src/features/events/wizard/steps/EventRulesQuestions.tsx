@@ -5,6 +5,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { cn } from "@/shared/lib/cn";
 import { resolvedRules } from "@/shared/lib/eventRules";
+import { NumericInput } from "@/shared/ui/NumericInput";
 
 /**
  * Preguntas del organizador que antes vivian en un cuestionario previo al asistente y ahora estan
@@ -105,12 +106,11 @@ export function PurchaseLimitsQuestion({ eventId }: { eventId: string | null }) 
       <div className="grid max-w-xl gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm font-semibold">
           <span>Máximo por pedido</span>
-          <input
-            type="number"
+          <NumericInput
             min="1"
             max="100"
             step="1"
-            inputMode="numeric"
+            maxLength={3}
             value={maxPerOrder}
             onChange={(e) => setMaxPerOrder(e.target.value)}
             className="h-10 rounded-md border-2 border-foreground bg-surface px-3 text-foreground"
@@ -118,12 +118,11 @@ export function PurchaseLimitsQuestion({ eventId }: { eventId: string | null }) 
         </label>
         <label className="flex flex-col gap-1 text-sm font-semibold">
           <span>Máximo por cliente</span>
-          <input
-            type="number"
+          <NumericInput
             min="0"
             max="100"
             step="1"
-            inputMode="numeric"
+            maxLength={3}
             value={maxPerCustomer}
             onChange={(e) => setMaxPerCustomer(e.target.value)}
             className="h-10 rounded-md border-2 border-foreground bg-surface px-3 text-foreground"

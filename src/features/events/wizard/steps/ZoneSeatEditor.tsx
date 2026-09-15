@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Zone } from "@entraditas/types";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/cn";
+import { NumericInput } from "@/shared/ui/NumericInput";
 import type { TicketTypeGroup } from "./Step4TicketTypes";
 import {
   assignSeat,
@@ -164,13 +165,12 @@ export function ZoneSeatEditor({
                 <label htmlFor={`seat-count-${group.groupId}`} className="sr-only">
                   Asientos de {group.name} en {zone.name}
                 </label>
-                <input
+                <NumericInput
                   id={`seat-count-${group.groupId}`}
-                  type="number"
                   min="0"
                   max={max}
                   step="1"
-                  inputMode="numeric"
+                  maxLength={5}
                   value={draft ?? String(inThisZone)}
                   onChange={(e) => setDrafts((prev) => ({ ...prev, [group.groupId]: e.target.value }))}
                   onKeyDown={(e) => {

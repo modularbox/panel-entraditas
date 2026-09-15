@@ -47,16 +47,6 @@ export function EventRowActions({ event }: { event: Event }) {
     setMessage(error instanceof AppError ? error.message : fallback);
   }
 
-  const startReview = useMutation({
-    mutationFn: () => apiClient.post<Event>(`/events/${event.id}/start-review`, undefined, { token: token! }),
-    onSuccess: async () => {
-      setFailed(false);
-      setMessage("En revisión: el superadmin lo comprueba antes de publicarlo.");
-      await refresh();
-    },
-    onError: (error) => reportError(error, "No se pudo poner el evento en revisión.")
-  });
-
   const approve = useMutation({
     mutationFn: async () => {
       await apiClient.post<Event>(`/events/${event.id}/approve`, undefined, { token: token! });
@@ -117,12 +107,9 @@ export function EventRowActions({ event }: { event: Event }) {
   const canReview = role === "superadmin";
   const reviewable = REVIEWABLE.includes(event.status);
 
-  const working = approve.isPending || reject.isPending || startReview.isPending || unpublish.isPending || remove.isPending;
+  const working = approve.isPending || reject.isPending || unpublish.isPending || remove.isPending;
 
   const acciones: { label: string; onClick: () => void; variant?: "outline" | "destructive" }[] = [];
-  if (canReview && event.status === "pending_review") {
-    acciones.push({ label: startReview.isPending ? "Poniendo en revisión..." : "Poner en revisión", onClick: () => startReview.mutate(), variant: "outline" });
-  }
   if (canReview && reviewable) {
     acciones.push({ label: approve.isPending ? "Publicando..." : "Aprobar y publicar", onClick: () => approve.mutate() });
     acciones.push({ label: "Rechazar", onClick: () => reject.mutate(), variant: "outline" });

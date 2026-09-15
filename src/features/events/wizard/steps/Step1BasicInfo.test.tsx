@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { db, demoPasswordFor, resetDb } from "@/mocks/state";
 import { server } from "@/mocks/server";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { useWizardStore } from "../wizardStore";
 import { Step1BasicInfo, type Step1BasicInfoProps } from "./Step1BasicInfo";
 
 function renderStep1(props: Step1BasicInfoProps) {
@@ -32,6 +33,7 @@ describe("Step1BasicInfo", () => {
   afterEach(() => {
     resetDb();
     useSessionStore.setState({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "idle" });
+    useWizardStore.setState({ eventId: null, draftRules: null });
   });
 
   it("shows a validation error when the title is too short", async () => {
@@ -82,7 +84,7 @@ describe("Step1BasicInfo", () => {
     expect(creado?.hasSubEvents).toBe(true);
   });
 
-  it("ya no manda limites de compra al crear: se deciden en su paso", async () => {
+  it("crear sin respuestas del cuestionario no llegan reglas al evento", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     const onSaved = vi.fn();
     renderStep1({ eventId: null, onSaved, goNext: vi.fn() });
@@ -96,6 +98,22 @@ describe("Step1BasicInfo", () => {
     const creado = db.events.find((event) => event.id === onSaved.mock.calls[0]![0]);
     expect(creado?.maxTicketsPerOrder ?? null).toBeNull();
     expect(creado?.rules).toBeUndefined();
+  });
+
+  it("manda con la creacion las respuestas del cuestionario previo", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+    useWizardStore.setState({ draftRules: { allowIsolatedSeats: true, maxPerOrder: 8 } });
+    const onSaved = vi.fn();
+    renderStep1({ eventId: null, onSaved, goNext: vi.fn() });
+
+    fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Concierto contestado" } });
+    fillDescription("Una descripcion valida");
+    fillRequiredLocation();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.any(String)));
+    const creado = db.events.find((event) => event.id === onSaved.mock.calls[0]![0]);
+    expect(creado?.rules).toEqual(expect.objectContaining({ allowIsolatedSeats: true, maxPerOrder: 8 }));
   });
 
   it("patches the existing draft when eventId is already set", async () => {

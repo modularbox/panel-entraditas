@@ -22,7 +22,7 @@ const formatDate = (value: string | null) => {
 };
 const statusLabels: Record<string, string> = {
   draft: "Borrador",
-  pending_review: "En revisión",
+  in_review: "En revisión",
   published: "Publicado",
   rejected: "Rechazado"
 };

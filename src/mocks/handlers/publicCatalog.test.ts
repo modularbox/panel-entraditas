@@ -41,7 +41,7 @@ describe("public catalogue handlers", () => {
 
   it("never exposes an event that is only awaiting review", async () => {
     const event = db.events.find((candidate) => candidate.status === "published")!;
-    event.status = "pending_review";
+    event.status = "in_review";
 
     const events = await apiClient.get<PublicEvent[]>("/public/events");
 

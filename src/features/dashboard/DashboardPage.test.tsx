@@ -38,7 +38,7 @@ describe("DashboardPage", () => {
     const table = screen.getByRole("table");
     expect(within(table).getByText("Festival del Sur")).toBeInTheDocument();
     expect(within(table).getByText("La Casa de Bernarda Alba")).toBeInTheDocument();
-    expect(screen.getAllByRole("row")).toHaveLength(6);
+    expect(screen.getAllByRole("row")).toHaveLength(14);
   });
 
   it("scopes the general overview to an admin: only their organization's events", async () => {
@@ -50,7 +50,7 @@ describe("DashboardPage", () => {
     const table = screen.getByRole("table");
     expect(within(table).getByText("La Casa de Bernarda Alba")).toBeInTheDocument();
     expect(screen.queryByText("Festival del Sur")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("row")).toHaveLength(5);
+    expect(screen.getAllByRole("row")).toHaveLength(13);
   });
 
   it("scopes the general overview to a scoped user: only their assigned events", async () => {

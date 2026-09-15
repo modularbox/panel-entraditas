@@ -5,6 +5,7 @@ import type { Order, OrderItem, TicketType } from "@entraditas/types";
 import { Can } from "@/shared/auth/Can";
 import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
+import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
@@ -125,11 +126,11 @@ export function TaquillaPage() {
                         <td className="px-4 py-3">{soldOut ? "Agotado" : remaining === null ? "Ilimitado" : remaining}</td>
                         <td className="px-4 py-3">
                           <label htmlFor={`qty-${ticketType.id}`} className="sr-only">Cantidad de {ticketType.name}</label>
-                          <input
+                          <NumericInput
                             id={`qty-${ticketType.id}`}
-                            type="number"
                             min={0}
                             max={max}
+                            maxLength={4}
                             disabled={soldOut}
                             value={quantities[ticketType.id] ?? 0}
                             onChange={(e) => setQuantity(ticketType.id, Math.max(0, Number(e.target.value)))}

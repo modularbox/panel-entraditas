@@ -4,6 +4,7 @@ import type { DiscountCode, TicketType } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
+import { NumericInput } from "@/shared/ui/NumericInput";
 import { groupTicketTypes } from "./Step4TicketTypes";
 
 export interface DiscountCodesSectionProps {
@@ -155,18 +156,19 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
         </div>
 
         <label htmlFor="dc-value">Valor</label>
-        <input
+        <NumericInput
           id="dc-value"
-          type="number"
+          allowDecimal
+          maxLength={7}
           min="0"
           value={valueInput}
           onChange={(e) => setValueInput(e.target.value)}
         />
 
         <label htmlFor="dc-max-uses">Usos máximos</label>
-        <input
+        <NumericInput
           id="dc-max-uses"
-          type="number"
+          maxLength={6}
           min="0"
           value={maxUsesInput}
           onChange={(e) => setMaxUsesInput(e.target.value)}
@@ -174,9 +176,9 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
         />
 
         <label htmlFor="dc-max-uses-per-customer">Usos máximos por cliente</label>
-        <input
+        <NumericInput
           id="dc-max-uses-per-customer"
-          type="number"
+          maxLength={6}
           min="0"
           value={maxUsesPerCustomerInput}
           onChange={(e) => setMaxUsesPerCustomerInput(e.target.value)}

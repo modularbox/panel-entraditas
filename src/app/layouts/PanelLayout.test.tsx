@@ -125,7 +125,7 @@ describe("PanelLayout navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Restablecer datos" }));
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     expect(db.events[0]!.title).not.toBe("Título editado");
-    expect(db.events).toHaveLength(5);
+    expect(db.events).toHaveLength(13);
     expect(sessions.get("token-superadmin")).toBe("user-superadmin");
   });
 });

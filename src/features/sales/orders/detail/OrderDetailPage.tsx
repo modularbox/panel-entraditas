@@ -5,6 +5,7 @@ import type { Order, OrderItem, Refund } from "@entraditas/types";
 import { Can } from "@/shared/auth/Can";
 import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
+import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 
@@ -68,9 +69,10 @@ function RefundForm({
     <form onSubmit={submit} className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-4">
       <div>
         <label htmlFor="refund-amount" className="block text-xs font-medium text-muted-foreground">Importe a reembolsar (€)</label>
-        <input
+        <NumericInput
           id="refund-amount"
-          type="number"
+          allowDecimal
+          maxLength={8}
           min="0.01"
           max={(remaining / 100).toFixed(2)}
           step="0.01"

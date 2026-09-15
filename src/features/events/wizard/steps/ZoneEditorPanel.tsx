@@ -1,5 +1,6 @@
 import type { Zone } from "@entraditas/types";
 import { Button } from "@/shared/ui/button";
+import { NumericInput } from "@/shared/ui/NumericInput";
 import { buildSeatGrid, capacityOfRowSeats, computeRowCount, seatRows } from "./seatMap";
 
 export interface ZoneEditorPanelProps {
@@ -86,10 +87,10 @@ export function ZoneEditorPanel({
           {sellable && (
             <>
               <label htmlFor="zone-capacity">Capacidad</label>
-              <input
+              <NumericInput
                 id="zone-capacity"
-                type="number"
                 min="0"
+                maxLength={6}
                 defaultValue={selectedZone.capacity}
                 onBlur={(e) => onUpdateZone(selectedZone.id, { capacity: Number(e.target.value) })}
               />
@@ -99,11 +100,11 @@ export function ZoneEditorPanel({
           {selectedZone.kind === "numbered" && (
             <>
               <label htmlFor="zone-rows">Filas</label>
-              <input
+              <NumericInput
                 id="zone-rows"
-                type="number"
                 min="1"
                 max={Math.max(1, selectedZone.capacity)}
+                maxLength={3}
                 placeholder="Automatico"
                 defaultValue={selectedZone.rows ?? ""}
                 // Blank means "work the rows out from the zone's shape", which is what a zone
@@ -158,21 +159,21 @@ export function ZoneEditorPanel({
           )}
 
           <label htmlFor="zone-width">Ancho %</label>
-          <input
+          <NumericInput
             id="zone-width"
-            type="number"
             min="1"
             max="100"
+            maxLength={3}
             defaultValue={selectedZone.width}
             onBlur={(e) => onUpdateZone(selectedZone.id, { width: Number(e.target.value) })}
           />
 
           <label htmlFor="zone-height">Alto %</label>
-          <input
+          <NumericInput
             id="zone-height"
-            type="number"
             min="1"
             max="100"
+            maxLength={3}
             defaultValue={selectedZone.height}
             onBlur={(e) => onUpdateZone(selectedZone.id, { height: Number(e.target.value) })}
           />

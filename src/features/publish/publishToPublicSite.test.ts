@@ -25,25 +25,10 @@ describe("aprobacion de eventos", () => {
     expect(event.publishedAt).not.toBeNull();
   });
 
-  it("un superadmin pone en revision un evento pendiente de aprobacion", async () => {
-    const token = await loginAs("superadmin@entraditas.com");
-    db.events.find((e) => e.id === "event-5")!.status = "pending_review";
-
-    const event = await apiClient.post<Event>("/events/event-5/start-review", undefined, { token });
-
-    expect(event.status).toBe("in_review");
-  });
-
-  it("revisar es tarea de la plataforma: un admin no puede poner ni aprobar su propio evento", async () => {
+  it("revisar es tarea de la plataforma: un admin no puede aprobar su propio evento", async () => {
     const token = await loginAs("admin@entraditas.com");
-    db.events.find((e) => e.id === "event-5")!.status = "pending_review";
-
-    await expect(apiClient.post("/events/event-5/start-review", undefined, { token })).rejects.toMatchObject({
-      code: "FORBIDDEN"
-    });
-    expect(db.events.find((e) => e.id === "event-5")!.status).toBe("pending_review");
-
     db.events.find((e) => e.id === "event-5")!.status = "in_review";
+
     await expect(apiClient.post("/events/event-5/approve", undefined, { token })).rejects.toMatchObject({
       code: "FORBIDDEN"
     });

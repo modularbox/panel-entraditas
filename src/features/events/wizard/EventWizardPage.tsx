@@ -40,9 +40,10 @@ interface WizardStep {
  * quedado fuera del asistente: solo se podian configurar desde la ficha del evento, despues de
  * crearlo, y quien creaba un evento no los veia nunca. Vuelven aqui, antes de publicar.
  *
- * Tampoco hay cuestionario previo: sus preguntas estan ahora en el paso al que afectan (ver
- * EventRulesQuestions). Decidir si habra plano antes de ver el editor de asientos obligaba a
- * elegir a ciegas.
+ * El cuestionario previo (los limites de venta y acceso) se responde antes de entrar, en el
+ * dialogo de "Antes de crear el evento", y sus respuestas viajan con el evento al crearlo.
+ * Dentro del asistente esas reglas se pueden ajustar en el paso al que afectan (ver
+ * EventRulesQuestions).
  */
 const ALL_STEPS: WizardStep[] = [
   { key: "info", label: "Informacion del evento", needsEventId: false },
@@ -65,11 +66,14 @@ export function EventWizardPage() {
   const [tiposValid, setTiposValid] = useState(false);
 
   useEffect(() => {
-    // ":id/nuevo" route means "start a fresh draft"; any other id resumes an existing event
+    // ":id/nuevo" route means "start a fresh draft"; any other id resumes an existing event.
+    // Al empezar un evento nuevo las respuestas ya vienen del dialogo previo (draftRules), asi que
+    // aqui no se tocan: `reset` borra todo y solo se usa al reabrir un evento en borrador.
     if (params.id && params.id !== "nuevo") {
+      reset();
       setEventId(params.id);
     } else {
-      reset();
+      setEventId(null);
     }
     setStepIndex(0);
     setPlanoValid(true);

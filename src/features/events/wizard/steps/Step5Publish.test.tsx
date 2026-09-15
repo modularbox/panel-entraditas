@@ -60,6 +60,6 @@ describe("Step5Publish", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enviar a revision" }));
 
     await waitFor(() => expect(screen.getByText("Panel de eventos")).toBeInTheDocument());
-    expect(db.events.find((e) => e.id === "event-3")!.status).toBe("pending_review");
+    expect(db.events.find((e) => e.id === "event-3")!.status).toBe("in_review");
   });
 });

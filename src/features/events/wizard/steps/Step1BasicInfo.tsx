@@ -7,9 +7,11 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
+import { NumericInput } from "@/shared/ui/NumericInput";
 import { OptionButton, QuestionSection } from "./EventRulesQuestions";
 import { step1Schema, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";
+import { useWizardStore } from "../wizardStore";
 
 export interface Step1BasicInfoProps {
   eventId: string | null;
@@ -46,6 +48,7 @@ async function filesToDataUrls(files: FileList | null): Promise<string[]> {
 
 export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps) {
   const token = useSessionStore((s) => s.token);
+  const draftRules = useWizardStore((s) => s.draftRules);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [coverMode, setCoverMode] = useState<"upload" | "url">("upload");
   const { data: existingEvent, isError: hasLoadError } = useQuery({
@@ -133,8 +136,9 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         notifyWhenDateConfirmed: formValues.datePending ? true : formValues.notifyWhenDateConfirmed,
         serviceFeeType: formValues.serviceFeeType,
         serviceFeeValue: formValues.serviceFeeType === "none" ? 0 : formValues.serviceFeeValue ?? 0,
-        // Los limites de compra y los asientos sueltos ya no se mandan desde aqui: se deciden en
-        // sus pasos (tipos de entrada y asientos) y se guardan en `rules`, que es lo que se publica.
+        // Al crear, las respuestas del cuestionario previo viajan ya con el evento: nacen
+        // contestadas. Dentro del asistente se ajustan en sus pasos (tipos y asientos).
+        ...(eventId ? {} : draftRules ? { rules: draftRules } : {}),
         hasSubEvents: formValues.hasSubEvents
       };
       const event = eventId
@@ -306,7 +310,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
             </label>
           </div>
           <label htmlFor="serviceFeeValue">Valor</label>
-          <input id="serviceFeeValue" type="number" step="0.01" min="0" {...register("serviceFeeValue")} />
+          <NumericInput id="serviceFeeValue" allowDecimal maxLength={7} step="0.01" min="0" {...register("serviceFeeValue")} />
         </fieldset>
 
         {/* Al final del paso: es lo que decide si el siguiente paso es "Varias funciones". */}

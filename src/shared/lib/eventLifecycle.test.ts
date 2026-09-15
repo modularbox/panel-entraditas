@@ -19,7 +19,7 @@ describe("isPubliclyVisible", () => {
   });
 
   it("nada que siga en preparacion o ya retirado llega al comprador", () => {
-    for (const status of ["draft", "pending_review", "rejected", "finished"] as const) {
+    for (const status of ["draft", "in_review", "rejected", "finished"] as const) {
       expect(isPubliclyVisible(status), status).toBe(false);
     }
   });

@@ -21,7 +21,7 @@ describe("local persistence", () => {
 
   it("starts from the JSON seed when nothing is stored yet", () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
-    expect(db.events).toHaveLength(5);
+    expect(db.events).toHaveLength(13);
     expect(db.orders).toHaveLength(9);
   });
 

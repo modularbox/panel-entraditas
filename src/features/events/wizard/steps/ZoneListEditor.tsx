@@ -2,6 +2,7 @@ import type { Zone } from "@entraditas/types";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 import { cn } from "@/shared/lib/cn";
+import { NumericInput } from "@/shared/ui/NumericInput";
 import { computeRowCount } from "./seatMap";
 
 export interface ZoneListEditorProps {
@@ -75,11 +76,10 @@ export function ZoneListEditor({
                     <label htmlFor={`zone-capacity-${zone.id}`} className="text-xs font-semibold">
                       {zone.kind === "numbered" ? "Asientos" : "Aforo"}
                     </label>
-                    <input
+                    <NumericInput
                       id={`zone-capacity-${zone.id}`}
-                      type="number"
                       min="0"
-                      inputMode="numeric"
+                      maxLength={6}
                       defaultValue={zone.capacity}
                       onBlur={(e) => onUpdateZone(zone.id, { capacity: Number(e.target.value) })}
                       className="h-10 w-28 rounded-md border-2 border-foreground bg-surface px-3 text-sm"
@@ -91,11 +91,11 @@ export function ZoneListEditor({
                       <label htmlFor={`zone-rows-${zone.id}`} className="text-xs font-semibold">
                         Filas
                       </label>
-                      <input
+                      <NumericInput
                         id={`zone-rows-${zone.id}`}
-                        type="number"
                         min="1"
                         max={Math.max(1, zone.capacity)}
+                        maxLength={3}
                         placeholder="Automatico"
                         defaultValue={zone.rows ?? ""}
                         onBlur={(e) => {

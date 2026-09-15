@@ -6,6 +6,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
+import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 
 export interface Step2ScheduleProps {
@@ -271,11 +272,11 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
                     </div>
                     <div>
                       <label htmlFor={`subevent-duration-${s.id}`}>Duracion minutos</label>
-                      <input
+                      <NumericInput
                         id={`subevent-duration-${s.id}`}
-                        type="number"
                         min={15}
                         step={15}
+                        maxLength={4}
                         disabled={editing.datePending}
                         value={editing.durationMinutes}
                         onChange={(e) => setEditing({ ...editing, durationMinutes: Number(e.target.value) })}
@@ -362,11 +363,11 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
             </div>
             <div>
               <label htmlFor="session-duration">Duracion minutos</label>
-              <input
+              <NumericInput
                 id="session-duration"
-                type="number"
                 min={15}
                 step={15}
+                maxLength={4}
                 disabled={single.datePending}
                 value={single.durationMinutes}
                 onChange={(e) => setSingle({ ...single, durationMinutes: Number(e.target.value) })}
@@ -391,11 +392,11 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
             </div>
             <div>
               <label htmlFor="occurrences">Sesiones</label>
-              <input id="occurrences" type="number" min={1} value={pattern.occurrences} onChange={(e) => setPattern({ ...pattern, occurrences: Number(e.target.value) })} />
+              <NumericInput id="occurrences" min={1} maxLength={4} value={pattern.occurrences} onChange={(e) => setPattern({ ...pattern, occurrences: Number(e.target.value) })} />
             </div>
             <div>
               <label htmlFor="intervalDays">Cada</label>
-              <input id="intervalDays" type="number" min={1} value={pattern.intervalDays} onChange={(e) => setPattern({ ...pattern, intervalDays: Number(e.target.value) })} />
+              <NumericInput id="intervalDays" min={1} maxLength={3} value={pattern.intervalDays} onChange={(e) => setPattern({ ...pattern, intervalDays: Number(e.target.value) })} />
             </div>
             <div>
               <label htmlFor="namePrefix">Nombre base</label>

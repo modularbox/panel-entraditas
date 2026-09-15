@@ -29,26 +29,20 @@ describe("EventRowActions", () => {
   });
 
   describe("revision", () => {
-    it("un superadmin pone en revision un evento pendiente y luego lo aprueba", async () => {
+    it("aprueba un evento en revision y lo publica", async () => {
       await loginAs("superadmin@entraditas.com");
-      eventById("event-5").status = "pending_review";
+      eventById("event-5").status = "in_review";
 
       renderActions(eventById("event-5"));
-      fireEvent.click(screen.getByRole("button", { name: "Poner en revisión" }));
-      await waitFor(() => expect(eventById("event-5").status).toBe("in_review"));
-
       fireEvent.click(screen.getByRole("button", { name: "Aprobar y publicar" }));
       await waitFor(() => expect(eventById("event-5").status).toBe("published"));
     });
 
     it("dice que quedo aprobado pero sin salir a la web cuando la API publica no esta configurada", async () => {
       await loginAs("superadmin@entraditas.com");
-      eventById("event-5").status = "pending_review";
+      eventById("event-5").status = "in_review";
 
       renderActions(eventById("event-5"));
-      fireEvent.click(screen.getByRole("button", { name: "Poner en revisión" }));
-      await waitFor(() => expect(eventById("event-5").status).toBe("in_review"));
-
       fireEvent.click(screen.getByRole("button", { name: "Aprobar y publicar" }));
 
       await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/no se envio a la web/));
@@ -57,12 +51,12 @@ describe("EventRowActions", () => {
 
     it("un admin de organizacion no puede revisar su propio evento", async () => {
       await loginAs("admin@entraditas.com");
-      eventById("event-5").status = "pending_review";
+      eventById("event-5").status = "in_review";
 
       renderActions(eventById("event-5"));
 
-      expect(screen.queryByRole("button", { name: "Poner en revisión" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Aprobar y publicar" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Rechazar" })).not.toBeInTheDocument();
     });
   });
 

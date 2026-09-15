@@ -3,12 +3,12 @@ import type { Event } from "@entraditas/types";
 /**
  * Estados en los que un evento se ve en entraditas.com.
  *
- * Son los estados "en vivo": aprobado y a la venta (published, on_sale, sold_out, paused). Cualquier
- * otro estado (borrador, en revisión, rechazado, finalizado, cancelado) NO se publica: el borrador y
- * la revision aún no están listos, y un evento finalizado o cancelado ya no debe anunciarse (los que
- * se han celebrado se filtran también por fecha en `hasEventFinished`).
+ * Solo "publicado" es publicable: un evento aprobado y con fecha futura sale a la web. Cualquier
+ * otro estado (borrador, en revisión, rechazado, finalizado) NO se publica: el borrador y la
+ * revisión aún no están listos, y un evento finalizado ya no debe anunciarse (los que se han
+ * celebrado se filtran también por fecha en `hasEventFinished`).
  */
-export const PUBLIC_STATUSES: readonly Event["status"][] = ["published", "on_sale", "sold_out", "paused"];
+export const PUBLIC_STATUSES: readonly Event["status"][] = ["published"];
 
 export function isPubliclyVisible(status: Event["status"]): boolean {
   return PUBLIC_STATUSES.includes(status);

@@ -14,10 +14,10 @@ async function loginAs(email: string) {
 describe("events handlers", () => {
   afterEach(() => resetDb());
 
-  it("superadmin sees all 5 seeded events", async () => {
+  it("superadmin sees all 13 seeded events", async () => {
     const token = await loginAs("superadmin@entraditas.com");
     const events = await apiClient.get<Event[]>("/events", { token });
-    expect(events).toHaveLength(5);
+    expect(events).toHaveLength(13);
   });
 
   it("a user with limited eventScopes only sees their 2 scoped events", async () => {
@@ -40,6 +40,21 @@ describe("events handlers", () => {
     );
     expect(created.status).toBe("draft");
     expect(created.organizationId).toBe("org-1");
+  });
+
+  it("creates the draft with the questionnaire answers already in rules", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    const created = await apiClient.post<Event>(
+      "/events",
+      {
+        title: "Evento contestado",
+        category: "concierto",
+        hasSubEvents: false,
+        rules: { allowGuestCheckout: false, maxPerOrder: 8 }
+      },
+      { token }
+    );
+    expect(created.rules).toEqual(expect.objectContaining({ allowGuestCheckout: false, maxPerOrder: 8 }));
   });
 
   it("updates a field via PATCH", async () => {
@@ -150,7 +165,7 @@ describe("events handlers", () => {
     });
 
     const submitted = await apiClient.post<Event>("/events/event-5/publish", undefined, { token });
-    expect(submitted.status).toBe("pending_review");
+    expect(submitted.status).toBe("in_review");
   });
 
   it("summary reports the total capacity across an event's pools", async () => {

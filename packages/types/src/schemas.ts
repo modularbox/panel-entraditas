@@ -176,20 +176,8 @@ export const EVENT_RULE_DEFAULTS: Required<EventRules> = {
   wheelchairAccessible: false
 };
 
-// Los 10 estados de events.status en entraditas.sql: borrador, los tres de la revision
-// (pendiente, en revision, publicada/rechazada) y los operativos una vez publicada la venta.
-export const EventStatusSchema = z.enum([
-  "draft",
-  "pending_review",
-  "in_review",
-  "published",
-  "rejected",
-  "on_sale",
-  "sold_out",
-  "paused",
-  "finished",
-  "cancelled"
-]);
+// Los 5 estados de events.status: borrador, en revision, publicado, rechazado y finalizado.
+export const EventStatusSchema = z.enum(["draft", "in_review", "published", "rejected", "finished"]);
 export type EventStatus = z.infer<typeof EventStatusSchema>;
 
 export const EventSchema = z.object({

@@ -4,6 +4,7 @@ import type { Event, Gate, TicketType, User } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
+import { NumericInput } from "@/shared/ui/NumericInput";
 import { groupTicketTypes } from "./Step4TicketTypes";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useZonesQuery } from "./useZonesQuery";
@@ -292,10 +293,10 @@ export function GatesSection({ eventId }: GatesSectionProps) {
         </label>
 
         <label htmlFor="gate-max-scans">Escaneos máximos por ticket</label>
-        <input
+        <NumericInput
           id="gate-max-scans"
-          type="number"
           min="1"
+          maxLength={3}
           value={maxScansInput}
           onChange={(e) => setMaxScansInput(e.target.value)}
         />

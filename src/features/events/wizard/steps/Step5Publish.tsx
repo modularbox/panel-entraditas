@@ -219,8 +219,7 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
         </ul>
 
         <p className="max-w-2xl text-sm font-medium text-muted-foreground">
-          El evento quedara como pendiente de revision. Podra editarse mientras ningun admin lo haya tomado en revision;
-          cuando este en revision quedara bloqueado hasta aprobarse o rechazarse.
+          El evento quedara como en revision hasta que la plataforma lo apruebe o lo rechace.
         </p>
 
         {publishError && <p role="alert">{publishError}</p>}

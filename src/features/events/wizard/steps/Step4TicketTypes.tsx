@@ -8,6 +8,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
+import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 
 export interface Step4TicketTypesProps {
@@ -125,19 +126,20 @@ function SortableRow({
             </div>
             <div>
               <label htmlFor={`edit-quantity-${group.groupId}`}>Cantidad</label>
-              <input
+              <NumericInput
                 id={`edit-quantity-${group.groupId}`}
-                type="number"
                 min={Math.max(1, group.quantitySold)}
+                maxLength={6}
                 value={editQuantity}
                 onChange={(e) => onEditQuantity(e.target.value)}
               />
             </div>
             <div>
-              <label htmlFor={`edit-price-${group.groupId}`}>Precio (€)</label>
-              <input
+              <label htmlFor={`edit-price-${group.groupId}`}>Precio (ï¿½)</label>
+              <NumericInput
                 id={`edit-price-${group.groupId}`}
-                type="number"
+                allowDecimal
+                maxLength={7}
                 min="0"
                 step="0.01"
                 value={editPrice}
@@ -354,14 +356,14 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
         <label htmlFor="tt-name">Nombre</label>
         <input id="tt-name" value={name} onChange={(e) => setName(e.target.value)} />
 
-        <label htmlFor="tt-price">Precio (€)</label>
+        <label htmlFor="tt-price">Precio (ï¿½)</label>
         <div className="flex items-center gap-2">
-          <input
+          <NumericInput
             id="tt-price"
-            type="number"
+            allowDecimal
+            maxLength={7}
             step="0.01"
             min="0"
-            inputMode="decimal"
             value={priceEuros}
             onFocus={() => {
               if (priceEuros === "0.00") setPriceEuros("");
@@ -370,16 +372,15 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
             onBlur={(e) => setPriceEuros(Number(e.target.value || 0).toFixed(2))}
             className="h-10 w-28 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground"
           />
-          <span className="text-sm font-semibold text-muted-foreground">€</span>
+          <span className="text-sm font-semibold text-muted-foreground">ï¿½</span>
         </div>
 
         <label htmlFor="tt-quantity">Cantidad total</label>
-        <input
+        <NumericInput
           id="tt-quantity"
-          type="number"
           min="1"
           step="1"
-          inputMode="numeric"
+          maxLength={6}
           value={quantityTotal}
           onChange={(e) => setQuantityTotal(e.target.value)}
           className="h-10 w-32 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground"

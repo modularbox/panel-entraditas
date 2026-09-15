@@ -1,20 +1,22 @@
 ﻿import { useState } from "react";
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
 import type { SortingState } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
-import type { Event } from "@entraditas/types";
+import { Link, useNavigate } from "react-router-dom";
+import type { Event, EventRules } from "@entraditas/types";
 import { Can } from "@/shared/auth/Can";
 import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { EventStatusBadge, EVENT_STATUS_LABEL } from "@/shared/ui/EventStatusBadge";
 import { SincronizarConLaWeb } from "@/features/publish/SincronizarConLaWeb";
+import { useWizardStore } from "../wizard/wizardStore";
+import { CreateEventDialog } from "../create/CreateEventDialog";
 import { EventRowActions } from "./EventRowActions";
 import { useEventsQuery } from "./useEventsQuery";
 
 const STATUS_FILTERS: Array<{ value: "" | Event["status"]; label: string }> = [
   { value: "", label: "Todos" },
   { value: "draft", label: "Borrador" },
-  { value: "pending_review", label: "En revisión" },
+  { value: "in_review", label: "En revisión" },
   { value: "published", label: "Publicado" },
   { value: "rejected", label: "Rechazado" },
   { value: "finished", label: "Finalizado" }
@@ -51,6 +53,9 @@ const columns = [
 export function EventsListPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [status, setStatus] = useState("");
+  const [creating, setCreating] = useState(false);
+  const navigate = useNavigate();
+  const setDraftRules = useWizardStore((s) => s.setDraftRules);
   // "" means "Todos" - coerce to undefined so the query hook omits the status filter entirely.
   const { data: events = [], isLoading } = useEventsQuery(status || undefined);
   const table = useReactTable({
@@ -63,16 +68,27 @@ export function EventsListPage() {
     sortDescFirst: false
   });
 
+  function startWizard(rules: EventRules | null) {
+    setDraftRules(rules);
+    navigate("/eventos/nuevo/editar");
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold">Eventos</h1>
         <Can do="events:create">
-          <Link to="/eventos/nuevo/editar">
-            <Button>Crear evento</Button>
-          </Link>
+          <Button onClick={() => setCreating(true)}>Crear evento</Button>
         </Can>
       </header>
+
+      {creating && (
+        <CreateEventDialog
+          onClose={() => setCreating(false)}
+          onContinue={(rules) => startWizard(rules)}
+          onSkip={() => startWizard(null)}
+        />
+      )}
 
       <SincronizarConLaWeb eventos={events} />
 

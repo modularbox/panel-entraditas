@@ -12,10 +12,10 @@ import { EventSchema, GateSchema, GuestListEntrySchema, GuestListSchema, OrderIt
 import { resolveEffectivePermissions } from "@/shared/auth/permissions";
 
 describe("createSeedDatabase", () => {
-  it("seeds exactly 2 organizations and 5 events, each schema-valid", () => {
+  it("seeds exactly 2 organizations and 13 events, each schema-valid", () => {
     const db = createSeedDatabase();
     expect(db.organizations).toHaveLength(2);
-    expect(db.events).toHaveLength(5);
+    expect(db.events).toHaveLength(13);
     for (const event of db.events) expect(() => EventSchema.parse(event)).not.toThrow();
     for (const user of db.users) expect(() => UserSchema.parse(user)).not.toThrow();
     for (const tt of db.ticketTypes) expect(() => TicketTypeSchema.parse(tt)).not.toThrow();
