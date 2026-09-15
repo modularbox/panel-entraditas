@@ -7,11 +7,8 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
-<<<<<<< HEAD
 import { NumericInput } from "@/shared/ui/NumericInput";
-=======
 import { borrarBorrador, describirGuardado, guardarBorrador, leerBorrador, type EventDraft } from "../eventDraft";
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
 import { OptionButton, QuestionSection } from "./EventRulesQuestions";
 import { step1Schema, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";

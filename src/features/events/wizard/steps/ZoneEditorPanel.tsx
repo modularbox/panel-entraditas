@@ -1,11 +1,7 @@
 import type { Zone } from "@entraditas/types";
 import { Button } from "@/shared/ui/button";
-<<<<<<< HEAD
 import { NumericInput } from "@/shared/ui/NumericInput";
-import { buildSeatGrid, capacityOfRowSeats, computeRowCount, seatRows } from "./seatMap";
-=======
 import { useTips } from "@/shared/ui/tips";
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
 
 export interface ZoneEditorPanelProps {
   zones: Zone[];
@@ -99,60 +95,10 @@ export function ZoneEditorPanel({
             que se veia.
           */}
           {selectedZone.kind === "numbered" && (
-<<<<<<< HEAD
-            <>
-              <label htmlFor="zone-rows">Filas</label>
-              <NumericInput
-                id="zone-rows"
-                min="1"
-                max={Math.max(1, selectedZone.capacity)}
-                maxLength={3}
-                placeholder="Automatico"
-                defaultValue={selectedZone.rows ?? ""}
-                // Blank means "work the rows out from the zone's shape", which is what a zone
-                // starts as; a number pins the layout to the real room (12 seats over 3 rows).
-                onBlur={(e) => {
-                  const value = e.target.value.trim();
-                  onUpdateZone(selectedZone.id, { rows: value === "" ? null : Number(value) });
-                }}
-              />
-              <p className="text-xs text-muted-foreground">
-                {selectedZone.capacity > 0
-                  ? `${computeRowCount(selectedZone.capacity, selectedZone.width, selectedZone.height, selectedZone.rows)} filas - la fila A es la mas cercana al escenario`
-                  : "Indica la capacidad para repartir los asientos en filas"}
-              </p>
-
-              {selectedZone.capacity > 0 && (
-                <>
-                  <label htmlFor="zone-row-seats">Asientos por fila</label>
-                  <input
-                    id="zone-row-seats"
-                    defaultValue={formatRowSeats(selectedZone)}
-                    placeholder="12, 11, 11, 9"
-                    // Blank goes back to the automatic split. A custom distribution also sets the
-                    // zone's capacity, since the rows are then the real count.
-                    onBlur={(e) => {
-                      const rowSeats = parseRowSeats(e.target.value);
-                      const capacity = capacityOfRowSeats(rowSeats);
-                      onUpdateZone(selectedZone.id, {
-                        rowSeats,
-                        ...(capacity !== null ? { capacity } : {})
-                      });
-                    }}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Una fila por numero, separados por comas, para salas que no son un rectangulo.
-                    Dejalo vacio para repartir las plazas solo.
-                  </p>
-                </>
-              )}
-            </>
-=======
             <p className="rounded-md border-2 border-border bg-background px-2 py-1.5 text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">{selectedZone.capacity} plazas</span>, contadas
               de sus filas. Se cambian abajo, en "Filas y butacas": la fila A es la más cercana al escenario.
             </p>
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
           )}
 
           {onDuplicateZone && (
@@ -172,14 +118,10 @@ export function ZoneEditorPanel({
             id="zone-width"
             min="1"
             max="100"
-<<<<<<< HEAD
             maxLength={3}
-            defaultValue={selectedZone.width}
-=======
             step="0.1"
             defaultValue={redondear(selectedZone.width)}
             {...tip("Lo ancha que es la zona dentro del plano")}
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
             onBlur={(e) => onUpdateZone(selectedZone.id, { width: Number(e.target.value) })}
           />
 
@@ -188,14 +130,10 @@ export function ZoneEditorPanel({
             id="zone-height"
             min="1"
             max="100"
-<<<<<<< HEAD
             maxLength={3}
-            defaultValue={selectedZone.height}
-=======
             step="0.1"
             defaultValue={redondear(selectedZone.height)}
             {...tip("Lo alta que es la zona dentro del plano")}
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
             onBlur={(e) => onUpdateZone(selectedZone.id, { height: Number(e.target.value) })}
           />
 

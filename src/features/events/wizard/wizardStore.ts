@@ -30,30 +30,22 @@ function readCanvas(): { height: number; width: number } {
 interface WizardState {
   // null until the "Informacion" step creates/loads the event; the later steps need a real id
   eventId: string | null;
-<<<<<<< HEAD
   setEventId: (id: string | null) => void;
   // Respuestas del cuestionario previo al asistente: se mandan con el evento al crearlo.
   // null = el organizador no respondio y se usa el valor por defecto de cada regla.
   draftRules: EventRules | null;
   setDraftRules: (rules: EventRules | null) => void;
-=======
-  setEventId: (id: string) => void;
   canvasHeight: number;
   canvasWidth: number;
   setCanvasSize: (size: { height?: number; width?: number }) => void;
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
   reset: () => void;
 }
 
 export const useWizardStore = create<WizardState>((set, get) => ({
   eventId: null,
   setEventId: (id) => set({ eventId: id }),
-<<<<<<< HEAD
   draftRules: null,
   setDraftRules: (rules) => set({ draftRules: rules }),
-  reset: () => set({ eventId: null, draftRules: null })
-}));
-=======
   canvasHeight: readCanvas().height,
   canvasWidth: readCanvas().width,
   setCanvasSize: ({ height, width }) => {
@@ -65,7 +57,6 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       // Not being able to remember the size is not a reason to refuse to change it.
     }
   },
-  // Starting a new event does not reset the canvas size: it is how this person likes to work.
-  reset: () => set({ eventId: null })
+  // Empezar un evento nuevo no toca el tamano del lienzo: es como le gusta trabajar a esta persona.
+  reset: () => set({ eventId: null, draftRules: null })
 }));
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095

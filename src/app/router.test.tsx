@@ -44,129 +44,49 @@ describe("AppRoutes", () => {
   });
 
   it("shows the Eventos placeholder to an authenticated admin", async () => {
-<<<<<<< HEAD
-    useSessionStore.setState({
-      status: "authenticated",
-      token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
-      effectivePermissions: new Set(["events:read"]),
-      eventScopes: []
-    });
-=======
     await sesionCon(["events:read"]);
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
     renderApp(["/eventos"]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Eventos" })).toBeInTheDocument());
   });
 
   it("shows the team list to an authenticated admin", async () => {
-<<<<<<< HEAD
-    useSessionStore.setState({
-      status: "authenticated",
-      token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
-      effectivePermissions: new Set(["users:manage"]),
-      eventScopes: []
-    });
-=======
     await sesionCon(["users:manage"]);
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
     renderApp(["/equipo"]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Equipo" })).toBeInTheDocument());
   });
 
   it("shows the orders list under Ventas to an authenticated admin", async () => {
-<<<<<<< HEAD
-    useSessionStore.setState({
-      status: "authenticated",
-      token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
-      effectivePermissions: new Set(["orders:read"]),
-      eventScopes: []
-    });
-=======
     await sesionCon(["orders:read"]);
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
     renderApp(["/ventas"]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Pedidos" })).toBeInTheDocument());
   });
 
   it("shows the refunds list under Ventas to an authenticated admin", async () => {
-<<<<<<< HEAD
-    useSessionStore.setState({
-      status: "authenticated",
-      token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
-      effectivePermissions: new Set(["orders:read"]),
-      eventScopes: []
-    });
-=======
     await sesionCon(["orders:read"]);
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
     renderApp(["/ventas/reembolsos"]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Reembolsos" })).toBeInTheDocument());
   });
 
   it("shows the taquilla page under Ventas to an authenticated admin", async () => {
-<<<<<<< HEAD
-    useSessionStore.setState({
-      status: "authenticated",
-      token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
-      effectivePermissions: new Set(["orders:read"]),
-      eventScopes: []
-    });
-=======
     await sesionCon(["orders:read"]);
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
     renderApp(["/ventas/taquilla"]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Taquilla" })).toBeInTheDocument());
   });
 
   it("shows the attendees list under Ventas to an authenticated admin", async () => {
-<<<<<<< HEAD
-    useSessionStore.setState({
-      status: "authenticated",
-      token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
-      effectivePermissions: new Set(["orders:read"]),
-      eventScopes: []
-    });
-=======
     await sesionCon(["orders:read"]);
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
     renderApp(["/ventas/asistentes"]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Asistentes" })).toBeInTheDocument());
   });
 
   it("shows the customers list under /clientes to an authenticated admin", async () => {
-<<<<<<< HEAD
-    useSessionStore.setState({
-      status: "authenticated",
-      token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
-      effectivePermissions: new Set(["orders:read"]),
-      eventScopes: []
-    });
-=======
     await sesionCon(["orders:read"]);
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
     renderApp(["/clientes"]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Clientes" })).toBeInTheDocument());
   });
 
   it("shows the gates overview under Control de accesos to an authenticated admin", async () => {
-<<<<<<< HEAD
-    useSessionStore.setState({
-      status: "authenticated",
-      token: "t",
-      user: { id: "u", email: "a@a.com", fullName: "A", role: "admin", organizationId: "org-1" },
-      effectivePermissions: new Set(["scan:validate"]),
-      eventScopes: []
-    });
-=======
     await sesionCon(["scan:validate"]);
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
     renderApp(["/accesos"]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Puertas" })).toBeInTheDocument());
   });

@@ -36,19 +36,13 @@ interface WizardStep {
 /**
  * Los pasos, en el orden en que se piensa un evento.
  *
-<<<<<<< HEAD
- * Los codigos de descuento y las puertas estaban hechos pero se habian
- * quedado fuera del asistente: solo se podian configurar desde la ficha del evento, despues de
- * crearlo, y quien creaba un evento no los veia nunca. Vuelven aqui, antes de publicar.
-=======
- * Los codigos de descuento y las puertas estaban hechos pero se habian quedado fuera del
+* Los codigos de descuento y las puertas estaban hechos pero se habian quedado fuera del
  * asistente: solo se podian configurar desde la ficha del evento, despues de crearlo, y quien
  * creaba un evento no los veia nunca. Vuelven aqui, antes de publicar.
  *
  * Las listas de invitados estuvieron aqui como paso 6 y ya no estan: Jorge retiro la funcion
  * entera del panel el 11/09 (componente, tipos, permisos y mocks) y Axel confirmo el 12/09 que
  * se da por buena esa decision. Si vuelve, vuelve entre "Puertas" y "Publicar".
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
  *
  * El cuestionario previo (los limites de venta y acceso) se responde antes de entrar, en el
  * dialogo de "Antes de crear el evento", y sus respuestas viajan con el evento al crearlo.

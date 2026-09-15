@@ -5,11 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { db, demoPasswordFor, resetDb } from "@/mocks/state";
 import { server } from "@/mocks/server";
 import { useSessionStore } from "@/shared/auth/sessionStore";
-<<<<<<< HEAD
 import { useWizardStore } from "../wizardStore";
-=======
 import { borrarBorrador, guardarBorrador, leerBorrador } from "../eventDraft";
->>>>>>> ce349056dcf0bd0a90243267ca099b4f4ef7c095
 import { Step1BasicInfo, type Step1BasicInfoProps } from "./Step1BasicInfo";
 
 function renderStep1(props: Step1BasicInfoProps) {
