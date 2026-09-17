@@ -4,8 +4,16 @@ import { useNavigate } from "react-router-dom";
 import type { CapacityPool, Event, TicketType, VenuePlanElement, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
+import { zoneTicketTypeGroupId } from "@/shared/lib/zoneTicketType";
 import { Button } from "@/shared/ui/button";
 import { PREVIEW_CATEGORIES, PublicEventPreview, type PreviewTicketTier } from "./publicEventPreview";
+import {
+  buildSeatGrid,
+  countAssignedByGroup,
+  fromSeatAssignmentList,
+  pruneAssignments,
+  rowOriginForStage
+} from "./seatMap";
 
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useZonesQuery } from "./useZonesQuery";
@@ -125,11 +133,21 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
     !event?.locality?.trim() ? "localidad" : null
   ].filter(Boolean);
   const dateReady = Boolean(event?.datePending || event?.startsAt);
+  const stage = zones.find((zone) => zone.kind === "stage") ?? null;
   const groupUsage = new Map<string, number>();
   const hasUnassignedZone = sellableZones.some((zone) => {
     const pool = pools.find((candidate) => candidate.zoneId === zone.id);
-    const legacyGroupId = pool ? ticketTypes.find((ticketType) => ticketType.capacityPoolId === pool.id)?.groupId : null;
-    const groupId = pool?.ticketTypeGroupId ?? legacyGroupId ?? null;
+    const groupId = zoneTicketTypeGroupId(pool, ticketTypes);
+    if (zone.kind === "numbered") {
+      const grid = buildSeatGrid({ ...zone, rowAOrigin: rowOriginForStage(zone, stage) });
+      const assignments = pruneAssignments(fromSeatAssignmentList(pool?.seatAssignments), grid);
+      for (const [seatGroupId, count] of Object.entries(countAssignedByGroup(assignments))) {
+        groupUsage.set(seatGroupId, (groupUsage.get(seatGroupId) ?? 0) + count);
+      }
+      // A numbered zone sells seat by seat: it has a ticket type as soon as one seat carries it,
+      // and the ones left without one stay unsold, exactly as the seating editor shows.
+      return !groupId && Object.keys(assignments).length === 0;
+    }
     if (groupId) groupUsage.set(groupId, (groupUsage.get(groupId) ?? 0) + (pool?.totalCapacity ?? zone.capacity));
     return !groupId;
   });

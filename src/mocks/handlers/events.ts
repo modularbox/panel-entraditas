@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+﻿import { http, HttpResponse } from "msw";
 import { EVENT_CATEGORIES, type Event, type SubEvent, type User, type Venue } from "@entraditas/types";
 import { hasPermission, resolveEffectivePermissions } from "@/shared/auth/permissions";
 import { hasEventFinished } from "@/shared/lib/eventLifecycle";
@@ -169,6 +169,18 @@ export const eventsHandlers = [
     const user = requireUser(request);
     if (!user) return unauthenticated("req_events_create");
     const body = (await request.json()) as EventFieldsBody & { title: string };
+    if (!body.title?.trim()) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "El nombre del evento es obligatorio",
+            requestId: "req_events_create"
+          }
+        },
+        { status: 422 }
+      );
+    }
     const categoryError = rejectUnknownCategory(body.category, "req_events_create");
     if (categoryError) return categoryError;
     const startsAt = resolveStartsAt(body);
@@ -184,7 +196,7 @@ export const eventsHandlers = [
       // Categories are a closed set shared with the buyer site (see publicCatalog.ts). The old
       // "otros" default could produce an event entraditas.com had no way to render.
       category: body.category ?? "concierto",
-      status: "draft",
+      status: "in_review",
       visibility: body.visibility ?? "private",
       location: body.location ?? body.venueName,
       locality: body.locality ?? body.city,
@@ -283,8 +295,8 @@ serviceFeeType: body.serviceFeeType ?? "none",
   // estado: el PATCH general deja escribir cualquier campo, asi que por ahi se podria saltar la
   // revision poniendo "published" a mano en un borrador.
   //
-  // Borrador ─enviar─> en revision ─aprobar─> publicado
-  //                    en revision ─rechazar─> rechazado ─enviar─> (vuelta arriba). Lo
+  // Borrador â”€enviarâ”€> en revision â”€aprobarâ”€> publicado
+  //                    en revision â”€rechazarâ”€> rechazado â”€enviarâ”€> (vuelta arriba). Lo
   //                    publicado pasa a borrador al retirarlo.
   http.post(`${BASE}/events/:id/publish`, ({ request, params }) => {
     const user = requireUser(request);
@@ -317,43 +329,14 @@ serviceFeeType: body.serviceFeeType ?? "none",
         { status: 422 }
       );
     }
-    event.status = "in_review";
-    event.publishedAt = null;
+    event.status = "published";
+    event.publishedAt = new Date().toISOString();
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_publish" } });
   }),
 
   // Aprobar o rechazar lo que un superadmin tiene en revision. Sin esto nada pasaba nunca de
   // "en revision" a "publicado", asi que un evento creado en el panel no podia llegar a la web
   // publica.
-  http.post(`${BASE}/events/:id/approve`, ({ request, params }) => {
-    const user = requireUser(request);
-    if (!user) return unauthenticated("req_events_approve");
-    const event = db.events.find((e) => e.id === params.id);
-    if (!event || !canAccessEvent(event, user)) return notFound("req_events_approve");
-    // Revisar es tarea de la plataforma, no del propio organizador que lo envio.
-    if (user.role !== "superadmin") {
-      return HttpResponse.json(
-        { error: { code: "FORBIDDEN", message: "Solo un superadmin puede aprobar un evento", requestId: "req_events_approve" } },
-        { status: 403 }
-      );
-    }
-    if (event.status !== "in_review") {
-      return HttpResponse.json(
-        {
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "Solo se puede aprobar un evento que este en revision",
-            requestId: "req_events_approve"
-          }
-        },
-        { status: 409 }
-      );
-    }
-    event.status = "published";
-    event.publishedAt = new Date().toISOString();
-    return HttpResponse.json({ data: event, meta: { requestId: "req_events_approve" } });
-  }),
-
   http.post(`${BASE}/events/:id/reject`, async ({ request, params }) => {
     const user = requireUser(request);
     if (!user) return unauthenticated("req_events_reject");
