@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import * as entraditasApi from "./entraditasApi";
 import { normalizeApiBase } from "./entraditasApi";
 
 describe("normalizeApiBase", () => {
@@ -22,5 +23,13 @@ describe("normalizeApiBase", () => {
     expect(normalizeApiBase("")).toBe("");
     expect(normalizeApiBase(undefined)).toBe("");
     expect(normalizeApiBase("   ")).toBe("");
+  });
+});
+
+describe("fetchPublicCatalog", () => {
+  it("devuelve [] cuando la API no esta configurada", async () => {
+    vi.spyOn(entraditasApi, "isApiConfigured").mockReturnValue(false);
+    const items = await entraditasApi.fetchPublicCatalog();
+    expect(items).toEqual([]);
   });
 });

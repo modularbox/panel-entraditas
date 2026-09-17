@@ -6,6 +6,7 @@ import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { cn } from "@/shared/lib/cn";
 import { resolvedRules } from "@/shared/lib/eventRules";
 import { NumericInput } from "@/shared/ui/NumericInput";
+import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 
 /**
  * Preguntas del organizador que antes vivian en un cuestionario previo al asistente y ahora estan
@@ -68,11 +69,15 @@ function useEvent(eventId: string | null) {
 function useSaveRules(eventId: string | null) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
+  const syncEventChanges = useSyncEventChangesToWeb(eventId);
   const { data: event } = useEvent(eventId);
   return useMutation({
     mutationFn: (patch: Partial<EventRules>) =>
       apiClient.patch<Event>(`/events/${eventId}`, { rules: { ...(event?.rules ?? {}), ...patch } }, { token: token! }),
-    onSuccess: (updated) => queryClient.setQueryData(["event", eventId], updated)
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["event", eventId], updated);
+      void syncEventChanges();
+    }
   });
 }
 

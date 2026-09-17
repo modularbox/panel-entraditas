@@ -7,7 +7,7 @@ import { Can } from "@/shared/auth/Can";
 import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { EventStatusBadge, EVENT_STATUS_LABEL } from "@/shared/ui/EventStatusBadge";
-import { SincronizarConLaWeb } from "@/features/publish/SincronizarConLaWeb";
+import { AutoSincronizacionConLaWeb } from "@/features/publish/AutoSincronizacionConLaWeb";
 import { useWizardStore } from "../wizard/wizardStore";
 import { CreateEventDialog } from "../create/CreateEventDialog";
 import { EventRowActions } from "./EventRowActions";
@@ -90,7 +90,7 @@ export function EventsListPage() {
         />
       )}
 
-      <SincronizarConLaWeb eventos={events} />
+      <AutoSincronizacionConLaWeb eventos={events} />
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-sm font-bold">Estado</span>

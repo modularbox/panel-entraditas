@@ -6,6 +6,7 @@ import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { groupTicketTypes } from "./Step4TicketTypes";
+import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 
 export interface DiscountCodesSectionProps {
   eventId: string | null;
@@ -40,6 +41,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
   const { data: codes = [] } = useDiscountCodesQuery(eventId);
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
   const groups = groupTicketTypes(ticketTypes);
+  const syncEventChanges = useSyncEventChangesToWeb(eventId);
 
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -82,6 +84,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
       setAppliesToMode("all");
       setSelectedGroupIds([]);
       await queryClient.invalidateQueries({ queryKey: ["discount-codes", eventId] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
@@ -96,6 +99,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
         { token: token! }
       );
       await queryClient.invalidateQueries({ queryKey: ["discount-codes", eventId] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
@@ -106,6 +110,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
     try {
       await apiClient.delete(`/discount-codes/${id}`, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["discount-codes", eventId] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }

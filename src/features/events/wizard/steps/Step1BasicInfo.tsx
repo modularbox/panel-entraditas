@@ -13,6 +13,7 @@ import { OptionButton, QuestionSection } from "./EventRulesQuestions";
 import { step1Schema, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";
 import { useWizardStore } from "../wizardStore";
+import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 
 /**
  * Que ha pasado, en cristiano.
@@ -67,6 +68,7 @@ async function filesToDataUrls(files: FileList | null): Promise<string[]> {
 export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps) {
   const token = useSessionStore((s) => s.token);
   const draftRules = useWizardStore((s) => s.draftRules);
+  const syncEventChanges = useSyncEventChangesToWeb(eventId);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [coverMode, setCoverMode] = useState<"upload" | "url">("upload");
   const { data: existingEvent, isError: hasLoadError } = useQuery({
@@ -229,6 +231,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
       setBorrador(null);
       ultimoGuardado.current = "";
       onSaved(event.id);
+      void syncEventChanges();
       goNext?.();
     } catch (error) {
       // Se vuelca ya, sin esperar al temporizador del guardado automatico: si el guardado ha

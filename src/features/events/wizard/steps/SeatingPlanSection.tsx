@@ -17,6 +17,7 @@ import { PlanTemplates } from "./PlanTemplates";
 import { SeatingModeChooser } from "./SeatingModeChooser";
 import { TicketTypeAssignment, type ZoneAssignment } from "./TicketTypeAssignment";
 import { groupTicketTypes } from "./Step4TicketTypes";
+import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 import {
   buildSeatGrid,
   countAssignedByGroup,
@@ -81,6 +82,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   const firstSubEvent = subEvents[0];
   const { data: pools = [] } = useCapacityPoolsQuery(firstSubEvent?.id);
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
+  const syncEventChanges = useSyncEventChangesToWeb(eventId);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Drawing surface size. A working preference, kept in the wizard's store (and in localStorage)
@@ -118,12 +120,13 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
           { token }
         );
         await queryClient.invalidateQueries({ queryKey: ["sub-events", eventId] });
+        void syncEventChanges();
       } catch (e) {
         creatingSessionRef.current = false;
         if (e instanceof AppError) setError(e.message);
       }
     })();
-  }, [eventId, token, event, subEvents.length, queryClient]);
+  }, [eventId, token, event, subEvents.length, queryClient, syncEventChanges]);
 
   // The drawn plan is the source of truth: any sellable zone without a
   // matching capacity pool for this event's first function gets one
@@ -141,8 +144,9 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         );
       }
       await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent.id] });
+      void syncEventChanges();
     })();
-  }, [zones, pools, firstSubEvent, token, queryClient]);
+  }, [zones, pools, firstSubEvent, token, queryClient, syncEventChanges]);
 
   async function addZone(kind: Zone["kind"]) {
     if (!venueId) return;
@@ -155,6 +159,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         { token: token! }
       );
       await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
+      void syncEventChanges();
       setSelectedZoneId(created.id);
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
@@ -184,6 +189,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         { token: token! }
       );
       await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
+      void syncEventChanges();
       setSelectedZoneId(created.id);
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
@@ -256,6 +262,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         }
       }
       await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
@@ -266,6 +273,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     try {
       await apiClient.delete(`/zones/${id}`, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
+      void syncEventChanges();
       if (selectedZoneId === id) setSelectedZoneId(null);
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
@@ -285,6 +293,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
       );
       await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent?.id] });
       await queryClient.invalidateQueries({ queryKey: ["ticket-types", eventId] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
@@ -306,6 +315,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     try {
       await apiClient.patch(`/capacity-pools/${pool.id}`, patch, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent?.id] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
@@ -324,6 +334,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     try {
       await apiClient.patch(`/events/${eventId}`, { seatingMode: mode }, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["event", eventId] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
@@ -336,6 +347,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
       await apiClient.post(`/venues/${venueId}/zones`, zone, { token: token! });
     }
     await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
+    void syncEventChanges();
   }
 
   const groups = useMemo(() => groupTicketTypes(ticketTypes), [ticketTypes]);

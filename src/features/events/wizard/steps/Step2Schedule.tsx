@@ -8,6 +8,7 @@ import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSubEventsQuery } from "./useSubEventsQuery";
+import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 
 export interface Step2ScheduleProps {
   eventId: string | null;
@@ -64,6 +65,7 @@ function subEventDateLabel(subEvent: SubEvent) {
 export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
+  const syncEventChanges = useSyncEventChangesToWeb(eventId);
   const { data: event } = useEventQuery(eventId);
   const { data: subEvents = [] } = useSubEventsQuery(eventId);
   const eventAllowsPendingDates = Boolean(event?.datePending || !event?.startsAt);
@@ -142,6 +144,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
         { token: token! }
       );
       await queryClient.invalidateQueries({ queryKey: ["sub-events", eventId] });
+      void syncEventChanges();
     } catch (err) {
       setError(err instanceof AppError ? err.message : "No se pudo crear la sesion");
     }
@@ -166,6 +169,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
       await apiClient.patch<SubEvent>(`/sub-events/${editing.id}`, payloadFromEditor(editing), { token: token! });
       setEditing(null);
       await queryClient.invalidateQueries({ queryKey: ["sub-events", eventId] });
+      void syncEventChanges();
     } catch (err) {
       setError(err instanceof AppError ? err.message : "No se pudo guardar la sesion");
     }
@@ -184,6 +188,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
     try {
       await apiClient.post<SubEvent[]>(`/events/${eventId}/sub-events/bulk`, pattern, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["sub-events", eventId] });
+      void syncEventChanges();
     } catch (err) {
       setError(err instanceof AppError ? err.message : "No se pudieron generar las sesiones");
     }
@@ -200,6 +205,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
         )
       );
       await queryClient.invalidateQueries({ queryKey: ["sub-events", eventId] });
+      void syncEventChanges();
     } catch (err) {
       setError(err instanceof AppError ? err.message : "No se pudo copiar la hora de apertura de puertas");
     }

@@ -10,6 +10,7 @@ import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSubEventsQuery } from "./useSubEventsQuery";
+import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 
 export interface Step4TicketTypesProps {
   eventId: string | null;
@@ -172,6 +173,7 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
   const { data: subEvents = [] } = useSubEventsQuery(eventId);
   const groups = useMemo(() => groupTicketTypes(ticketTypes), [ticketTypes]);
+  const syncEventChanges = useSyncEventChangesToWeb(eventId);
 
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -236,6 +238,7 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
       setSelectedSubEventIds([]);
       setColor(TICKET_COLOR_PALETTE[(groups.length + 1) % TICKET_COLOR_PALETTE.length]!);
       await queryClient.invalidateQueries({ queryKey: ["ticket-types", eventId] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
@@ -251,6 +254,7 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
         { token: token! }
       );
       await queryClient.invalidateQueries({ queryKey: ["ticket-types", eventId] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
@@ -303,6 +307,7 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
       );
       setEditingGroupId(null);
       await queryClient.invalidateQueries({ queryKey: ["ticket-types", eventId] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }
@@ -315,6 +320,7 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
       await Promise.all(rows.map((item) => apiClient.delete(`/ticket-types/${item.id}`, { token: token! })));
       if (editingGroupId === groupId) setEditingGroupId(null);
       await queryClient.invalidateQueries({ queryKey: ["ticket-types", eventId] });
+      void syncEventChanges();
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
     }

@@ -1,3 +1,5 @@
+import type { PublicEvent } from "@entraditas/types";
+
 /**
  * Cliente hacia api.entraditas.com, que es un servicio distinto del backend propio del panel.
  *
@@ -213,4 +215,17 @@ export async function removeEventFromApi(eventId: string): Promise<void> {
 /** Si el panel puede publicar ahora mismo: hay API configurada y sesion abierta en ella. */
 export function canPublishToApi(): boolean {
   return isApiConfigured() && getApiToken() !== null;
+}
+
+// ---------------------------------------------------------------------------
+// Catalogo publico (solo lectura, no requiere sesion)
+// ---------------------------------------------------------------------------
+
+/** Devuelve los eventos publicados que la web muestra a los compradores. */
+export async function fetchPublicCatalog(): Promise<PublicEvent[]> {
+  if (!isApiConfigured()) return [];
+  const response = await fetch(`${API_BASE}/v1/events`);
+  if (!response.ok) return [];
+  const payload = (await response.json().catch(() => ({}))) as { items?: PublicEvent[] };
+  return payload.items ?? [];
 }
