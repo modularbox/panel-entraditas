@@ -137,11 +137,11 @@ function serviceFeeCopy(event: PreviewEventData, feeCents: number): string {
 
 function sessionDateLabel(subEvent: Pick<SubEvent, "startsAt" | "endsAt">): string {
   if (!subEvent.startsAt) return "Fecha por confirmar";
-  const startsAt = new Date(subEvent.startsAt);
-  const date = startsAt.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }).replace(".", "");
-  const time = startsAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  const startsAtDate = new Date(subEvent.startsAt);
+  const date = startsAtDate.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }).replace(".", "");
+  const time = subEvent.startsAt.length >= 16 ? `${subEvent.startsAt.slice(11, 13)}:${subEvent.startsAt.slice(14, 16)}` : "";
   if (!subEvent.endsAt) return `${date} - ${time}`;
-  const minutes = Math.round((new Date(subEvent.endsAt).getTime() - startsAt.getTime()) / 60_000);
+  const minutes = Math.round((new Date(subEvent.endsAt).getTime() - startsAtDate.getTime()) / 60_000);
   const duration = durationLabel(minutes);
   return duration ? `${date} - ${time} (${duration})` : `${date} - ${time}`;
 }
@@ -463,7 +463,10 @@ function PublicEventDetail({ event }: { event: PreviewEventData }) {
                     </p>
                     {subEvent.doorsOpenAt && (
                       <p className="m-0 mt-1 text-xs font-semibold text-muted-foreground">
-                        Puertas: {new Date(subEvent.doorsOpenAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                        Puertas:{" "}
+                        {subEvent.doorsOpenAt.length >= 16
+                          ? `${subEvent.doorsOpenAt.slice(11, 13)}:${subEvent.doorsOpenAt.slice(14, 16)}`
+                          : ""}
                       </p>
                     )}
                   </div>

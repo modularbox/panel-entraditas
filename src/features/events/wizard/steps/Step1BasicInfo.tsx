@@ -47,7 +47,7 @@ function dateParts(value: string | null | undefined): { startDate: string; start
 
 function toIsoDate(date: string | undefined, time: string | undefined): string | null {
   if (!date || !time) return null;
-  return new Date(`${date}T${time}:00`).toISOString();
+  return `${date}T${time}:00.000Z`;
 }
 
 async function filesToDataUrls(files: FileList | null): Promise<string[]> {

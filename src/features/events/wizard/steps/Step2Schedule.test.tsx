@@ -28,6 +28,23 @@ describe("Step2Schedule", () => {
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(4));
   });
 
+  it("stores the wall-clock time unchanged, without shifting it by the timezone", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderStep("event-3");
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(4));
+
+    fireEvent.click(screen.getByLabelText("Fecha por confirmar"));
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-12-05" } });
+    fireEvent.change(screen.getByLabelText("Hora"), { target: { value: "10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Anadir sesion" }));
+
+    await waitFor(() => {
+      const created = db.subEvents.find((s) => s.eventId === "event-3" && s.name === "Sesion unica");
+      expect(created).toMatchObject({ startsAt: "2026-12-05T10:00:00.000Z", endsAt: "2026-12-05T12:00:00.000Z" });
+    });
+    expect(screen.getAllByText(/10:00/).length).toBeGreaterThan(0);
+  });
+
   it("generates recurring sub-events and adds them to the list", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderStep("event-5");

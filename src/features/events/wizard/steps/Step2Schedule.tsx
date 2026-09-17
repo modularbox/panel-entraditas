@@ -40,9 +40,9 @@ function isPast(date: string, time: string): boolean {
 }
 
 function toRange(date: string, time: string, durationMinutes: number) {
-  const startsAt = new Date(`${date}T${time}:00`);
-  const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
-  return { startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() };
+  const startsAt = `${date}T${time}:00.000Z`;
+  const endsAt = new Date(new Date(startsAt).getTime() + durationMinutes * 60_000).toISOString();
+  return { startsAt, endsAt };
 }
 
 function dateParts(value: string | null | undefined) {
@@ -58,8 +58,10 @@ function durationFromSubEvent(subEvent: SubEvent) {
 
 function subEventDateLabel(subEvent: SubEvent) {
   if (!subEvent.startsAt) return "Fecha por confirmar";
-  const startsAt = new Date(subEvent.startsAt);
-  return `${startsAt.toLocaleDateString("es-ES")} - ${startsAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`;
+  const startsAt = subEvent.startsAt;
+  const date = new Date(startsAt).toLocaleDateString("es-ES");
+  const time = startsAt.length >= 16 ? `${startsAt.slice(11, 13)}:${startsAt.slice(14, 16)}` : "";
+  return `${date} - ${time}`;
 }
 
 export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
@@ -112,7 +114,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
   function payloadFromEditor(values: Omit<EditableSubEvent, "id">) {
     if (values.datePending) return { name: values.name, startsAt: null, endsAt: null, doorsOpenAt: null };
     const range = toRange(values.date, values.time, values.durationMinutes);
-    const doorsOpenAt = values.doorsTime ? new Date(`${values.date}T${values.doorsTime}:00`).toISOString() : null;
+    const doorsOpenAt = values.doorsTime ? `${values.date}T${values.doorsTime}:00.000Z` : null;
     return { name: values.name, ...range, doorsOpenAt };
   }
 
