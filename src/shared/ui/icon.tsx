@@ -9,6 +9,9 @@ export type IconName =
   | "trophy"
   | "presentation"
   | "balloon"
+  | "circus"
+  | "anchor"
+  | "sparkles"
   | "calendar"
   | "clock"
   | "timer"
@@ -77,6 +80,27 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <path d="M12 3a5 5 0 0 0-5 5c0 3.5 5 8 5 8s5-4.5 5-8a5 5 0 0 0-5-5Z" />
       <path d="m10.5 16 1.5 2 1.5-2M12 18c-2 1-3 2-3 3M12 18c2 1 3 2 3 3" />
+    </>
+  ),
+  circus: (
+    <>
+      <path d="M12 3v2M10.5 3h3" />
+      <path d="M12 5c-4.5 0-8 4.2-8 9.5h16C20 9.2 16.5 5 12 5Z" />
+      <path d="M12 5c-1.6 0-2.8 4.2-2.8 9.5M12 5c1.6 0 2.8 4.2 2.8 9.5" />
+      <path d="M4 14.5h16v5H4z" />
+    </>
+  ),
+  anchor: (
+    <>
+      <circle cx="12" cy="5" r="2.2" />
+      <path d="M12 7.2V21M8 11h8" />
+      <path d="M4 14.5a8 8 0 0 0 16 0" />
+    </>
+  ),
+  sparkles: (
+    <>
+      <path d="M12 3.5 13.6 8l4.4 1.6-4.4 1.6L12 15.6l-1.6-4.4L6 9.6 10.4 8 12 3.5Z" />
+      <path d="M18.5 15.5l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7.7-1.9Z" />
     </>
   ),
   calendar: (

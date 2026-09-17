@@ -60,6 +60,47 @@ describe("EventRowActions", () => {
     });
   });
 
+  describe("retirar de revision", () => {
+    // El evento sigue siendo del organizador hasta que se aprueba: sin esto, mandarlo a revision
+    // lo dejaba bloqueado y la unica salida era pedirle a un superadmin que lo rechazara.
+    it("un admin retira de revision su propio evento y vuelve a borrador", async () => {
+      await loginAs("admin@entraditas.com");
+      eventById("event-5").status = "in_review";
+
+      renderActions(eventById("event-5"));
+      fireEvent.click(screen.getByRole("button", { name: "Retirar de revisión" }));
+
+      await waitFor(() => expect(eventById("event-5").status).toBe("draft"));
+      expect(screen.getByRole("status")).toHaveTextContent(/ya puedes editarlo/);
+    });
+
+    it("no se ofrece retirar de revision un borrador", async () => {
+      await loginAs("admin@entraditas.com");
+      renderActions(eventById("event-5")); // borrador
+
+      expect(screen.queryByRole("button", { name: "Retirar de revisión" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("cambiar el estado a mano", () => {
+    it("un superadmin lleva un evento publicado de vuelta a revision", async () => {
+      await loginAs("superadmin@entraditas.com");
+      renderActions(eventById("event-1")); // publicado
+
+      fireEvent.change(screen.getByLabelText("Cambiar estado"), { target: { value: "in_review" } });
+
+      await waitFor(() => expect(eventById("event-1").status).toBe("in_review"));
+      expect(eventById("event-1").publishedAt).toBeNull();
+    });
+
+    it("quien no revisa no ve el selector de estado", async () => {
+      await loginAs("admin@entraditas.com");
+      renderActions(eventById("event-1"));
+
+      expect(screen.queryByLabelText("Cambiar estado")).not.toBeInTheDocument();
+    });
+  });
+
   describe("retirar", () => {
     it("retirar de la web devuelve el evento a borrador", async () => {
       await loginAs("admin@entraditas.com");

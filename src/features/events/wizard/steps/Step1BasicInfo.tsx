@@ -420,7 +420,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         </fieldset>
 
         {/* Al final del paso: es lo que decide si el siguiente paso es "Varias funciones". */}
-        <QuestionSection title="¿Tendrá varias sesiones, pases o fechas?" hint="Festivales y giras suelen tener varias funciones.">
+        <QuestionSection title="Sesiones" hint="Festivales y giras suelen tener varias funciones, pases o fechas.">
           <input type="hidden" {...register("hasSubEvents")} />
           <div className="flex flex-wrap gap-2">
             <OptionButton

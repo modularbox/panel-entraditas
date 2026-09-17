@@ -23,6 +23,37 @@ const STATUS_FILTERS: Array<{ value: "" | Event["status"]; label: string }> = [
 ];
 const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
 
+/**
+ * Editar, en todos los eventos.
+ *
+ * Antes solo se llegaba al asistente por el titulo, que lleva a la ficha: la lista no ofrecia
+ * editar en ningun sitio. Un evento en revision no se edita de primeras -lo esta mirando alguien-
+ * y lo que se ofrece ahi es retirarlo de revision (EventRowActions), que lo devuelve a borrador;
+ * al enviarlo otra vez, vuelve a revision.
+ */
+function EditarEvento({ event }: { event: Event }) {
+  if (event.status === "in_review") {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        disabled
+        title="Está en revisión: retíralo de revisión para poder editarlo."
+        className="h-8 px-3 text-xs"
+      >
+        Editar
+      </Button>
+    );
+  }
+  return (
+    <Link to={`/eventos/${event.id}/editar`}>
+      <Button type="button" variant="outline" className="h-8 px-3 text-xs">
+        Editar
+      </Button>
+    </Link>
+  );
+}
+
 const columnHelper = createColumnHelper<Event>();
 const columns = [
   columnHelper.accessor("title", {
@@ -46,7 +77,12 @@ const columns = [
   columnHelper.display({
     id: "acciones",
     header: "Acciones",
-    cell: (info) => <EventRowActions event={info.row.original} />
+    cell: (info) => (
+      <div className="flex flex-wrap items-start gap-2">
+        <EditarEvento event={info.row.original} />
+        <EventRowActions event={info.row.original} />
+      </div>
+    )
   })
 ];
 

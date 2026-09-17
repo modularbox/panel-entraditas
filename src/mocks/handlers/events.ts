@@ -146,6 +146,46 @@ function upsertSingleSubEvent(event: Event, startsAt: string | null, endsAt?: st
   });
 }
 
+/**
+ * Zonas y butacas que se venderian sin tipo de entrada, si el evento saliera asi.
+ *
+ * Una butaca sin tipo llega a entraditas.com como butaca que no se puede comprar: el comprador la
+ * ve gris y nada le explica por que. Lo mismo una zona de pie sin tipo, que ademas ocupa aforo que
+ * nadie puede comprar. Se comprueba aqui, y no solo en la pantalla de publicar, porque es el
+ * servidor el que cambia el estado.
+ *
+ * La cuenta es la misma que hace la publicacion: una butaca vale la asignacion que tenga ella y,
+ * si no tiene, la de su zona entera.
+ */
+function sinTipoDeEntrada(event: Event): string[] {
+  const subEventIds = new Set(db.subEvents.filter((s) => s.eventId === event.id).map((s) => s.id));
+  const pools = db.capacityPools.filter((pool) => subEventIds.has(pool.subEventId));
+  const zonas = db.zones.filter((zone) => zone.venueId === event.venueId);
+  const problemas: string[] = [];
+
+  for (const zone of zonas) {
+    if (zone.kind !== "numbered" && zone.kind !== "standing") continue;
+    const pool = pools.find((candidate) => candidate.zoneId === zone.id);
+    const grupoDeZona =
+      pool?.ticketTypeGroupId ??
+      (pool ? db.ticketTypes.find((t) => t.capacityPoolId === pool.id)?.groupId ?? null : null);
+    if (grupoDeZona) continue;
+
+    if (zone.kind === "standing") {
+      problemas.push(`la zona "${zone.name}" no tiene tipo de entrada`);
+      continue;
+    }
+    // Numerada y sin tipo de zona: cada butaca necesita el suyo. `capacity` es exactamente el
+    // numero de butacas dibujadas.
+    const asignadas = pool?.seatAssignments?.length ?? 0;
+    const sueltas = Math.max(0, zone.capacity - asignadas);
+    if (sueltas > 0) {
+      problemas.push(`${sueltas} asiento(s) sin tipo de entrada en "${zone.name}"`);
+    }
+  }
+  return problemas;
+}
+
 export const eventsHandlers = [
   http.get(`${BASE}/events`, ({ request }) => {
     const user = requireUser(request);
@@ -329,6 +369,19 @@ serviceFeeType: body.serviceFeeType ?? "none",
         { status: 422 }
       );
     }
+    const sinTipo = sinTipoDeEntrada(event);
+    if (sinTipo.length > 0) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `No se puede publicar: ${sinTipo.join("; ")}. Asigna un tipo de entrada antes de enviarlo a revision.`,
+            requestId: "req_events_publish"
+          }
+        },
+        { status: 422 }
+      );
+    }
     event.status = "in_review";
     event.publishedAt = null;
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_publish" } });
@@ -415,6 +468,68 @@ serviceFeeType: body.serviceFeeType ?? "none",
     event.status = "draft";
     event.publishedAt = null;
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_unpublish" } });
+  }),
+
+  /**
+   * Retira de revision lo que el organizador mando, para poder seguir editandolo.
+   *
+   * Es suyo hasta que se aprueba: sin esto, mandarlo a revision lo dejaba bloqueado y la unica
+   * salida era pedirle a un superadmin que lo rechazara. Al volver a enviarlo, vuelve a revision.
+   */
+  http.post(`${BASE}/events/:id/withdraw`, ({ request, params }) => {
+    const user = requireUser(request);
+    if (!user) return unauthenticated("req_events_withdraw");
+    const event = db.events.find((e) => e.id === params.id);
+    if (!event || !canAccessEvent(event, user)) return notFound("req_events_withdraw");
+    if (!canManageEvent(user)) return forbidden("req_events_withdraw", "Solo un admin puede retirar un evento de revision");
+    if (event.status !== "in_review") {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Solo se puede retirar de revision un evento que este en revision",
+            requestId: "req_events_withdraw"
+          }
+        },
+        { status: 409 }
+      );
+    }
+    event.status = "draft";
+    event.publishedAt = null;
+    return HttpResponse.json({ data: event, meta: { requestId: "req_events_withdraw" } });
+  }),
+
+  /**
+   * Cambia el estado a mano. Solo superadmin: es la salida de emergencia para lo que el camino
+   * normal (enviar, aprobar, rechazar, retirar) no cubre, como devolver a revision algo aprobado
+   * por error. Para todos los demas el estado sigue siendo consecuencia de una accion, no un campo.
+   */
+  http.post(`${BASE}/events/:id/status`, async ({ request, params }) => {
+    const user = requireUser(request);
+    if (!user) return unauthenticated("req_events_status");
+    const event = db.events.find((e) => e.id === params.id);
+    if (!event || !canAccessEvent(event, user)) return notFound("req_events_status");
+    if (user.role !== "superadmin") {
+      return forbidden("req_events_status", "Solo un superadmin puede cambiar el estado a mano");
+    }
+    const { status } = (await request.json()) as { status?: Event["status"] };
+    // "finished" no esta: se deduce de la fecha, no se guarda.
+    const permitidos: Event["status"][] = ["draft", "in_review", "published", "rejected"];
+    if (!status || !permitidos.includes(status)) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `Estado no valido. Validos: ${permitidos.join(", ")}`,
+            requestId: "req_events_status"
+          }
+        },
+        { status: 422 }
+      );
+    }
+    event.status = status;
+    event.publishedAt = status === "published" ? new Date().toISOString() : null;
+    return HttpResponse.json({ data: event, meta: { requestId: "req_events_status" } });
   }),
 
   http.get(`${BASE}/events/:id/summary`, ({ request, params }) => {

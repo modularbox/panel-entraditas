@@ -64,6 +64,50 @@ describe("Step5Publish", () => {
     expect(db.events.find((e) => e.id === "event-3")!.status).toBe("in_review");
   });
 
+  /**
+   * Una butaca sin tipo de entrada sale a la web como butaca que no se puede comprar, y el
+   * comprador no tiene forma de saber por que. El paso del plano deja seguir (va antes de que
+   * existan los tipos de entrada), asi que el corte tiene que estar aqui.
+   */
+  it("no deja enviar a revision mientras queden butacas sin tipo de entrada", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+    db.events.find((event) => event.id === "event-3")!.location = "Teatro Principal";
+    db.events.find((event) => event.id === "event-3")!.locality = "Alicante";
+
+    const seatRows: SeatRowSpec[] = Array.from({ length: 10 }, () => ({ slots: 10 }));
+    const zone = {
+      id: "zone-obra",
+      venueId: "venue-2",
+      name: "Butacas",
+      kind: "numbered" as const,
+      capacity: 100,
+      seatRows,
+      x: 10,
+      y: 20,
+      width: 40,
+      height: 60
+    };
+    db.zones.push(zone);
+    const seats = buildSeatGrid(zone);
+    db.capacityPools.push({
+      id: "pool-3-test",
+      subEventId: "sub-event-3-0",
+      zoneId: zone.id,
+      name: "Butacas",
+      totalCapacity: 100,
+      soldCount: 0,
+      heldCount: 0,
+      // Solo 40 de las 100: las otras 60 saldrian a la venta sin precio ni tipo.
+      seatAssignments: seats.slice(0, 40).map((seat) => ({ seatId: seat.id, ticketTypeGroupId: "tt-3" }))
+    });
+
+    renderStep("event-3");
+
+    await waitFor(() => expect(screen.getByText(/Plano y zonas/)).toHaveTextContent("Pendiente"));
+    expect(screen.getByText(/60 en "Butacas"/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviar a revision" })).toBeDisabled();
+  });
+
   it("accepts a numbered zone whose seats carry a per-seat ticket type", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     db.events.find((event) => event.id === "event-3")!.location = "Teatro Principal";

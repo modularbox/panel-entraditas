@@ -59,16 +59,18 @@ describe("EventsListPage", () => {
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(14));
 
+    // Acotado al distintivo (un span): la fila lleva ademas el selector de estado del superadmin,
+    // cuyas opciones repiten los mismos nombres.
     const jazzRow = screen.getByRole("row", { name: /Noche de Jazz/ });
-    expect(within(jazzRow).getByText("Publicado")).toHaveClass("border-status-published");
+    expect(within(jazzRow).getByText("Publicado", { selector: "span" })).toHaveClass("border-status-published");
 
     const theatreRow = screen.getByRole("row", { name: /Bernarda Alba/ });
-    expect(within(theatreRow).getByText("Borrador")).toHaveClass("border-status-draft");
+    expect(within(theatreRow).getByText("Borrador", { selector: "span" })).toHaveClass("border-status-draft");
 
     // "Festival del Sur" sigue guardado como publicado, pero se celebro en julio: la lista
     // lo marca como terminado en vez de anunciar una venta que ya no existe.
     const festivalRow = screen.getByRole("row", { name: /Festival del Sur/ });
-    expect(within(festivalRow).getByText("Finalizado")).toHaveClass("border-status-finished");
+    expect(within(festivalRow).getByText("Finalizado", { selector: "span" })).toHaveClass("border-status-finished");
   });
 
   it("opens the questionnaire at Crear evento and carries the answers into the wizard", async () => {
