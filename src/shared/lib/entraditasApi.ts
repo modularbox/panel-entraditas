@@ -229,3 +229,117 @@ export async function fetchPublicCatalog(): Promise<PublicEvent[]> {
   const payload = (await response.json().catch(() => ({}))) as { items?: PublicEvent[] };
   return payload.items ?? [];
 }
+
+// ---------------------------------------------------------------------------
+// Lo que de verdad pasa en entraditas.com
+// ---------------------------------------------------------------------------
+//
+// Todo lo de abajo lee de la MISMA base de datos que la web publica, no de los mocks del panel.
+// Son dos poblaciones distintas: los mocks sirven para trabajar sin servidor y para las pruebas,
+// pero un comprador que se registra en entraditas.com no aparece en ellos por definicion. Cuando
+// hay API configurada y sesion abierta en ella, estas funciones son la fuente buena.
+
+/** Un comprador registrado en la web, con lo que lleve comprado (0 si no ha comprado nada). */
+export interface ApiCustomer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  status: string;
+  ordersCount: number;
+  totalSpent: number;
+  lastPurchaseAt: string | null;
+  createdAt: string | null;
+}
+
+export interface ApiOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  taxId: string | null;
+  commissionRate: number;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  status: string;
+  createdAt: string | null;
+  organizer: { id: string; fullName: string; email: string } | null;
+}
+
+/** Una solicitud de alta enviada desde el formulario de organizadores de la web. */
+export interface ApiOrganizerApplication {
+  id: string;
+  reference: string;
+  organizationName: string;
+  legalName: string;
+  taxId: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  eventType: string;
+  website: string | null;
+  estimatedEvents: string;
+  localities: string;
+  message: string;
+  status: "pending" | "approved" | "rejected";
+  organizationId: string | null;
+  createdAt: string | null;
+  reviewedAt: string | null;
+}
+
+/** Los numeros del dashboard, calculados por la API sobre la base de datos. */
+export interface ApiMetrics {
+  disponible: boolean;
+  motivo?: string;
+  compradores?: { total: number; sinCompras: number; ultimos7dias: number };
+  eventos?: { total: number; porEstado: Record<string, number> };
+  ventas?: {
+    pedidos: number;
+    bruto: number;
+    neto: number;
+    devuelto: number;
+    entradas: number;
+    ticketMedio: number;
+    porCanal: { channel: string; orders: number; net: number }[];
+  };
+  organizadores?: { organizaciones: number; solicitudesPendientes: number };
+  ultimosEventos?: { id: string; title: string; status: string; startsAt: string | null; net: number; orders: number }[];
+  actualizado?: string;
+}
+
+/** Si se puede leer de la API ahora mismo: hay base configurada y sesion abierta en ella. */
+export function canReadFromApi(): boolean {
+  return isApiConfigured() && getApiToken() !== null;
+}
+
+export async function fetchApiCustomers(search?: string): Promise<ApiCustomer[]> {
+  const query = search ? `?q=${encodeURIComponent(search)}` : "";
+  const result = await request<{ items: ApiCustomer[] }>(`/v1/panel/customers${query}`);
+  return result.items ?? [];
+}
+
+export async function fetchApiOrganizations(): Promise<ApiOrganization[]> {
+  const result = await request<{ items: ApiOrganization[] }>("/v1/panel/organizations");
+  return result.items ?? [];
+}
+
+export async function fetchApiOrganizerApplications(status?: string): Promise<ApiOrganizerApplication[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  const result = await request<{ items: ApiOrganizerApplication[] }>(`/v1/panel/organizer-applications${query}`);
+  return result.items ?? [];
+}
+
+/** Aprobar crea la organizacion y la cuenta de su administrador, y devuelve ambas. */
+export async function approveApiOrganizerApplication(id: string): Promise<{
+  organizationId: string;
+  organizer: { id: string; email: string; fullName: string };
+}> {
+  return request(`/v1/panel/organizer-applications/${encodeURIComponent(id)}/approve`, { method: "POST" });
+}
+
+export async function rejectApiOrganizerApplication(id: string): Promise<void> {
+  await request(`/v1/panel/organizer-applications/${encodeURIComponent(id)}/reject`, { method: "POST" });
+}
+
+export async function fetchApiMetrics(): Promise<ApiMetrics> {
+  return request<ApiMetrics>("/v1/panel/metrics");
+}

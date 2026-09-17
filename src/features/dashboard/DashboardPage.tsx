@@ -6,8 +6,84 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useOrganizationsQuery } from "@/features/organizations/list/useOrganizationsQuery";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { Donut, EmptyState, HorizontalBars, Kpi, LineChart, Section } from "@/shared/ui/charts";
+import { useQuery } from "@tanstack/react-query";
+import { Link as RouterLink } from "react-router-dom";
+import { canReadFromApi, fetchApiMetrics } from "@/shared/lib/entraditasApi";
 import { useDashboardQuery } from "./useDashboardQuery";
 import { DATE_RANGE_PRESETS, EMPTY_DASHBOARD_FILTERS, type DashboardFilters } from "./dashboardFilters";
+
+/**
+ * Lo que de verdad esta pasando en entraditas.com, leido de su base de datos.
+ *
+ * El resto del dashboard se calcula sobre los datos del panel, que en desarrollo son de ejemplo.
+ * Esta franja no: sale de la web publica -cuentas registradas, pedidos cobrados, solicitudes sin
+ * atender- y por eso va arriba y separada, para que no se confunda una cosa con la otra.
+ */
+function DatosDeLaWeb() {
+  const hayApi = canReadFromApi();
+  const { data, isLoading } = useQuery({
+    queryKey: ["api-metrics"],
+    queryFn: fetchApiMetrics,
+    enabled: hayApi,
+    refetchInterval: 60_000
+  });
+
+  if (!hayApi) return null;
+  if (isLoading) return <p className="text-sm text-muted-foreground">Cargando los datos de entraditas.com…</p>;
+  if (!data) return null;
+  if (!data.disponible) {
+    return (
+      <section className="border-2 border-foreground bg-surface p-4 shadow-flat">
+        <p className="text-sm font-semibold">Datos de entraditas.com</p>
+        <p className="mt-1 text-sm text-muted-foreground">{data.motivo}</p>
+      </section>
+    );
+  }
+
+  const dato = (valor: number) => number.format(valor);
+  const pendientes = data.organizadores?.solicitudesPendientes ?? 0;
+
+  return (
+    <section className="border-2 border-foreground bg-surface p-4 shadow-flat">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-lg font-semibold">En entraditas.com ahora mismo</h2>
+        <p className="text-xs text-muted-foreground">Leído de la base de datos de la web</p>
+      </div>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Clientes registrados</p>
+          <p className="font-display text-2xl font-semibold">{dato(data.compradores?.total ?? 0)}</p>
+          <p className="text-xs text-muted-foreground">
+            {dato(data.compradores?.sinCompras ?? 0)} sin comprar todavía · {dato(data.compradores?.ultimos7dias ?? 0)} esta semana
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Vendido (neto)</p>
+          <p className="font-display text-2xl font-semibold">{euro.format(data.ventas?.neto ?? 0)}</p>
+          <p className="text-xs text-muted-foreground">
+            {dato(data.ventas?.entradas ?? 0)} entradas · {dato(data.ventas?.pedidos ?? 0)} pedidos
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Eventos publicados</p>
+          <p className="font-display text-2xl font-semibold">{dato(data.eventos?.porEstado?.published ?? 0)}</p>
+          <p className="text-xs text-muted-foreground">{dato(data.eventos?.total ?? 0)} en total</p>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Organizadores</p>
+          <p className="font-display text-2xl font-semibold">{dato(data.organizadores?.organizaciones ?? 0)}</p>
+          {pendientes > 0 ? (
+            <RouterLink to="/organizaciones/solicitudes" className="text-xs font-semibold text-primary hover:underline">
+              {dato(pendientes)} solicitud(es) sin atender
+            </RouterLink>
+          ) : (
+            <p className="text-xs text-muted-foreground">Sin solicitudes pendientes</p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 const euro = { format: (value: number) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(value / 100) };
 const number = new Intl.NumberFormat("es-ES");
@@ -67,6 +143,7 @@ export function DashboardPage() {
   return <div className="flex flex-col gap-6">
     <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Resumen operativo</p><h1 className="mt-1 font-display text-3xl font-semibold">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Actualizado a las {refreshed} · sincronización automática cada 15 s</p></div><div className="flex items-center gap-2"><label htmlFor="report-format" className="sr-only">Formato de informe</label><select id="report-format" className="h-10 rounded-md border-2 border-foreground bg-surface px-3 text-sm"><option value="csv">CSV</option><option value="xlsx">XLSX</option><option value="pdf">PDF</option></select><Button onClick={() => exportReport((document.getElementById("report-format") as HTMLSelectElement).value)}>Exportar informe</Button></div></header>
     {exportMessage && <p role="status" className="border-2 border-success bg-success-bg px-4 py-3 text-sm font-semibold">{exportMessage}</p>}{exportError && <p role="alert">{exportError}</p>}
+    <DatosDeLaWeb />
     <FilterBar filters={filters} onChange={setFilters} isSuperadmin={user?.role === "superadmin"} organizations={organizationsQuery.data ?? []} events={eventsQuery.data ?? []} />
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Kpi label="Ingresos brutos" metric={kpis.grossRevenue} format={euro.format} /><Kpi label="Ingresos netos" metric={kpis.netRevenue} format={euro.format} /><Kpi label="Entradas vendidas" metric={kpis.ticketsSold} /><Kpi label="Ticket medio" metric={kpis.averageTicket} format={euro.format} /><Kpi label="Aforo ocupado" metric={kpis.occupancy} format={(value) => `${value}%`} /><Kpi label="Conversión" metric={kpis.conversion} format={(value) => `${value}%`} sample /><Kpi label="Asistencia" metric={kpis.attendance} format={(value) => `${value}%`} sample /><Kpi label="Reembolsos" metric={kpis.refunds} format={euro.format} /></div>
     <Section title="Detalle por evento" note="Datos del periodo actual"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead className="border-b-2 border-foreground"><tr><th className="px-3 py-3">Evento</th><th className="px-3 py-3">Fecha</th><th className="px-3 py-3">Ingresos brutos</th><th className="px-3 py-3">Ingresos netos</th><th className="px-3 py-3">Entradas vendidas</th><th className="px-3 py-3">Ticket medio</th><th className="px-3 py-3">Aforo</th><th className="px-3 py-3">Conversión</th><th className="px-3 py-3">Asistencia</th><th className="px-3 py-3">Reembolsos</th></tr></thead><tbody>{data.eventMetrics.map((event) => <tr key={event.id} className="border-b border-border last:border-0"><td className="px-3 py-3 font-semibold"><Link to={`/eventos/${event.id}`} className="hover:underline">{event.title}</Link><span className="mt-1 block text-xs font-normal text-muted-foreground">{event.status}</span></td><td className="whitespace-nowrap px-3 py-3">{eventDate(event.startsAt)}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.grossRevenue)}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.netRevenue)}</td><td className="px-3 py-3">{number.format(event.ticketsSold)}</td><td className="whitespace-nowrap px-3 py-3">{event.averageTicket === null ? "—" : euro.format(event.averageTicket)}</td><td className="px-3 py-3">{event.occupancy === null ? "—" : `${event.occupancy}%`}</td><td className="px-3 py-3">{event.conversion}%</td><td className="px-3 py-3">{event.attendance}%</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.refunds)}</td></tr>)}</tbody></table></div></Section>
