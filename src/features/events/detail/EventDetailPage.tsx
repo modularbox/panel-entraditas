@@ -9,6 +9,7 @@ import { cn } from "@/shared/lib/cn";
 import { Step1BasicInfo } from "../wizard/steps/Step1BasicInfo";
 import { Step2Schedule } from "../wizard/steps/Step2Schedule";
 import { Step4TicketTypes } from "../wizard/steps/Step4TicketTypes";
+import { Step5Publish } from "../wizard/steps/Step5Publish";
 import { SeatingPlanSection } from "../wizard/steps/SeatingPlanSection";
 import { DiscountCodesSection } from "../wizard/steps/DiscountCodesSection";
 import { GatesSection } from "../wizard/steps/GatesSection";
@@ -19,8 +20,16 @@ const ENABLED_TABS = [
   { key: "aforos", label: "Aforos y zonas" },
   { key: "tipos", label: "Tipos de entrada" },
   { key: "descuentos", label: "Códigos de descuento" },
-  { key: "puertas", label: "Puertas" }
+  { key: "puertas", label: "Puertas" },
+  // Retirar de la web deja el evento en borrador: desde aqui se vuelve a enviar a revision
+  // (y de ahi a publicado) sin tener que rehacer el asistente entero.
+  { key: "publicar", label: "Publicar" }
 ] as const;
+
+type TabKey = (typeof ENABLED_TABS)[number]["key"];
+
+// Estados desde los que tiene sentido pedir la revision otra vez.
+const PUBLISHABLE: Event["status"][] = ["draft", "rejected"];
 
 // Sections not built yet; rendered as disabled buttons so the full nav is visible early.
 const DISABLED_TABS = ["Pedidos", "Métricas"];
@@ -34,7 +43,7 @@ export function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const eventId = id!;
   const token = useSessionStore((s) => s.token);
-  const [activeTab, setActiveTab] = useState<(typeof ENABLED_TABS)[number]["key"]>("general");
+  const [activeTab, setActiveTab] = useState<TabKey>("general");
 
   const { data: event, isLoading, error } = useQuery({
     queryKey: ["event", eventId],
@@ -55,6 +64,8 @@ export function EventDetailPage() {
   }
   if (!event) return null;
 
+  const tabs = ENABLED_TABS.filter((tab) => tab.key !== "publicar" || PUBLISHABLE.includes(event.status));
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
@@ -64,7 +75,7 @@ export function EventDetailPage() {
 
       <nav aria-label="Secciones del evento">
         <ul className="flex flex-wrap gap-2">
-          {ENABLED_TABS.map((tab) => (
+          {tabs.map((tab) => (
             <li key={tab.key}>
               <button
                 type="button"
@@ -95,7 +106,7 @@ export function EventDetailPage() {
       </nav>
 
       <section
-        aria-label={ENABLED_TABS.find((t) => t.key === activeTab)!.label}
+        aria-label={tabs.find((t) => t.key === activeTab)!.label}
         className="rounded-lg border-2 border-foreground bg-surface p-6 shadow-flat"
       >
         {activeTab === "general" && <Step1BasicInfo eventId={eventId} onSaved={noop} />}
@@ -104,6 +115,7 @@ export function EventDetailPage() {
         {activeTab === "tipos" && <Step4TicketTypes eventId={eventId} onSaved={noop} />}
         {activeTab === "descuentos" && <DiscountCodesSection eventId={eventId} />}
         {activeTab === "puertas" && <GatesSection eventId={eventId} />}
+        {activeTab === "publicar" && <Step5Publish eventId={eventId} onSaved={noop} />}
       </section>
     </div>
   );

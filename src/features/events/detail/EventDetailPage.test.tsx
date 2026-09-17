@@ -2,8 +2,9 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
-import { resetDb } from "@/mocks/state";
+import { db, resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { apiClient } from "@/shared/lib/apiClient";
 import { EventDetailPage } from "./EventDetailPage";
 
 function renderDetail(eventId: string) {
@@ -13,6 +14,7 @@ function renderDetail(eventId: string) {
       <MemoryRouter initialEntries={[`/eventos/${eventId}`]}>
         <Routes>
           <Route path="/eventos/:id" element={<EventDetailPage />} />
+          <Route path="/eventos" element={<div>Listado de eventos</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -71,5 +73,30 @@ describe("EventDetailPage", () => {
     await useSessionStore.getState().login("javier.ortega@entraditas.com", "javier1234"); // scoped to event-1 only
     renderDetail("event-3");
     expect(await screen.findByText("Evento no encontrado.")).toBeInTheDocument();
+  });
+
+  it("lets a web-retired event (back to draft) be sent to review again from the detail view", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    const token = useSessionStore.getState().token!;
+    await apiClient.post("/events/event-2/unpublish", undefined, { token }); // retirar de la web -> draft
+    const event = db.events.find((e) => e.id === "event-2")!;
+    event.location = "Rock Arena";
+    event.locality = "Madrid";
+
+    renderDetail("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Publicar" }));
+
+    const requestReview = await screen.findByRole("button", { name: "Enviar a revision" });
+    await waitFor(() => expect(requestReview).toBeEnabled());
+    fireEvent.click(requestReview);
+
+    await waitFor(() => expect(db.events.find((e) => e.id === "event-2")!.status).toBe("in_review"));
+  });
+
+  it("does not show the Publicar tab for an event that is not back in draft or rejected", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderDetail("event-2"); // published, never retired
+    expect(await screen.findByLabelText("Título")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Publicar" })).not.toBeInTheDocument();
   });
 });
