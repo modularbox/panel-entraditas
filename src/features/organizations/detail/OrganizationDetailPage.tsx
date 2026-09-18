@@ -8,6 +8,7 @@ import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
 import { EventStatusBadge } from "@/shared/ui/EventStatusBadge";
+import { OrganizationCustomers } from "./OrganizationCustomers";
 
 const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
 
@@ -204,6 +205,9 @@ export function OrganizationDetailPage() {
           </div>
         )}
       </section>
+
+      {/* CLIENTES */}
+      <OrganizationCustomers organizationId={organization.id} />
     </div>
   );
 }

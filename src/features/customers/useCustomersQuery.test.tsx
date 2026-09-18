@@ -37,9 +37,11 @@ describe("useCustomersQuery", () => {
         phone: "+34600000001",
         status: "active",
         ordersCount: 0,
+        ticketsCount: 0,
         totalSpent: 0,
         lastPurchaseAt: null,
-        createdAt: "2026-09-10T09:00:00.000Z"
+        createdAt: "2026-09-10T09:00:00.000Z",
+        events: []
       }
     ]);
 

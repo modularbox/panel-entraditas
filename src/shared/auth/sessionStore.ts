@@ -162,6 +162,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     // Pero SOLO si la API ha dicho que no. Si no contesta, se sigue dentro: antes, cualquier
     // caida de la API sacaba del panel a todo el mundo al recargar la pagina.
     if ((await estadoSesionApi()) === "invalida") {
+      // Se deja dicho POR QUE. Sin esto el login aparecia sin explicacion: para quien lo vive, el
+      // panel simplemente le echa, y lo que ve es "entra" sin saber que se le habia caducado.
+      guardarCierre({ motivo: "sesion-no-valida" });
       localStorage.removeItem(TOKEN_STORAGE_KEY);
       localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
       set({ status: "unauthenticated", token: null, user: null, effectivePermissions: new Set(), eventScopes: [], impersonatorToken: null });

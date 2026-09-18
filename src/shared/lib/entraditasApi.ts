@@ -1,4 +1,5 @@
 import type { PublicEvent } from "@entraditas/types";
+import { avisarDeSesionPerdida } from "@/shared/lib/apiClient";
 
 /**
  * Cliente hacia api.entraditas.com, que es un servicio distinto del backend propio del panel.
@@ -38,6 +39,14 @@ export interface ApiStaff {
 
 export class ApiUnavailableError extends Error {}
 
+/** Un "no" de la API, con su codigo, para que quien llama pueda distinguir un 404 de lo demas. */
+export class ErrorDeLaApi extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "ErrorDeLaApi";
+  }
+}
+
 export function isApiConfigured(): boolean {
   return API_BASE !== "";
 }
@@ -51,7 +60,15 @@ export function storeApiToken(token: string | null): void {
   else localStorage.removeItem(TOKEN_STORAGE_KEY);
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/**
+ * Pedir algo a la API ya con la sesion puesta.
+ *
+ * `avisaSiCaduca` distingue las peticiones que SON la sesion (entrar, comprobar si sigue viva) de
+ * las que la USAN. Un 401 al entrar es una contraseña mal escrita; un 401 al pedir los clientes es
+ * la sesion diciendo que ya no vale, y entonces hay que cerrar y volver al login como hace el
+ * resto del panel, en vez de dejar un error en rojo en la pantalla de turno.
+ */
+async function request<T>(path: string, init: RequestInit = {}, avisaSiCaduca = true): Promise<T> {
   if (!isApiConfigured()) throw new ApiUnavailableError("La API no esta configurada.");
   const token = getApiToken();
   const response = await fetch(`${API_BASE}${path}`, {
@@ -63,7 +80,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
   });
   const payload = (await response.json().catch(() => ({}))) as T & { error?: string };
-  if (!response.ok) throw new Error(payload.error || "No se pudo completar la peticion.");
+  if (!response.ok) {
+    // 403 cuenta igual que 401: el hosting devuelve 403 cuando se come la cabecera Authorization,
+    // asi que para quien lo vive es lo mismo que no tener sesion.
+    if (avisaSiCaduca && (response.status === 401 || response.status === 403)) {
+      storeApiToken(null);
+      avisarDeSesionPerdida(path);
+    }
+    throw new ErrorDeLaApi(payload.error || "No se pudo completar la peticion.", response.status);
+  }
   return payload;
 }
 
@@ -131,10 +156,11 @@ export async function loginToApi(email: string, password: string): Promise<ApiSt
 export async function conectarConLaApi(email: string, password: string): Promise<ApiStaff> {
   if (!isApiConfigured()) throw new ApiUnavailableError("La API publica no esta configurada en esta compilacion.");
   try {
+    // Sin aviso: un 401 aqui es una contraseña mal escrita, no una sesion que se ha caido.
     const result = await request<{ token: string; staff: ApiStaff }>("/v1/panel/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password })
-    });
+    }, false);
     storeApiToken(result.token);
     return result.staff;
   } catch (error) {
@@ -179,7 +205,9 @@ export async function estadoSesionApi(): Promise<EstadoSesionApi> {
 export async function quienSoyEnLaApi(): Promise<ApiStaff | null> {
   if (!isApiConfigured() || !getApiToken()) return null;
   try {
-    const result = await request<{ staff: ApiStaff }>("/v1/panel/me");
+    // Sin aviso: esta llamada es justo la que PREGUNTA si la sesion sigue viva, y ya limpia el
+    // token ella misma. Avisar aqui cerraria el panel al arrancar antes de haberlo abierto.
+    const result = await request<{ staff: ApiStaff }>("/v1/panel/me", {}, false);
     return result.staff;
   } catch {
     // El token caduco o se revoco: se limpia para que la interfaz no diga "conectado" sin serlo.
@@ -190,7 +218,7 @@ export async function quienSoyEnLaApi(): Promise<ApiStaff | null> {
 
 export async function logoutFromApi(): Promise<void> {
   if (!isApiConfigured() || !getApiToken()) return;
-  await request("/v1/panel/auth/logout", { method: "POST" }).catch(() => undefined);
+  await request("/v1/panel/auth/logout", { method: "POST" }, false).catch(() => undefined);
   storeApiToken(null);
 }
 
@@ -247,9 +275,33 @@ export interface ApiCustomer {
   phone: string;
   status: string;
   ordersCount: number;
+  ticketsCount: number;
   totalSpent: number;
   lastPurchaseAt: string | null;
   createdAt: string | null;
+  /** Los eventos que le ha comprado. Con alcance de organizacion, solo los de esa organizacion. */
+  events: string[];
+}
+
+/** Un pedido dentro de la ficha de un cliente. */
+export interface ApiCustomerOrder {
+  id: string;
+  orderNumber: string;
+  status: string;
+  channel: string;
+  total: number;
+  refundedAmount: number;
+  ticketsCount: number;
+  eventId: string | null;
+  eventTitle: string;
+  eventStartsAt: string | null;
+  createdAt: string | null;
+}
+
+/** La ficha de un cliente con su historial. Un organizador solo ve lo que le ha comprado a el. */
+export interface ApiCustomerDetail extends Omit<ApiCustomer, "events"> {
+  acceptsAdvertising: boolean;
+  orders: ApiCustomerOrder[];
 }
 
 export interface ApiOrganization {
@@ -314,6 +366,29 @@ export function canReadFromApi(): boolean {
 export async function fetchApiCustomers(search?: string): Promise<ApiCustomer[]> {
   const query = search ? `?q=${encodeURIComponent(search)}` : "";
   const result = await request<{ items: ApiCustomer[] }>(`/v1/panel/customers${query}`);
+  return result.items ?? [];
+}
+
+/**
+ * La ficha de un cliente. Devuelve null si la API dice que no existe.
+ *
+ * Que no exista no siempre significa que no exista: para un organizador, un comprador que nunca le
+ * ha comprado nada tampoco es cliente suyo, y la API responde lo mismo. Es lo que se quiere.
+ */
+export async function fetchApiCustomer(email: string): Promise<ApiCustomerDetail | null> {
+  try {
+    return await request<ApiCustomerDetail>(`/v1/panel/customers/${encodeURIComponent(email)}`);
+  } catch (error) {
+    if (error instanceof ErrorDeLaApi && error.status === 404) return null;
+    throw error;
+  }
+}
+
+/** Los clientes de una organizacion, con los eventos que le han comprado. Solo superadmin. */
+export async function fetchApiOrganizationCustomers(organizationId: string): Promise<ApiCustomer[]> {
+  const result = await request<{ items: ApiCustomer[] }>(
+    `/v1/panel/organizations/${encodeURIComponent(organizationId)}/customers`
+  );
   return result.items ?? [];
 }
 

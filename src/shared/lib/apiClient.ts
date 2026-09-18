@@ -37,6 +37,18 @@ export function alPerderLaSesion(callback: AvisoSinSesion): void {
 }
 
 /**
+ * Dar el mismo aviso desde fuera de este cliente.
+ *
+ * Lo necesita `entraditasApi.ts`, que habla con api.entraditas.com por su cuenta y no pasa por
+ * aqui. Sin esto, una sesion de la API caducada no cerraba nada: el panel seguia navegando y cada
+ * pantalla enseñaba su propio error en rojo ("No se pudieron cargar las organizaciones") sin que
+ * nadie dijera que lo que hacia falta era volver a entrar.
+ */
+export function avisarDeSesionPerdida(path: string): void {
+  avisarSinSesion?.(path);
+}
+
+/**
  * Entrar con la contrasena mal tambien responde 401, y eso no es una sesion caducada: es alguien
  * que aun no ha entrado. Si contara, el primer intento fallido mandaria al login "por inactividad".
  */

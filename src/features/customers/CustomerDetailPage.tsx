@@ -3,9 +3,41 @@ import { Link, useParams } from "react-router-dom";
 import type { Customer, Order } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
+import { canReadFromApi, fetchApiCustomer, type ApiCustomerDetail } from "@/shared/lib/entraditasApi";
 import { BackButton } from "@/shared/ui/BackButton";
 
 type CustomerDetail = Customer & { orders: (Order & { eventTitle: string })[] };
+
+/**
+ * La ficha tal y como la devuelve api.entraditas.com, con la forma que pinta esta pantalla.
+ *
+ * Hace falta porque la LISTA de clientes ya se leia de la API y la ficha se pedia a los mocks del
+ * panel: son dos poblaciones distintas, asi que un comprador de entraditas.com no existia ahi y
+ * entrar en cualquiera de ellos daba siempre "Error 404. Cliente no encontrado".
+ */
+function desdeLaApi(ficha: ApiCustomerDetail): CustomerDetail {
+  return {
+    id: ficha.email,
+    name: ficha.name || ficha.email,
+    email: ficha.email,
+    phone: ficha.phone || null,
+    acceptsAdvertising: ficha.acceptsAdvertising,
+    createdAt: ficha.createdAt ?? undefined,
+    ordersCount: ficha.ordersCount,
+    ticketsCount: ficha.ticketsCount,
+    totalSpent: ficha.totalSpent,
+    lastPurchaseAt: ficha.lastPurchaseAt ?? "",
+    orders: ficha.orders.map((pedido) => ({
+      id: pedido.id,
+      orderNumber: pedido.orderNumber,
+      eventTitle: pedido.eventTitle,
+      status: pedido.status as Order["status"],
+      channel: pedido.channel as Order["channel"],
+      total: pedido.total,
+      createdAt: pedido.createdAt ?? ""
+    })) as CustomerDetail["orders"]
+  };
+}
 
 const STATUS_LABELS: Record<Order["status"], string> = {
   pending: "Pendiente",
@@ -37,19 +69,34 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
   const token = useSessionStore((s) => s.token);
   const isSuperadmin = useSessionStore((s) => s.user?.role === "superadmin");
 
+  const desdeApi = canReadFromApi();
+
   const { data: customer, isLoading, error } = useQuery({
-    queryKey: ["customer", email],
-    queryFn: () => apiClient.get<CustomerDetail>(`/customers/${encodeURIComponent(email!)}`, { token: token! }),
+    queryKey: ["customer", email, desdeApi],
+    // De donde salio la lista tiene que salir la ficha. Si no, los dos lados hablan de gente
+    // distinta y entrar en cualquier cliente acaba en un 404.
+    queryFn: async () => (desdeApi
+      ? (await fetchApiCustomer(email!).then((ficha) => (ficha ? desdeLaApi(ficha) : null)))
+      : apiClient.get<CustomerDetail>(`/customers/${encodeURIComponent(email!)}`, { token: token! })),
     enabled: Boolean(email && token),
     retry: false // a 404 here is a valid "not found" outcome, not a transient failure to retry
   });
 
   if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;
-  if (error instanceof AppError && error.code === "NOT_FOUND") {
+  if (customer === null || (error instanceof AppError && error.code === "NOT_FOUND")) {
     return (
       <div className="rounded-lg border-2 border-dashed border-border bg-surface-alt p-10 text-center">
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Error 404</p>
         <p className="mt-2 font-display text-2xl font-semibold">{notFoundLabel} no encontrado.</p>
+      </div>
+    );
+  }
+  // Cualquier otro fallo se dice, en vez de dejar la pantalla en blanco sin explicacion.
+  if (error) {
+    return (
+      <div className="rounded-lg border-2 border-dashed border-border bg-surface-alt p-10 text-center">
+        <p className="font-display text-lg font-semibold">No se pudo cargar la ficha.</p>
+        <p className="mt-2 text-sm text-muted-foreground">{error instanceof Error ? error.message : String(error)}</p>
       </div>
     );
   }
@@ -117,7 +164,10 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
         </article>
         <article className="border-2 border-foreground bg-surface p-4 shadow-flat">
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Última compra</p>
-          <p className="mt-2 font-display text-2xl font-semibold">{new Date(customer.lastPurchaseAt).toLocaleDateString("es-ES")}</p>
+          {/* Sin compras la fecha viene vacia: "Sin compras" en vez de un "Invalid Date". */}
+          <p className="mt-2 font-display text-2xl font-semibold">
+            {customer.lastPurchaseAt ? new Date(customer.lastPurchaseAt).toLocaleDateString("es-ES") : "Sin compras"}
+          </p>
         </article>
       </div>
 
@@ -134,6 +184,13 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
             </tr>
           </thead>
           <tbody>
+            {customer.orders.length === 0 && (
+              <tr className="border-t border-border">
+                <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
+                  Todavía no ha comprado nada.
+                </td>
+              </tr>
+            )}
             {customer.orders.map((order) => (
               <tr key={order.id} className="border-t border-border">
                 <td className="px-4 py-3">

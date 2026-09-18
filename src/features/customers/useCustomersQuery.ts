@@ -12,17 +12,19 @@ export interface CustomersFilters {
 /**
  * Un comprador de entraditas.com, con el mismo aspecto que los clientes del panel.
  *
- * `ticketsCount` se queda a 0 porque la API no lo cuenta todavia; lo que si trae es lo gastado y
- * cuantos pedidos, que es de donde sale la cifra que importa. Antes que inventarlo aqui, se deja
- * en cero y se ensena tal cual.
+ * El id es el CORREO, no el id de la fila: es lo que la ficha de dentro usa para volver a pedirlo
+ * a la API, y lo unico que identifica igual a un comprador registrado y a uno que compro como
+ * invitado.
  */
-function desdeLaApi(cliente: ApiCustomer): Customer {
+export function desdeLaApi(cliente: ApiCustomer): Customer {
   return {
     id: cliente.email,
     name: cliente.name || cliente.email,
     email: cliente.email,
+    phone: cliente.phone || null,
+    createdAt: cliente.createdAt ?? undefined,
     ordersCount: cliente.ordersCount,
-    ticketsCount: 0,
+    ticketsCount: cliente.ticketsCount ?? 0,
     totalSpent: cliente.totalSpent,
     lastPurchaseAt: cliente.lastPurchaseAt ?? ""
   };
