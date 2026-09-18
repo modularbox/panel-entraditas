@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Menu } from "@/components/Menu";
@@ -47,6 +47,23 @@ export function PanelLayout() {
     queryClient.clear();
   };
 
+  /**
+   * Volver a pedir los datos, sin recargar la pagina.
+   *
+   * `refetchQueries` y no `clear()`: clear() tira la cache entera y deja cada pantalla en blanco
+   * mientras vuelve a pedir, que se ve como si el panel se hubiera roto. Asi se refresca lo que
+   * hay en pantalla y lo de antes sigue puesto hasta que llega lo nuevo.
+   */
+  const [actualizando, setActualizando] = useState(false);
+  const handleRefresh = async () => {
+    setActualizando(true);
+    try {
+      await queryClient.refetchQueries({ type: "active" });
+    } finally {
+      setActualizando(false);
+    }
+  };
+
   const handleResetDemoData = () => {
     if (!window.confirm("¿Restablecer los datos de ejemplo? Se perderán los cambios guardados.")) return;
     resetDb();
@@ -65,6 +82,8 @@ export function PanelLayout() {
         items={visibleItems}
         user={user}
         onLogout={() => logout()}
+        onRefresh={handleRefresh}
+        refreshing={actualizando}
         onResetDemoData={user?.role === "superadmin" ? handleResetDemoData : undefined}
         onReturnToSuperadmin={impersonatorToken ? handleReturnToSuperadmin : undefined}
       />

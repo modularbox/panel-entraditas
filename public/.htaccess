@@ -1,0 +1,46 @@
+# Apache y una aplicacion de una sola pagina.
+#
+# El panel resuelve sus direcciones por dentro, en el navegador: /clientes/x@y.com o /eventos/123
+# no son ficheros, son estados de la propia pagina. Apache no sabe nada de eso, asi que buscaba un
+# fichero con ese nombre, no lo encontraba y respondia su propio 404 antes de que el panel llegara
+# a cargarse. Solo funcionaba la raiz, y recargar en cualquier otro sitio te echaba fuera.
+#
+# Esto sirve el index.html para todo lo que no sea un fichero de verdad, y a partir de ahi el panel
+# se encarga. Los ficheros que SI existen (el JS, el CSS, las imagenes y sobre todo
+# mockServiceWorker.js) se siguen sirviendo tal cual gracias a las dos condiciones de abajo.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Un fichero o una carpeta que existe se sirve tal cual y no se toca.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Todo lo demas lo resuelve el panel.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Que un despliegue nuevo se vea sin tener que vaciar la cache a mano.
+#
+# El index.html y el simulador NO se cachean: son los dos que deciden que version se esta usando.
+# Con el index cacheado, una pestana puede seguir cargando el JS viejo durante horas; y un
+# mockServiceWorker.js cacheado deja al navegador con un service worker que ya no corresponde,
+# que es justo lo que hacia que el panel se quedara sin "servidor" a mitad de sesion.
+# EL ORDEN IMPORTA: `Header set` pisa al anterior, asi que la regla general va PRIMERO y las dos
+# excepciones despues. Al reves, mockServiceWorker.js acabaria cacheado un ano por terminar en .js,
+# que es lo contrario de lo que hace falta.
+<IfModule mod_headers.c>
+  # Lo que compila Vite lleva un hash en el nombre: si cambia el contenido, cambia el nombre. Eso
+  # se puede cachear a gusto.
+  <FilesMatch "\.(js|css|woff2?|png|jpe?g|svg|webp|avif)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  <FilesMatch "^(index\.html|mockServiceWorker\.js)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+</IfModule>

@@ -57,6 +57,18 @@ jobs:
           fi
           echo "Destino: $SFTP_HOST:$SFTP_PORT$SFTP_REMOTE_DIR"
 
+      # `dist/*` es un glob de shell, y un glob NO incluye los ficheros que empiezan por punto.
+      # Se comprueba aqui que el .htaccess se ha compilado, porque sin el Apache responde su propio
+      # 404 en cualquier direccion del panel que no sea la raiz: recargar en /clientes/... te echa
+      # fuera. Es el tipo de fallo que no se ve hasta que alguien recarga.
+      - name: Comprobar que el .htaccess esta compilado
+        run: |
+          if [ ! -f dist/.htaccess ]; then
+            echo "::error::Falta dist/.htaccess. Deberia venir de public/.htaccess: sin el, recargar en cualquier pantalla del panel da un 404 de Apache."
+            exit 1
+          fi
+          echo "dist/.htaccess listo ($(wc -c < dist/.htaccess) bytes)"
+
       - name: Subir por SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
@@ -66,6 +78,19 @@ jobs:
           password: ${{ secrets.SFTP_PASSWORD }}
           local_path: ./dist/*
           remote_path: ${{ env.SFTP_REMOTE_DIR }}
+          sftp_only: true
+
+      # Y el .htaccess aparte, por lo del glob. Va DESPUES de la subida general para que no se lo
+      # lleve por delante.
+      - name: Subir el .htaccess
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ env.SFTP_HOST }}
+          port: ${{ env.SFTP_PORT }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: ./dist/.htaccess
+          remote_path: ${{ env.SFTP_REMOTE_DIR }}/.htaccess
           sftp_only: true
 
       - name: Resumen
