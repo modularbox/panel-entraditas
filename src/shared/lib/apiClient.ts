@@ -15,6 +15,26 @@ const API_BASE_URL = "http://localhost:4000/api/v1";
 /** Codigos propios, para los fallos que no vienen del servidor con un cuerpo que leer. */
 export const SIN_RESPUESTA = "SIN_RESPUESTA";
 export const RESPUESTA_ILEGIBLE = "RESPUESTA_ILEGIBLE";
+/** El simulador que hace de servidor del panel no esta atendiendo esta pestana. */
+export const SIMULADOR_PARADO = "SIMULADOR_PARADO";
+
+/**
+ * Como volver a levantar el simulador cuando deja de atender.
+ *
+ * El panel publicado NO tiene servidor: su backend es el simulador (MSW), que corre como service
+ * worker dentro del propio navegador y atiende `http://localhost:4000`. Si deja de controlar la
+ * pestana (una recarga con Ctrl+Shift+R, un despliegue nuevo, o el navegador descartandolo), esa
+ * direccion se intenta de verdad, no hay nada escuchando en el puerto 4000 del ordenador de quien
+ * mira, y `fetch` falla. Antes eso se contaba como "no hay conexion", que culpa a su internet.
+ *
+ * Lo registra `main.tsx`, que es quien tiene el simulador a mano.
+ */
+type Reanimar = () => Promise<void>;
+let reanimarSimulador: Reanimar | null = null;
+
+export function alFallarElSimulador(callback: Reanimar): void {
+  reanimarSimulador = callback;
+}
 
 interface RequestOptions {
   /** Bearer token to attach; the session store (Task 13) passes the current one in explicitly — apiClient holds no auth state itself. */
@@ -60,18 +80,30 @@ async function request<T>(method: string, path: string, body?: unknown, opts?: R
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (opts?.token) headers.Authorization = `Bearer ${opts.token}`;
 
+  const enviar = () => fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined
+  });
+
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined
-    });
+    response = await enviar();
   } catch {
-    // Sin red, o con el navegador rechazando la peticion. Antes esto salia por el `catch` generico
-    // de cada pantalla y se convertia en "No se pudo guardar", que no dice nada de lo que pasa ni
-    // de si volver a intentarlo sirve de algo.
-    throw new AppError(SIN_RESPUESTA, "No hay conexión con el servidor del panel. Comprueba tu conexión y vuelve a intentarlo.");
+    // No se pudo ni preguntar. Como `API_BASE_URL` es una direccion que solo existe dentro del
+    // simulador, esto casi siempre significa que el simulador ha dejado de atender, no que se
+    // haya caido internet. Se intenta levantarlo y se reintenta UNA vez: para quien mira, el
+    // panel se arregla solo en vez de mandarle a recargar.
+    try {
+      if (!reanimarSimulador) throw new Error("sin simulador que levantar");
+      await reanimarSimulador();
+      response = await enviar();
+    } catch {
+      throw new AppError(
+        SIMULADOR_PARADO,
+        "El panel no se cargó del todo en esta pestaña. Recarga la página y vuelve a intentarlo."
+      );
+    }
   }
 
   let json: { data?: unknown; error?: { code: string; message: string; details?: Record<string, unknown>[] } };

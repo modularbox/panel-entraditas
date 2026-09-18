@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
+import { server } from "@/mocks/server";
 import { resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { LoginPage } from "./LoginPage";
@@ -74,5 +76,32 @@ await solveChallenge();
 
     expect(await screen.findByText("Debes aceptar los términos y condiciones")).toBeInTheDocument();
     expect(screen.queryByText("Listado de eventos")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Lo que Axel vio: en el login, con internet perfecto, "No hay conexión con el servidor del
+   * panel. Comprueba tu conexión". El panel publicado no tiene servidor —su backend es el
+   * simulador, dentro del propio navegador—, así que culpar a su conexión es lo único que no
+   * puede ser, y lo que lo arregla es recargar.
+   */
+  it("si el simulador no atiende, dice que hay que recargar y ofrece hacerlo", async () => {
+    server.use(http.post("http://localhost:4000/api/v1/auth/login", () => HttpResponse.error()));
+    server.use(http.post("http://localhost:4000/api/v1/auth/session-from-api", () => HttpResponse.error()));
+
+    renderLoginPage();
+    await fillAndSubmit("admin@entraditas.com", "admin1234");
+
+    const aviso = await screen.findByText(/Recarga la página/);
+    expect(aviso).toBeInTheDocument();
+    expect(screen.queryByText(/Comprueba tu conexión/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recargar la página" })).toBeInTheDocument();
+  });
+
+  it("con la contraseña mal NO ofrece recargar: recargar ahí no arregla nada", async () => {
+    renderLoginPage();
+    await fillAndSubmit("admin@entraditas.com", "wrong-password");
+
+    await waitFor(() => expect(screen.getByText("Credenciales inválidas")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Recargar la página" })).not.toBeInTheDocument();
   });
 });

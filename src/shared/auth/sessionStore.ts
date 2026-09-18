@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { alPerderLaSesion, apiClient } from "@/shared/lib/apiClient";
+import { alPerderLaSesion, apiClient, AppError, SIMULADOR_PARADO } from "@/shared/lib/apiClient";
 import { estadoSesionApi, iniciarSesionEnLaApi, logoutFromApi } from "@/shared/lib/entraditasApi";
 import { guardarCierre, olvidarCierre, type MotivoDeCierre } from "./sessionExpiry";
 import type { RoleSlug } from "@entraditas/types";
@@ -181,7 +181,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         status: "authenticated",
         impersonatorToken: localStorage.getItem(IMPERSONATOR_STORAGE_KEY)
       });
-    } catch {
+    } catch (fallo) {
+      // Que el simulador no atienda NO significa que la sesion no valga: el token puede estar
+      // perfectamente vivo. Se conserva y no se escribe ningun motivo, porque decir "tu sesion ya
+      // no vale" seria otra mentira. Al recargar, la sesion vuelve como estaba.
+      if (fallo instanceof AppError && fallo.code === SIMULADOR_PARADO) {
+        set({ status: "unauthenticated" });
+        return;
+      }
       // Habia un token guardado y ya no sirve: para quien lo vive, la sesion se ha cerrado sola.
       guardarCierre({ motivo: "sesion-no-valida" });
       localStorage.removeItem(TOKEN_STORAGE_KEY);

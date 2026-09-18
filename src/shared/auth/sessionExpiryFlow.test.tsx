@@ -122,14 +122,21 @@ describe("cuando el servidor del panel no contesta", () => {
     olvidarCierre();
   });
 
-  // "No se pudo guardar el evento" era el mismo mensaje para esto, para una sesion caducada y para
-  // un campo mal: no habia nada que hacer con el salvo volver a pulsar a ver si sonaba la flauta.
-  it("lo dice, en vez de dejarlo en un fallo generico", async () => {
+  /**
+   * "No se pudo guardar el evento" era el mismo mensaje para esto, para una sesion caducada y para
+   * un campo mal: no habia nada que hacer con el salvo volver a pulsar a ver si sonaba la flauta.
+   *
+   * Y el mensaje que lo sustituyo tampoco valia: decia "no hay conexion, comprueba tu conexion",
+   * que culpa al internet de quien mira. El panel publicado no tiene servidor —su backend es el
+   * simulador, dentro del propio navegador—, asi que esto significa que el simulador ha dejado de
+   * atender, y lo que lo arregla es recargar, no cambiar de wifi.
+   */
+  it("dice que hay que recargar, en vez de culpar a la conexion de quien mira", async () => {
     server.use(http.get("http://localhost:4000/api/v1/events", () => HttpResponse.error()));
 
     await expect(apiClient.get("/events")).rejects.toMatchObject({
-      code: "SIN_RESPUESTA",
-      message: expect.stringContaining("No hay conexión con el servidor del panel")
+      code: "SIMULADOR_PARADO",
+      message: expect.stringContaining("Recarga la página")
     });
   });
 

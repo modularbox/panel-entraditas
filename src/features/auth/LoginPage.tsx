@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { AppError, SIMULADOR_PARADO } from "@/shared/lib/apiClient";
 import { leerCierre, mensajeDeCierre } from "@/shared/auth/sessionExpiry";
 import { MINUTOS_DE_INACTIVIDAD } from "@/shared/auth/useInactivityLogout";
 import { Button } from "@/shared/ui/button";
@@ -14,6 +15,9 @@ export function LoginPage() {
   const navigate = useNavigate();
   const login = useSessionStore((s) => s.login);
   const [loginError, setLoginError] = useState<string | null>(null);
+  // Cuando el fallo se arregla recargando, se ofrece recargar ahi mismo en vez de esperar a que
+  // se le ocurra a quien esta delante.
+  const [seArreglaRecargando, setSeArreglaRecargando] = useState(false);
   // Por que se acabo la sesion anterior. Se lee una vez al abrir la pantalla: entrar la borra, y
   // sin esto el mensaje desapareceria a media animacion de salida.
   const [cierre] = useState(() => leerCierre());
@@ -31,6 +35,7 @@ export function LoginPage() {
 
   async function onSubmit(values: LoginFormValues) {
     setLoginError(null);
+    setSeArreglaRecargando(false);
     if (!values.captchaVerified) {
       setError("captchaVerified", { message: "Marca la casilla para confirmar que no eres un robot" });
       return;
@@ -43,6 +48,7 @@ export function LoginPage() {
       // "Credenciales inválidas", y con eso una contrasena que dejo de valer no se distingue de
       // una mal escrita: se prueba la misma diez veces sin entender por que no entra.
       setLoginError(error instanceof Error && error.message ? error.message : "Credenciales inválidas");
+      setSeArreglaRecargando(error instanceof AppError && error.code === SIMULADOR_PARADO);
     }
   }
 
@@ -133,9 +139,18 @@ export function LoginPage() {
           </div>
 
           {loginError && (
-            <p role="alert" className="text-sm text-destructive">
-              {loginError}
-            </p>
+            <div role="alert" className="flex flex-col items-start gap-2">
+              <p className="text-sm text-destructive">{loginError}</p>
+              {seArreglaRecargando && (
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="text-sm font-bold underline underline-offset-2"
+                >
+                  Recargar la página
+                </button>
+              )}
+            </div>
           )}
 
           <Button type="submit" disabled={isSubmitting} className="mt-2">
