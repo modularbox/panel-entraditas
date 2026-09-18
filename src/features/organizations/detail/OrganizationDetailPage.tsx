@@ -68,13 +68,13 @@ export function OrganizationDetailPage() {
 
       {connectError && <p role="alert">{connectError}</p>}
 
-      {/* ADMINISTRADOR */}
+      {/* ORGANIZADOR */}
       <section aria-labelledby="admin-heading">
-        <h2 id="admin-heading" className="mb-3 font-display text-lg font-semibold uppercase tracking-wide">Administrador</h2>
+        <h2 id="admin-heading" className="mb-3 font-display text-lg font-semibold uppercase tracking-wide">Organizador</h2>
         <div className="rounded-lg border-2 border-foreground bg-surface shadow-flat">
           <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3">
             <div className="flex items-baseline gap-2">
-              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Nombre administrador</span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Nombre del organizador</span>
               <span className="font-display text-lg font-semibold">
                 {organizer ? organizer.fullName : <span className="text-muted-foreground">—</span>}
               </span>
@@ -87,7 +87,7 @@ export function OrganizationDetailPage() {
                 disabled={!organizer || connectingId === organizer.id}
                 onClick={() => organizer && connectAs(organizer.id)}
               >
-                {connectingId === organizer?.id ? "Conectando…" : organizer ? "CONECTAR" : "Sin administrador"}
+                {connectingId === organizer?.id ? "Conectando…" : organizer ? "CONECTAR" : "Sin organizador"}
               </Button>
             </div>
           </div>

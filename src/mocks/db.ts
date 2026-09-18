@@ -25,12 +25,13 @@ export interface Database {
   refunds: Refund[];
 }
 
+// Los ids de las filas de ejemplo son los del fichero de semilla y no cambian; lo que cambia aqui
+// es como se llaman, para que no quede el nombre de un rol que ya no existe. Los dos
+// suborganizadores son personas distintas: una con alcance por evento y otra de puerta.
 export const DEMO_SUPERADMIN_ID = "user-superadmin";
-export const DEMO_ADMIN_ID = "user-admin";
 export const DEMO_ORGANIZADOR_ID = "user-admin";
-export const DEMO_USER_ID = "user-limited";
-export const DEMO_SUBUSER_ID = "user-subuser";
-export const DEMO_SUBORGANIZADOR_ID = "user-subuser";
+export const DEMO_SUBORGANIZADOR_ID = "user-limited";
+export const DEMO_SUBORGANIZADOR_PUERTA_ID = "user-subuser";
 
 // The seed lives in a plain JSON file (src/mocks/data/db.seed.json) so it can be read by hand and
 // acted as the local source of truth. Every call returns a deep clone: callers (handlers and tests)

@@ -25,7 +25,7 @@ describe("organizations handlers", () => {
       contactEmail: "admin@produccionesnorte.es",
       contactPhone: "+34 910 123 456",
       status: "active",
-      organizer: { id: "user-admin", fullName: "Admin de Producciones Norte", email: "admin@entraditas.com" }
+      organizer: { id: "user-admin", fullName: "Organizador de Producciones Norte", email: "admin@entraditas.com" }
     });
     expect(organizations[1]).toMatchObject({
       id: "org-2",
@@ -34,7 +34,7 @@ describe("organizations handlers", () => {
       taxId: "A87654321",
       commissionRate: 0.1,
       status: "active",
-      organizer: { id: "user-admin-2", fullName: "Admin de Sur Live", email: "admin.surlive@entraditas.com" }
+      organizer: { id: "user-admin-2", fullName: "Organizador de Sur Live", email: "admin.surlive@entraditas.com" }
     });
   });
 
@@ -50,7 +50,7 @@ describe("organizations handlers", () => {
   it("connect switches the session to the organization's admin account", async () => {
     const token = await loginAs("superadmin@entraditas.com");
     const session = await apiClient.post<SessionResponse>(`/organizations/org-1/connect`, undefined, { token });
-    expect(session.user).toMatchObject({ id: "user-admin", email: "admin@entraditas.com", fullName: "Admin de Producciones Norte", role: "admin", organizationId: "org-1" });
+    expect(session.user).toMatchObject({ id: "user-admin", email: "admin@entraditas.com", fullName: "Organizador de Producciones Norte", role: "organizador", organizationId: "org-1" });
     expect(session.effectivePermissions).toContain("users:manage");
     expect(session.effectivePermissions).not.toContain("organizations:manage");
 
@@ -90,7 +90,7 @@ describe("organizations handlers", () => {
     });
     expect(detail.organizer).toMatchObject({
       id: "user-admin",
-      fullName: "Admin de Producciones Norte",
+      fullName: "Organizador de Producciones Norte",
       email: "admin@entraditas.com",
       bankAccount: "ES77 2100 1234 5678 9012 3456"
     });
@@ -115,7 +115,7 @@ describe("organizations handlers", () => {
   it("connects as a specific user of the organization", async () => {
     const token = await loginAs("superadmin@entraditas.com");
     const session = await apiClient.post<SessionResponse>("/organizations/org-1/users/user-limited/connect", undefined, { token });
-    expect(session.user).toMatchObject({ id: "user-limited", email: "marta.gutierrez@entraditas.com", fullName: "Marta Gutiérrez Vega", role: "user", organizationId: "org-1" });
+    expect(session.user).toMatchObject({ id: "user-limited", email: "marta.gutierrez@entraditas.com", fullName: "Marta Gutiérrez Vega", role: "suborganizador", organizationId: "org-1" });
     expect(session.effectivePermissions).not.toContain("organizations:manage");
     expect(session.eventScopes).toEqual(["event-1", "event-2"]);
 

@@ -477,8 +477,11 @@ Comparando `ENTRADITAS/src/types/index.ts` (`EventItem`) con `packages/types/src
 
 Son dos dominios de identidad distintos y conviene no mezclarlos:
 
-- Panel: `superadmin | admin | user | subuser`, con `organizationId`, `permissionOverrides`
-  y `eventScopes`.
+- Panel: `superadmin | organizador | suborganizador`, con `organizationId`,
+  `permissionOverrides` y `eventScopes`. Son los mismos tres valores del ENUM `usuarios.rol` del
+  esquema de Jorge. Antes eran cuatro (`admin | user | subuser`): `user` y `subuser` nacian los dos
+  sin ningun permiso y solo se diferenciaban en que casillas se podian marcar, asi que son un unico
+  rol configurable. El personal de puerta es un `suborganizador` con solo escaneo concedido.
 - Web: `AccountRole = 'user' | 'organizer' | 'admin'` en `AuthContext.tsx`.
 
 El rol `organizer` de la web es residuo de cuando el panel vivia dentro de ese repo. Decision

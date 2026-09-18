@@ -30,9 +30,9 @@ describe("App - Conectar routing", () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     window.history.pushState({}, "", "/organizaciones");
     render(<App />);
-    await waitFor(() => expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Organizador de Producciones Norte")).toBeInTheDocument());
 
-    clickConectarFor("Admin de Producciones Norte");
+    clickConectarFor("Organizador de Producciones Norte");
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Eventos" })).toBeInTheDocument());
     expect(screen.queryByText("No tienes acceso a esta sección.")).not.toBeInTheDocument();
@@ -42,8 +42,8 @@ describe("App - Conectar routing", () => {
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     window.history.pushState({}, "", "/organizaciones");
     render(<App />);
-    await waitFor(() => expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument());
-    clickConectarFor("Admin de Producciones Norte"); // now the org admin, who lacks organizations:manage
+    await waitFor(() => expect(screen.getByText("Organizador de Producciones Norte")).toBeInTheDocument());
+    clickConectarFor("Organizador de Producciones Norte"); // now the org admin, who lacks organizations:manage
     await waitFor(() => expect(screen.getByRole("heading", { name: "Eventos" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("link", { name: "Equipo" })); // superadmin lacks users:manage

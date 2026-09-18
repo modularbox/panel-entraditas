@@ -35,10 +35,10 @@ describe("TeamListPage", () => {
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
 
     fireEvent.click(screen.getByRole("button", { name: "Nombre" }));
-    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Admin de Producciones Norte"));
+    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Javier Ortega López"));
 
     fireEvent.click(screen.getByRole("button", { name: "Nombre" }));
-    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Marta Gutiérrez Vega"));
+    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Organizador de Producciones Norte"));
   });
 
   it("sorts by Correo ascending on the first click", async () => {
@@ -51,18 +51,20 @@ describe("TeamListPage", () => {
     expect(screen.getAllByRole("row")[3]).toHaveTextContent("marta.gutierrez@entraditas.com");
   });
 
-  it("sorts by Rol in cargo order (Administrador > Usuario > Subusuario) on the first click", async () => {
+  // Se ordena por cargo (Organizador > Suborganizador), no alfabéticamente. Los dos
+  // suborganizadores empatan entre sí, así que lo que se comprueba es el cargo de cada fila y no
+  // cuál de los dos queda antes.
+  it("sorts by Rol in cargo order (Organizador > Suborganizador) on the first click", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
 
     fireEvent.click(screen.getByRole("button", { name: "Rol" }));
-    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Admin de Producciones Norte"));
-    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Administrador");
-    expect(screen.getAllByRole("row")[2]).toHaveTextContent("Marta Gutiérrez Vega");
-    expect(screen.getAllByRole("row")[3]).toHaveTextContent("Javier Ortega López");
+    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Organizador de Producciones Norte"));
+    expect(screen.getAllByRole("row")[2]).toHaveTextContent("Suborganizador");
+    expect(screen.getAllByRole("row")[3]).toHaveTextContent("Suborganizador");
 
     fireEvent.click(screen.getByRole("button", { name: "Rol" }));
-    await waitFor(() => expect(screen.getAllByRole("row")[1]).toHaveTextContent("Javier Ortega López"));
+    await waitFor(() => expect(screen.getAllByRole("row")[3]).toHaveTextContent("Organizador de Producciones Norte"));
   });
 });

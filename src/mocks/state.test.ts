@@ -47,13 +47,13 @@ describe("local persistence", () => {
     expect(db.events[0]!.title).toBe("Título persistido");
   });
 
-  it("merges seed accounts a stored snapshot predates (e.g. the org-2 admin)", () => {
+  it("merges seed accounts a stored snapshot predates (e.g. the org-2 organizador)", () => {
     const snapshot = createSeedDatabase();
     snapshot.users = snapshot.users.filter((user) => user.id !== "user-admin-2");
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
     restoreFromStorage();
     expect(db.users.find((user) => user.id === "user-admin-2")).toBeDefined();
-    expect(db.users.some((user) => user.organizationId === "org-2" && user.role === "admin" && user.status === "active")).toBe(true);
+    expect(db.users.some((user) => user.organizationId === "org-2" && user.role === "organizador" && user.status === "active")).toBe(true);
   });
 
   it("resetDb removes the stored snapshot and goes back to the seed", () => {

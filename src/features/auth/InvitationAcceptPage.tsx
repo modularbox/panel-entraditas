@@ -9,7 +9,7 @@ import { Button } from "@/shared/ui/button";
 import { invitationAcceptSchema, type InvitationAcceptFormValues } from "./invitationAcceptSchema";
 
 interface InvitationDetails { email: string; fullName: string; organizationName: string; role: string }
-interface AcceptedSession { accessToken: string; user: { id: string; email: string; fullName: string; role: "superadmin" | "admin" | "user" | "subuser"; organizationId: string | null }; effectivePermissions: string[]; eventScopes: string[] }
+interface AcceptedSession { accessToken: string; user: { id: string; email: string; fullName: string; role: "superadmin" | "organizador" | "suborganizador"; organizationId: string | null }; effectivePermissions: string[]; eventScopes: string[] }
 
 export function InvitationAcceptPage() {
   const { token } = useParams<{ token: string }>();

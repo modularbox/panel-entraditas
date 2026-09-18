@@ -246,9 +246,9 @@ erDiagram
 | `status` | `enum(active, invited, disabled)` | |
 | `last_login_at`, `failed_attempts`, `locked_until` | | Anti-fuerza bruta |
 
-> **Regla de integridad:** `parent_user_id IS NOT NULL` ⇒ `role.slug = 'subuser'` y `organization_id` debe coincidir con el del padre. Se aplica con `CHECK` + trigger.
+> **Regla de integridad:** `parent_user_id IS NOT NULL` ⇒ `role.slug = 'suborganizador'` y `organization_id` debe coincidir con el del padre. Se aplica con `CHECK` + trigger.
 
-**`roles`** · `id`, `slug` (`superadmin | admin | user | subuser`), `name`, `level` (`0..3`), `is_system`.
+**`roles`** · `id`, `slug` (`superadmin | organizador | suborganizador`), `name`, `level` (`0..2`), `is_system`.
 
 **`permissions`** · Catálogo plano con notación `recurso:acción`.
 

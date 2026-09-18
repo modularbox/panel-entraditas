@@ -124,9 +124,8 @@ export const gatesHandlers = [
   http.get(`${BASE}/events/:eventId/team`, ({ request, params }) => {
     const result = requireEvent(request, params.eventId as string);
     if ("error" in result) return result.error;
-    // El equipo asignable a una puerta es el personal de la organización: los user con permiso de
-    // escaneo y los subuser de puerta.
-    const members = db.users.filter((u) => u.organizationId === result.event.organizationId && (u.role === "user" || u.role === "subuser"));
+    // El equipo asignable a una puerta es el personal de la organización: sus suborganizadores.
+    const members = db.users.filter((u) => u.organizationId === result.event.organizationId && u.role === "suborganizador");
     return HttpResponse.json({ data: members, meta: { page: 1, perPage: members.length, total: members.length, nextCursor: null } });
   }),
 

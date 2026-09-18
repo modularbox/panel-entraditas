@@ -25,10 +25,10 @@ function requireOrganizationManager(request: Request, requestId: string) {
   return { actor, effective };
 }
 
-// The admin account "Conectar" switches the session to: the first active owner (top-level) admin
-// of the organization, falling back to any active admin when none is owner.
+// The account "Conectar" switches the session to: the first active owner (top-level) organizador
+// of the organization, falling back to any active organizador when none is owner.
 function organizationOrganizer(organization: Organization): OrganizationOrganizer | null {
-  const activeOrganizers = db.users.filter((user) => user.organizationId === organization.id && user.role === "admin" && user.status === "active");
+  const activeOrganizers = db.users.filter((user) => user.organizationId === organization.id && user.role === "organizador" && user.status === "active");
   if (activeOrganizers.length === 0) return null;
   const primary = activeOrganizers.find((user) => user.parentUserId === null) ?? activeOrganizers[0]!;
   return { id: primary.id, fullName: primary.fullName, email: primary.email, bankAccount: primary.bankAccount ?? null };
@@ -48,8 +48,8 @@ function toListItem(organization: Organization): OrganizationListItem {
   };
 }
 
-// Users of the organization with access to an event: every admin (unscoped) plus the user/subuser
-// whose eventScopes include it.
+// Users of the organization with access to an event: the organizador (unscoped) plus the
+// suborganizadores whose eventScopes include it.
 function usersWithEventAccess(organizationId: string, eventId: string): OrganizationEvent["accessUsers"] {
   return db.users
     .filter(
@@ -58,7 +58,7 @@ function usersWithEventAccess(organizationId: string, eventId: string): Organiza
         user.status === "active" &&
         (user.eventScopes.length === 0 || user.eventScopes.includes(eventId))
     )
-    .sort((a, b) => (a.role === "admin" ? -1 : 1))
+    .sort((a, b) => (a.role === "organizador" ? -1 : 1))
     .map((user) => ({ id: user.id, fullName: user.fullName, email: user.email, role: user.role }));
 }
 
@@ -70,9 +70,9 @@ function eventsFor(organization: Organization): OrganizationEvent[] {
 
 function toDetail(organization: Organization): OrganizationDetail {
   const organizer = organizationOrganizer(organization);
-  // El equipo con acceso por evento: los user y subuser activos de la organización.
+  // El equipo con acceso por evento: los suborganizadores activos de la organización.
   const subOrganizers: OrganizationSubOrganizer[] = db.users
-    .filter((user) => user.organizationId === organization.id && (user.role === "user" || user.role === "subuser") && user.status === "active")
+    .filter((user) => user.organizationId === organization.id && user.role === "suborganizador" && user.status === "active")
     .map((sub) => ({
       id: sub.id,
       fullName: sub.fullName,

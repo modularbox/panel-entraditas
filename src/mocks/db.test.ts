@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   createSeedDatabase,
-  DEMO_ADMIN_ID,
   DEMO_ORGANIZADOR_ID,
   DEMO_SUBORGANIZADOR_ID,
-  DEMO_SUBUSER_ID,
-  DEMO_SUPERADMIN_ID,
-  DEMO_USER_ID
+  DEMO_SUBORGANIZADOR_PUERTA_ID,
+  DEMO_SUPERADMIN_ID
 } from "./db";
 import { EventSchema, GateSchema, GuestListEntrySchema, GuestListSchema, CustomerProfileSchema, OrderItemSchema, OrderSchema, RefundSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
 import { resolveEffectivePermissions } from "@/shared/auth/permissions";
@@ -73,27 +71,29 @@ describe("createSeedDatabase", () => {
     const superadmin = byId(DEMO_SUPERADMIN_ID);
     expect(resolveEffectivePermissions(superadmin.role, superadmin.permissionOverrides).has("organizations:manage")).toBe(true);
 
-    const admin = byId(DEMO_ADMIN_ID);
-    expect(admin.role).toBe("admin");
-    expect(resolveEffectivePermissions(admin.role, admin.permissionOverrides).has("users:manage")).toBe(true);
-    expect(resolveEffectivePermissions(admin.role, admin.permissionOverrides).has("guestlist:manage")).toBe(true);
-    expect(resolveEffectivePermissions(admin.role, admin.permissionOverrides).has("organizations:manage")).toBe(false);
+    const organizador = byId(DEMO_ORGANIZADOR_ID);
+    expect(organizador.role).toBe("organizador");
+    expect(resolveEffectivePermissions(organizador.role, organizador.permissionOverrides).has("users:manage")).toBe(true);
+    expect(resolveEffectivePermissions(organizador.role, organizador.permissionOverrides).has("guestlist:manage")).toBe(true);
+    expect(resolveEffectivePermissions(organizador.role, organizador.permissionOverrides).has("organizations:manage")).toBe(false);
 
-    // Los dos cuentas de equipo del seed (user y subuser) parten de cero de base: solo tienen lo que
-    // el admin concedió con overrides allow (los grants exactos difieren por cuenta).
-    const user = byId(DEMO_USER_ID);
-    expect(user.role).toBe("user");
-    expect(user.eventScopes).toHaveLength(2);
-    const userEffective = resolveEffectivePermissions(user.role, user.permissionOverrides);
-    expect(userEffective.has("users:manage")).toBe(false);
-    expect(userEffective.has("orders:read")).toBe(true); // concedido por el admin en el seed
+    // Las dos cuentas de equipo del seed son suborganizadores y parten de cero de base: solo tienen
+    // lo que el organizador concedió con overrides allow (los grants exactos difieren por cuenta).
+    const conAlcance = byId(DEMO_SUBORGANIZADOR_ID);
+    expect(conAlcance.role).toBe("suborganizador");
+    expect(conAlcance.eventScopes).toHaveLength(2);
+    const conAlcanceEffective = resolveEffectivePermissions(conAlcance.role, conAlcance.permissionOverrides);
+    expect(conAlcanceEffective.has("users:manage")).toBe(false);
+    expect(conAlcanceEffective.has("orders:read")).toBe(true); // concedido por el organizador en el seed
 
-    const subuser = byId(DEMO_SUBUSER_ID);
-    expect(subuser.role).toBe("subuser");
-    const subuserEffective = resolveEffectivePermissions(subuser.role, subuser.permissionOverrides);
-    expect(subuserEffective.has("users:manage")).toBe(false);
-    expect(subuserEffective.has("orders:read")).toBe(false); // esta cuenta no recibió orders
-    expect(subuserEffective.has("guestlist:manage")).toBe(false);
+    // La de puerta: mismo rol, pero solo con lo suyo concedido. Es el antiguo `subuser`.
+    const puerta = byId(DEMO_SUBORGANIZADOR_PUERTA_ID);
+    expect(puerta.role).toBe("suborganizador");
+    const puertaEffective = resolveEffectivePermissions(puerta.role, puerta.permissionOverrides);
+    expect(puertaEffective.has("scan:validate")).toBe(true);
+    expect(puertaEffective.has("users:manage")).toBe(false);
+    expect(puertaEffective.has("orders:read")).toBe(false); // esta cuenta no recibió orders
+    expect(puertaEffective.has("guestlist:manage")).toBe(false);
   });
 
   it("seeds two schema-valid gates across different organizations", () => {
@@ -103,7 +103,7 @@ describe("createSeedDatabase", () => {
 
     const norte = db.gates.find((g) => g.id === "gate-2-norte")!;
     expect(norte.eventId).toBe("event-2");
-    expect(norte.operatorUserIds).toContain(DEMO_SUBORGANIZADOR_ID);
+    expect(norte.operatorUserIds).toContain(DEMO_SUBORGANIZADOR_PUERTA_ID);
 
     const entrada = db.gates.find((g) => g.id === "gate-4-entrada")!;
     expect(entrada.eventId).toBe("event-4");
@@ -111,11 +111,11 @@ describe("createSeedDatabase", () => {
     expect(entrada.operatorUserIds).toEqual([]);
   });
 
-  it("seeds an active admin account for every organization", () => {
+  it("seeds an active organizador account for every organization", () => {
     const db = createSeedDatabase();
     for (const organization of db.organizations) {
-      const admin = db.users.find((u) => u.organizationId === organization.id && u.role === "admin" && u.status === "active");
-      expect(admin).toBeDefined();
+      const organizador = db.users.find((u) => u.organizationId === organization.id && u.role === "organizador" && u.status === "active");
+      expect(organizador).toBeDefined();
     }
   });
 

@@ -1,3 +1,4 @@
+import type { RoleSlug } from "@entraditas/types";
 import { createSeedDatabase, type Database } from "./db";
 
 // Local persistence: the whole mock database is written to localStorage as a JSON snapshot after
@@ -116,8 +117,26 @@ function ensureSeedAccounts(database: Database): Database {
   return database;
 }
 
+// Los roles pasaron de cuatro (superadmin/admin/user/subuser) a tres. Un snapshot guardado antes
+// del cambio trae los nombres viejos, y un rol que ya no existe no tiene permisos base: la sesión
+// se quedaría sin poder hacer nada (o reventando al construirlos). Se renombran al cargar, que es
+// más amable que obligar a "Restablecer datos de demostración" y perder lo que hubiera hecho.
+const ROLES_VIEJOS: Record<string, RoleSlug> = {
+  admin: "organizador",
+  user: "suborganizador",
+  subuser: "suborganizador"
+};
+
+function renameLegacyRoles(database: Database): Database {
+  for (const user of database.users) {
+    const renamed = ROLES_VIEJOS[user.role as string];
+    if (renamed) user.role = renamed;
+  }
+  return database;
+}
+
 function migrateSnapshot(database: Database): Database {
-  return ensureSeedAccounts(purgeCancelledOrders(database));
+  return renameLegacyRoles(ensureSeedAccounts(purgeCancelledOrders(database)));
 }
 
 // mutable (not const) so resetDb/restoreFromStorage can swap in a fresh instance.

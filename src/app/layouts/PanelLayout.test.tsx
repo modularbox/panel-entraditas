@@ -10,7 +10,7 @@ import type { SessionResponse, SessionUser } from "@/shared/auth/sessionStore";
 import { PanelLayout } from "./PanelLayout";
 
 const superAdminUser: SessionUser = { id: "user-superadmin", email: "superadmin@entraditas.com", fullName: "Super Admin", role: "superadmin", organizationId: null };
-const adminUser: SessionUser = { id: "user-admin", email: "admin@entraditas.com", fullName: "Admin de Producciones Norte", role: "admin", organizationId: "org-1" };
+const organizadorUser: SessionUser = { id: "user-admin", email: "admin@entraditas.com", fullName: "Organizador de Producciones Norte", role: "organizador", organizationId: "org-1" };
 
 function renderLayout() {
   return render(
@@ -39,10 +39,10 @@ describe("PanelLayout navigation", () => {
   });
 
   it("shows the logged-in user's fullName below the logo", () => {
-    setRole("admin");
-    useSessionStore.setState({ user: adminUser });
+    setRole("organizador");
+    useSessionStore.setState({ user: organizadorUser });
     renderLayout();
-    expect(screen.getByText("Admin de Producciones Norte")).toBeInTheDocument();
+    expect(screen.getByText("Organizador de Producciones Norte")).toBeInTheDocument();
     expect(screen.getByText("Entraditas")).toBeInTheDocument();
   });
 
@@ -56,8 +56,8 @@ describe("PanelLayout navigation", () => {
     expect(screen.queryByRole("link", { name: "Usuarios" })).not.toBeInTheDocument();
   });
 
-  it("shows 6 sections to an admin (no Organizaciones, no Usuarios)", () => {
-    setRole("admin");
+  it("shows 6 sections to an organizador (no Organizaciones, no Usuarios)", () => {
+    setRole("organizador");
     renderLayout();
     expect(screen.getAllByRole("link")).toHaveLength(6);
     expect(screen.getByRole("link", { name: "Clientes" })).toBeInTheDocument();
@@ -65,13 +65,13 @@ describe("PanelLayout navigation", () => {
     expect(screen.queryByRole("link", { name: "Organizaciones" })).not.toBeInTheDocument();
   });
 
-  it("shows no sections to a subuser until the admin grants access", () => {
-    setRole("subuser");
+  it("shows no sections to a suborganizador until the organizador grants access", () => {
+    setRole("suborganizador");
     renderLayout();
     expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 
-  it("shows only the sections a subuser was granted (Eventos and Control de accesos)", () => {
+  it("shows only the sections a suborganizador was granted (Eventos and Control de accesos)", () => {
     useSessionStore.setState({
       effectivePermissions: new Set<Permission>(["events:read", "scan:validate"]),
       eventScopes: ["event-1"]
@@ -89,15 +89,15 @@ describe("PanelLayout navigation", () => {
   });
 
   it("hides the reset data button for non-superadmin roles", () => {
-    setRole("admin");
-    useSessionStore.setState({ user: adminUser });
+    setRole("organizador");
+    useSessionStore.setState({ user: organizadorUser });
     renderLayout();
     expect(screen.queryByRole("button", { name: "Restablecer datos" })).not.toBeInTheDocument();
   });
 
   it("hides the return-to-superadmin button for a direct login", () => {
-    setRole("admin");
-    useSessionStore.setState({ user: adminUser });
+    setRole("organizador");
+    useSessionStore.setState({ user: organizadorUser });
     renderLayout();
     expect(screen.queryByRole("button", { name: "Volver a superadmin" })).not.toBeInTheDocument();
   });

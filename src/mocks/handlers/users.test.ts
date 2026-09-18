@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { User } from "@entraditas/types";
-import { DEMO_SUBORGANIZADOR_ID, DEMO_USER_ID } from "@/mocks/db";
+import { DEMO_SUBORGANIZADOR_ID, DEMO_SUBORGANIZADOR_PUERTA_ID } from "@/mocks/db";
 import { apiClient } from "@/shared/lib/apiClient";
 import { db, resetDb, sessions, demoPasswordFor } from "@/mocks/state";
 
@@ -12,9 +12,9 @@ async function login(email: string) {
 describe("users handlers", () => {
   afterEach(() => resetDb());
 
-  it("lists only the admin organization", async () => {
+  it("lists only the organizador organization", async () => {
     const members = await apiClient.get<User[]>("/users", { token: await login("admin@entraditas.com") });
-    expect(members.map((member) => member.id).sort()).toEqual(["user-admin", DEMO_USER_ID, DEMO_SUBORGANIZADOR_ID].sort());
+    expect(members.map((member) => member.id).sort()).toEqual(["user-admin", DEMO_SUBORGANIZADOR_ID, DEMO_SUBORGANIZADOR_PUERTA_ID].sort());
   });
 
   it("enforces privilege guards when inviting", async () => {
@@ -22,15 +22,15 @@ describe("users handlers", () => {
     await expect(apiClient.post("/users/invite", { email: "x@example.com", fullName: "X", role: "superadmin" }, { token })).rejects.toMatchObject({ code: "PRIVILEGE_ESCALATION" });
   });
 
-  it("blocks an admin from creating another admin", async () => {
+  it("blocks an organizador from creating another organizador", async () => {
     const token = await login("admin@entraditas.com");
-    await expect(apiClient.post("/users/invite", { email: "y@example.com", fullName: "Y", role: "admin" }, { token })).rejects.toMatchObject({ code: "PRIVILEGE_ESCALATION" });
+    await expect(apiClient.post("/users/invite", { email: "y@example.com", fullName: "Y", role: "organizador" }, { token })).rejects.toMatchObject({ code: "PRIVILEGE_ESCALATION" });
   });
 
   it("disables a member and revokes every active session", async () => {
     const memberToken = await login("javier.ortega@entraditas.com");
     const adminToken = await login("admin@entraditas.com");
-    await apiClient.post(`/users/${DEMO_SUBORGANIZADOR_ID}/disable`, undefined, { token: adminToken });
+    await apiClient.post(`/users/${DEMO_SUBORGANIZADOR_PUERTA_ID}/disable`, undefined, { token: adminToken });
     expect(sessions.has(memberToken)).toBe(false);
     await expect(apiClient.get("/auth/me", { token: memberToken })).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
   });

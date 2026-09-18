@@ -1,7 +1,10 @@
 ﻿import { z } from "zod";
 import { EventCategorySchema } from "./publicCatalog";
 
-export const RoleSlugSchema = z.enum(["superadmin", "admin", "user", "subuser"]);
+// Los mismos tres nombres que el ENUM `usuarios.rol` del esquema de la base de datos. Antes eran
+// cuatro (admin/user/subuser): user y subuser nacían los dos sin ningún permiso y solo se
+// diferenciaban en qué casillas se podían marcar, así que son un único rol configurable.
+export const RoleSlugSchema = z.enum(["superadmin", "organizador", "suborganizador"]);
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
 
 export const PermissionEffectSchema = z.enum(["allow", "deny"]);

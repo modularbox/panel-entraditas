@@ -17,7 +17,7 @@ import {
  * pantalla lee de la API y no de `apiClient`. Sin sesion abierta en la API no hay nada que
  * ensenar, y se dice en vez de pintar una lista vacia que pareceria "no hay solicitudes".
  *
- * Aprobar crea la organizacion y la cuenta de su administrador; rechazar solo marca la solicitud.
+ * Aprobar crea la organizacion y la cuenta de su organizador; rechazar solo marca la solicitud.
  * Las dos cosas las hace la API, que es quien tiene la base de datos delante.
  */
 

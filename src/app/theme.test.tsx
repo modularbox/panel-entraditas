@@ -30,13 +30,13 @@ describe("ThemeManager", () => {
     expect(document.documentElement.dataset.theme).toBe("superadmin");
   });
 
-  it("uses the default theme for admin users", () => {
+  it("uses the default theme for organizador users", () => {
     useSessionStore.setState({
       user: {
         id: "user-admin",
         email: "admin@entraditas.com",
-        fullName: "Admin",
-        role: "admin",
+        fullName: "Organizador",
+        role: "organizador",
         organizationId: "org-1"
       },
       status: "authenticated"

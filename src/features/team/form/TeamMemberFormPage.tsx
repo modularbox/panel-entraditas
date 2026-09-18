@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import type { RoleSlug, User } from "@entraditas/types";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
-import { canAssignRole, capabilityKeysToOverrides, getConfigurableCapabilities, overridesToCapabilityKeys } from "@/shared/auth/permissions";
+import { canAssignRole, capabilityKeysToOverrides, getConfigurableCapabilities, overridesToCapabilityKeys, SUBORGANIZADOR_ROLE } from "@/shared/auth/permissions";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { BackButton } from "@/shared/ui/BackButton";
@@ -13,9 +13,9 @@ import { Button } from "@/shared/ui/button";
 import { useTeamQuery } from "../list/useTeamQuery";
 import { teamMemberSchema, type TeamMemberFormValues } from "./teamMemberSchema";
 
-const ROLE_LABELS: Record<RoleSlug, string> = { superadmin: "Superadministrador", admin: "Administrador", user: "Usuario", subuser: "Subusuario" };
-const ALL_ROLES: RoleSlug[] = ["superadmin", "admin", "user", "subuser"];
-const SCOPABLE_ROLES: RoleSlug[] = ["user", "subuser"];
+const ROLE_LABELS: Record<RoleSlug, string> = { superadmin: "Superadmin", organizador: "Organizador", suborganizador: "Suborganizador" };
+const ALL_ROLES: RoleSlug[] = ["superadmin", "organizador", "suborganizador"];
+const SCOPABLE_ROLES: RoleSlug[] = [SUBORGANIZADOR_ROLE];
 
 export function TeamMemberFormPage() {
   const { id } = useParams<{ id?: string }>();

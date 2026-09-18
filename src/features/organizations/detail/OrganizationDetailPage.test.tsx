@@ -33,12 +33,12 @@ describe("OrganizationDetailPage", () => {
     await login();
     renderPage("org-1");
     await waitFor(() => expect(screen.getByRole("heading", { name: "Producciones Norte" })).toBeInTheDocument());
-    expect(screen.getByRole("heading", { name: "Administrador" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Organizador" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Equipo" })).toBeInTheDocument();
     expect(screen.getByText("B12345678")).toBeInTheDocument();
     expect(screen.getByText("8 %")).toBeInTheDocument();
     expect(screen.getByText("admin@produccionesnorte.es")).toBeInTheDocument();
-    expect(screen.getAllByText("Admin de Producciones Norte").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Organizador de Producciones Norte").length).toBeGreaterThan(0);
     expect(screen.getByText("admin@entraditas.com")).toBeInTheDocument();
     expect(screen.getByText("ES77 2100 1234 5678 9012 3456")).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /Marta Gutiérrez Vega marta\.gutierrez@entraditas\.com/ })).toBeInTheDocument();
@@ -56,13 +56,13 @@ describe("OrganizationDetailPage", () => {
     expect(javierRow).toBeInTheDocument();
   });
 
-  it("lists the team separately from the primary admin", async () => {
+  it("lists the team separately from the primary organizador", async () => {
     await login();
     db.users.push({
       id: "sub-user-norte",
       organizationId: "org-1",
       parentUserId: "user-admin",
-      role: "subuser",
+      role: "suborganizador",
       email: "sub.norte@entraditas.com",
       fullName: "Sub Usuario Norte",
       status: "active",
@@ -80,10 +80,10 @@ describe("OrganizationDetailPage", () => {
     renderPage("org-1");
     await waitFor(() => expect(screen.getByRole("heading", { name: "Producciones Norte" })).toBeInTheDocument());
     expect(
-      screen.getByRole("row", { name: /Noche de Jazz.*Admin de Producciones Norte, Marta Gutiérrez Vega, Javier Ortega López/ })
+      screen.getByRole("row", { name: /Noche de Jazz.*Organizador de Producciones Norte, Marta Gutiérrez Vega, Javier Ortega López/ })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("row", { name: /Rock en Directo.*Admin de Producciones Norte, Marta Gutiérrez Vega/ })
+      screen.getByRole("row", { name: /Rock en Directo.*Organizador de Producciones Norte, Marta Gutiérrez Vega/ })
     ).toBeInTheDocument();
   });
 
