@@ -66,20 +66,19 @@ describe("EventWizardPage", () => {
     expect(pasos.map((b) => b.textContent?.replace(/^\d+\.\s*/, ""))).toEqual(PASOS_SESION_UNICA);
   });
 
-  it("el paso 1 termina con la pregunta de sesiones y ya no pregunta por plano, limites ni descuentos", async () => {
+  // Dentro del asistente ya no se pregunta nada: las preguntas se hacen antes, al crear el evento
+  // (CreateEventDialog). Lo que queda en los pasos son ajustes con su nombre, no preguntas.
+  it("el paso 1 termina con el ajuste de sesiones, y ningun ajuste esta escrito como pregunta", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/nuevo/editar");
 
-    const sesiones = screen.getByRole("group", { name: "¿Tendrá varias sesiones, pases o fechas?" });
+    const sesiones = screen.getByRole("group", { name: "Sesiones" });
     expect(sesiones).toBeInTheDocument();
-    // Al final: despues de ella en el formulario solo queda el boton de guardar.
+    // Al final: despues de el en el formulario solo queda el boton de guardar.
     const guardar = screen.getByRole("button", { name: "Guardar y continuar" });
     expect(sesiones.compareDocumentPosition(guardar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    expect(screen.queryByRole("group", { name: "¿Necesita un plano de asientos?" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "¿Cuántas entradas se pueden comprar?" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "¿Se permiten asientos sueltos en una fila?" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "¿Habrá códigos de descuento?" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /^¿/ })).not.toBeInTheDocument();
   });
 
   it("los pasos siguientes estan bloqueados hasta guardar el evento", async () => {
@@ -91,65 +90,17 @@ describe("EventWizardPage", () => {
     expect(screen.getByRole("button", { name: "6. Publicar evento" })).toBeDisabled();
   });
 
-  it("el paso 2 empieza por los limites de compra", async () => {
+  // Los limites de compra y los asientos sueltos ya no se ajustan dentro de los pasos: los
+  // pregunta el cuestionario previo, que tiene sus propias pruebas en CreateEventDialog.test.tsx.
+  it("el paso de tipos de entrada no repite los ajustes del cuestionario previo", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar");
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
 
     next();
-    const region = screen.getByRole("region", { name: "Tipos de entrada" });
-    const limites = await screen.findByRole("group", { name: "¿Cuántas entradas se pueden comprar?" });
-    expect(region).toContainElement(limites);
-    expect(screen.getByLabelText("Máximo por pedido")).toBeInTheDocument();
-    expect(screen.getByLabelText("Máximo por cliente")).toBeInTheDocument();
-  });
-
-  it("los limites de compra se guardan en las reglas del evento, que es lo que se publica", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    renderAt("/eventos/event-5/editar");
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
-
-    next();
-    const porPedido = await screen.findByLabelText("Máximo por pedido");
-    fireEvent.change(porPedido, { target: { value: "4" } });
-    fireEvent.change(screen.getByLabelText("Máximo por cliente"), { target: { value: "8" } });
-    fireEvent.click(screen.getByRole("button", { name: "Guardar límites" }));
-
-    await waitFor(() => {
-      const evento = db.events.find((e) => e.id === "event-5")!;
-      expect(evento.rules?.maxPerOrder).toBe(4);
-      expect(evento.rules?.maxPerCustomer).toBe(8);
-    });
-  });
-
-  it("no deja guardar un tope por cliente menor que el de pedido", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    renderAt("/eventos/event-5/editar");
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
-
-    next();
-    fireEvent.change(await screen.findByLabelText("Máximo por pedido"), { target: { value: "6" } });
-    fireEvent.change(screen.getByLabelText("Máximo por cliente"), { target: { value: "2" } });
-
-    expect(screen.getByText(/nadie podría hacer un pedido completo/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Guardar límites" })).toBeDisabled();
-  });
-
-  it("el paso 3 (asientos) pregunta por los asientos sueltos y lo guarda en las reglas", async () => {
-    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
-    renderAt("/eventos/event-2/editar"); // ya tiene tipos de entrada, asi que se puede avanzar
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
-
-    next(); // -> Tipos de entrada
-    await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" })).toBeEnabled());
-    next(); // -> Asientos
-
-    const region = screen.getByRole("region", { name: "Asientos" });
-    const pregunta = await screen.findByRole("group", { name: "¿Se permiten asientos sueltos en una fila?" });
-    expect(region).toContainElement(pregunta);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sí, se permiten" }));
-    await waitFor(() => expect(db.events.find((e) => e.id === "event-2")!.rules?.allowIsolatedSeats).toBe(true));
+    expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Máximo por pedido")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Máximo por cliente")).not.toBeInTheDocument();
   });
 
 it("los pasos 4, 5 y 6 son descuentos, puertas y publicar", async () => {

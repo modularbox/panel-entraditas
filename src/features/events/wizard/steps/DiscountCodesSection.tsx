@@ -12,6 +12,9 @@ export interface DiscountCodesSectionProps {
   eventId: string | null;
 }
 
+const CASILLA = "h-10 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground";
+const ETIQUETA = "text-sm font-semibold";
+
 function useDiscountCodesQuery(eventId: string | null) {
   const token = useSessionStore((s) => s.token);
   return useQuery({
@@ -143,96 +146,141 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
         ))}
       </ul>
 
-      <fieldset className="flex flex-col gap-2">
-        <legend>Nuevo código de descuento</legend>
+      {/* En rejilla y con cada casilla del ancho de lo que cabe en ella: una fecha ocupa lo que
+          ocupa una fecha y un tope de usos son tres cifras. En una sola columna a ancho completo
+          sobraba media pantalla a la derecha y parecia que cabia algo mas. */}
+      <fieldset className="rounded-lg border-2 border-border bg-surface p-4">
+        <legend className="px-2 font-display font-semibold">Nuevo código de descuento</legend>
 
-        <label htmlFor="dc-code">Código</label>
-        <input id="dc-code" value={code} onChange={(e) => setCode(e.target.value)} />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="dc-code" className={ETIQUETA}>
+              Código
+            </label>
+            <input id="dc-code" value={code} onChange={(e) => setCode(e.target.value)} className={`${CASILLA} w-44`} />
+          </div>
 
-        <div className="flex gap-4">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input type="radio" name="dc-type" checked={type === "percent"} onChange={() => setType("percent")} />
-            Porcentaje
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input type="radio" name="dc-type" checked={type === "fixed"} onChange={() => setType("fixed")} />
-            Importe fijo
-          </label>
-        </div>
-
-        <label htmlFor="dc-value">Valor</label>
-        <NumericInput
-          id="dc-value"
-          allowDecimal
-          maxLength={7}
-          min="0"
-          value={valueInput}
-          onChange={(e) => setValueInput(e.target.value)}
-        />
-
-        <label htmlFor="dc-max-uses">Usos máximos</label>
-        <NumericInput
-          id="dc-max-uses"
-          maxLength={6}
-          min="0"
-          value={maxUsesInput}
-          onChange={(e) => setMaxUsesInput(e.target.value)}
-          placeholder="Ilimitado"
-        />
-
-        <label htmlFor="dc-max-uses-per-customer">Usos máximos por cliente</label>
-        <NumericInput
-          id="dc-max-uses-per-customer"
-          maxLength={6}
-          min="0"
-          value={maxUsesPerCustomerInput}
-          onChange={(e) => setMaxUsesPerCustomerInput(e.target.value)}
-          placeholder="Ilimitado"
-        />
-
-        <label htmlFor="dc-valid-from">Válido desde</label>
-        <input id="dc-valid-from" type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
-
-        <label htmlFor="dc-valid-to">Válido hasta</label>
-        <input id="dc-valid-to" type="date" value={validTo} onChange={(e) => setValidTo(e.target.value)} />
-
-        <div className="mt-2 flex flex-wrap gap-4">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input type="radio" name="dc-applies-to" checked={appliesToMode === "all"} onChange={() => setAppliesToMode("all")} />
-            Todos los tipos de entrada
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="radio"
-              name="dc-applies-to"
-              checked={appliesToMode === "specific"}
-              onChange={() => setAppliesToMode("specific")}
+          {/* Porcentaje o importe: debajo del valor, porque es la unidad de la cifra que se acaba
+              de escribir. Encima se elegia la unidad antes de saber el numero. */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="dc-value" className={ETIQUETA}>
+              Valor
+            </label>
+            <NumericInput
+              id="dc-value"
+              allowDecimal
+              maxLength={7}
+              min="0"
+              value={valueInput}
+              onChange={(e) => setValueInput(e.target.value)}
+              className={`${CASILLA} w-28`}
             />
-            Tipos concretos
-          </label>
-        </div>
-
-        {appliesToMode === "specific" && (
-          <fieldset>
-            <legend>Selecciona los tipos de entrada</legend>
-            <div className="flex flex-col gap-1.5">
-              {groups.map((g) => (
-                <label key={g.groupId} className="flex items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    checked={selectedGroupIds.includes(g.groupId)}
-                    onChange={(e) =>
-                      setSelectedGroupIds((prev) =>
-                        e.target.checked ? [...prev, g.groupId] : prev.filter((id) => id !== g.groupId)
-                      )
-                    }
-                  />
-                  {g.name}
-                </label>
-              ))}
+            <div className="mt-1 flex gap-4">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="radio" name="dc-type" checked={type === "percent"} onChange={() => setType("percent")} />
+                Porcentaje
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="radio" name="dc-type" checked={type === "fixed"} onChange={() => setType("fixed")} />
+                Importe fijo
+              </label>
             </div>
-          </fieldset>
-        )}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="dc-max-uses" className={ETIQUETA}>
+              Usos máximos
+            </label>
+            <NumericInput
+              id="dc-max-uses"
+              maxLength={6}
+              min="0"
+              value={maxUsesInput}
+              onChange={(e) => setMaxUsesInput(e.target.value)}
+              placeholder="Ilimitado"
+              className={`${CASILLA} w-32`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="dc-max-uses-per-customer" className={ETIQUETA}>
+              Usos máximos por cliente
+            </label>
+            <NumericInput
+              id="dc-max-uses-per-customer"
+              maxLength={6}
+              min="0"
+              value={maxUsesPerCustomerInput}
+              onChange={(e) => setMaxUsesPerCustomerInput(e.target.value)}
+              placeholder="Ilimitado"
+              className={`${CASILLA} w-32`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="dc-valid-from" className={ETIQUETA}>
+              Válido desde
+            </label>
+            <input
+              id="dc-valid-from"
+              type="date"
+              value={validFrom}
+              onChange={(e) => setValidFrom(e.target.value)}
+              className={`${CASILLA} w-44`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="dc-valid-to" className={ETIQUETA}>
+              Válido hasta
+            </label>
+            <input
+              id="dc-valid-to"
+              type="date"
+              value={validTo}
+              onChange={(e) => setValidTo(e.target.value)}
+              className={`${CASILLA} w-44`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 sm:col-span-2 xl:col-span-4">
+            <span className={ETIQUETA}>Se aplica a</span>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="radio" name="dc-applies-to" checked={appliesToMode === "all"} onChange={() => setAppliesToMode("all")} />
+                Todos los tipos de entrada
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="radio"
+                  name="dc-applies-to"
+                  checked={appliesToMode === "specific"}
+                  onChange={() => setAppliesToMode("specific")}
+                />
+                Tipos concretos
+              </label>
+            </div>
+
+            {appliesToMode === "specific" && (
+              <div className="flex flex-wrap gap-x-6 gap-y-1.5">
+                {groups.map((g) => (
+                  <label key={g.groupId} className="flex items-center gap-2 text-sm font-medium">
+                    <input
+                      type="checkbox"
+                      checked={selectedGroupIds.includes(g.groupId)}
+                      onChange={(e) =>
+                        setSelectedGroupIds((prev) =>
+                          e.target.checked ? [...prev, g.groupId] : prev.filter((id) => id !== g.groupId)
+                        )
+                      }
+                    />
+                    {g.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         <Button type="button" onClick={createDiscountCode} disabled={!canCreate} className="mt-4">
           Crear código

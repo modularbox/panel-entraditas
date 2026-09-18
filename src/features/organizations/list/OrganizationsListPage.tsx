@@ -98,9 +98,16 @@ export function OrganizationsListPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-display text-2xl font-semibold">Organizaciones</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Organizadores que venden a través de Entraditas. Al pulsar &quot;Conectar&quot; pasarás a la sesión de su administrador; para volver, usa &quot;Volver a superadmin&quot; en el menú.</p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">Organizaciones</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Organizadores que venden a través de Entraditas. Al pulsar &quot;Conectar&quot; pasarás a la sesión de su administrador; para volver, usa &quot;Volver a superadmin&quot; en el menú.</p>
+        </div>
+        {/* Las altas nuevas entran por aqui: el formulario de la web deja una solicitud, y de ahi
+            sale la organizacion. */}
+        <Link to="/organizaciones/solicitudes">
+          <Button type="button" variant="outline">Solicitudes de alta</Button>
+        </Link>
       </header>
       {connectError && <p role="alert">{connectError}</p>}
       {error && <p role="alert">No se pudieron cargar las organizaciones.</p>}

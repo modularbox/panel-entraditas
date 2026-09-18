@@ -10,6 +10,7 @@ import { PREVIEW_CATEGORIES, PublicEventPreview, type PreviewTicketTier } from "
 import {
   buildSeatGrid,
   countAssignedByGroup,
+  countUnassigned,
   fromSeatAssignmentList,
   pruneAssignments,
   rowOriginForStage
@@ -155,6 +156,23 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
     const ticket = ticketTypes.find((candidate) => candidate.groupId === groupId);
     return ticket?.quantityTotal !== null && ticket?.quantityTotal !== undefined && used > ticket.quantityTotal;
   });
+
+  /**
+   * Butacas que saldrian a la web sin tipo de entrada, zona por zona.
+   *
+   * Una butaca sin tipo no se puede comprar: en entraditas.com se ve gris y el comprador no tiene
+   * forma de saber por que. Una zona con su tipo puesto cubre todas las suyas, asi que solo cuentan
+   * las de las zonas que no lo tienen. Es la misma cuenta que hace la publicacion (toSeatZones).
+   */
+  const seatsWithoutTier = sellableZones
+    .filter((zone) => zone.kind === "numbered")
+    .map((zone) => {
+      const pool = pools.find((candidate) => candidate.zoneId === zone.id);
+      if (zoneTicketTypeGroupId(pool, ticketTypes)) return { zone, unassigned: 0 };
+      const seats = buildSeatGrid({ ...zone, rowAOrigin: rowOriginForStage(zone, stage) });
+      return { zone, unassigned: countUnassigned(seats, pruneAssignments(fromSeatAssignmentList(pool?.seatAssignments), seats)) };
+    })
+    .filter((status) => status.unassigned > 0);
   const checklist = [
     {
       label: "Datos principales de la plantilla",
@@ -173,15 +191,21 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
     },
     {
       label: "Plano y zonas",
-      ok: sellableZones.length === 0 || (!hasUnassignedZone && overCapacityGroups.length === 0),
+      ok:
+        sellableZones.length === 0 ||
+        (!hasUnassignedZone && overCapacityGroups.length === 0 && seatsWithoutTier.length === 0),
       detail:
         sellableZones.length === 0
           ? "Plano opcional sin zonas vendibles"
           : hasUnassignedZone
             ? "Hay zonas vendibles sin tipo de entrada asignado"
-            : overCapacityGroups.length > 0
-              ? "Una asignacion supera el limite de entradas disponibles"
-              : "Zonas asignadas correctamente"
+            : seatsWithoutTier.length > 0
+              ? `Quedan asientos sin tipo de entrada: ${seatsWithoutTier
+                  .map((status) => `${status.unassigned} en "${status.zone.name}"`)
+                  .join(", ")}. Sin tipo no se pueden vender.`
+              : overCapacityGroups.length > 0
+                ? "Una asignacion supera el limite de entradas disponibles"
+                : "Zonas asignadas correctamente"
     }
   ];
   const canRequestReview = checklist.every((item) => item.ok);

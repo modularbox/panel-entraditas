@@ -22,6 +22,7 @@ import { TeamMemberFormPage } from "@/features/team/form/TeamMemberFormPage";
 import { TeamListPage } from "@/features/team/list/TeamListPage";
 import { OrganizationsListPage } from "@/features/organizations/list/OrganizationsListPage";
 import { OrganizationDetailPage } from "@/features/organizations/detail/OrganizationDetailPage";
+import { OrganizerApplicationsPage } from "@/features/organizations/applications/OrganizerApplicationsPage";
 
 import { PlaceholderPage } from "@/features/placeholder/PlaceholderPage";
 import { RequirePermission } from "@/shared/auth/RequirePermission";
@@ -94,6 +95,7 @@ export function AppRoutes() {
         </Route>
         <Route element={<RequirePermission permission="organizations:manage" />}>
           <Route path="/organizaciones" element={<OrganizationsListPage />} />
+          <Route path="/organizaciones/solicitudes" element={<OrganizerApplicationsPage />} />
           <Route path="/organizaciones/:id" element={<OrganizationDetailPage />} />
         </Route>
         <Route element={<RequirePermission permission="orders:read" />}>

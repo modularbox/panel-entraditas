@@ -14,7 +14,6 @@ import { Step5Publish } from "./steps/Step5Publish";
 import { SeatingPlanSection } from "./steps/SeatingPlanSection";
 import { DiscountCodesSection } from "./steps/DiscountCodesSection";
 import { GatesSection } from "./steps/GatesSection";
-import { IsolatedSeatsQuestion, PurchaseLimitsQuestion } from "./steps/EventRulesQuestions";
 
 function useEventQuery(eventId: string | null) {
   const token = useSessionStore((s) => s.token);
@@ -157,18 +156,13 @@ export function EventWizardPage() {
       <section aria-label={activeStep.label} className="rounded-lg border-2 border-foreground bg-surface p-6 shadow-flat">
         {activeStep.key === "info" && <Step1BasicInfo eventId={eventId} onSaved={setEventId} goNext={goNext} />}
         {activeStep.key === "subeventos" && <Step2Schedule eventId={eventId} onSaved={setEventId} goNext={goNext} />}
+        {/* Los limites de compra y los asientos sueltos no se preguntan aqui: los pregunta el
+            cuestionario de antes de crear el evento, y preguntarlos otra vez en su paso era
+            preguntar dos veces lo mismo y dejar dos sitios donde cambiar un mismo valor. */}
         {activeStep.key === "tipos" && (
-          <div className="flex flex-col gap-6">
-            <PurchaseLimitsQuestion eventId={eventId} />
-            <Step4TicketTypes eventId={eventId} onSaved={setEventId} onValidationChange={setTiposValid} />
-          </div>
+          <Step4TicketTypes eventId={eventId} onSaved={setEventId} onValidationChange={setTiposValid} />
         )}
-        {activeStep.key === "plano" && (
-          <div className="flex flex-col gap-6">
-            <IsolatedSeatsQuestion eventId={eventId} />
-            <SeatingPlanSection eventId={eventId} onValidationChange={setPlanoValid} />
-          </div>
-        )}
+        {activeStep.key === "plano" && <SeatingPlanSection eventId={eventId} onValidationChange={setPlanoValid} />}
         {activeStep.key === "descuentos" && <DiscountCodesSection eventId={eventId} />}
         {activeStep.key === "puertas" && <GatesSection eventId={eventId} />}
         {activeStep.key === "publicar" && <Step5Publish eventId={eventId} onSaved={setEventId} />}

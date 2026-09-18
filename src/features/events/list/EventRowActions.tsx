@@ -4,6 +4,7 @@ import type { Event } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
+import { EVENT_STATUS_LABEL } from "@/shared/ui/EventStatusBadge";
 import {
   describePublishOutcome,
   publishToPublicSite,
@@ -16,7 +17,14 @@ import { isPubliclyVisible } from "@/shared/lib/eventLifecycle";
 const REVIEWABLE: Event["status"][] = ["in_review"];
 
 /**
- * Acciones de un evento en el listado: revisarlo, retirarlo de la web y borrarlo.
+ * Estados que un superadmin puede poner a mano. "Finalizado" no esta: se deduce de la fecha, no se
+ * guarda, asi que ponerlo seria inventar un estado que al repintar vuelve a cambiar solo.
+ */
+const ESTADOS_A_MANO: Event["status"][] = ["draft", "in_review", "published", "rejected"];
+
+/**
+ * Acciones de un evento en el listado: revisarlo, retirarlo de revision o de la web, cambiarle el
+ * estado y borrarlo.
  *
  * Cada accion que cambia lo que ve el comprador se sincroniza con entraditas.com en el mismo
  * gesto. Antes solo existia "aprobar", asi que un evento despublicado o borrado en el panel
@@ -69,6 +77,17 @@ export function EventRowActions({ event }: { event: Event }) {
     onError: (error) => reportError(error, "No se pudo rechazar el evento.")
   });
 
+  // Retirar de revision es del organizador: el evento sigue siendo suyo hasta que se aprueba.
+  const withdraw = useMutation({
+    mutationFn: () => apiClient.post<Event>(`/events/${event.id}/withdraw`, undefined, { token: token! }),
+    onSuccess: async () => {
+      setFailed(false);
+      setMessage("Vuelve a borrador: ya puedes editarlo y volver a enviarlo a revisión.");
+      await refresh();
+    },
+    onError: (error) => reportError(error, "No se pudo retirar de revisión.")
+  });
+
   const unpublish = useMutation({
     mutationFn: async () => {
       await apiClient.post<Event>(`/events/${event.id}/unpublish`, undefined, { token: token! });
@@ -79,6 +98,28 @@ export function EventRowActions({ event }: { event: Event }) {
       await refresh();
     },
     onError: (error) => reportError(error, "No se pudo retirar el evento.")
+  });
+
+  /**
+   * Cambio de estado a mano, solo superadmin. Arrastra la web con el: lo que pasa a publicado se
+   * envia a entraditas.com y lo que deja de estarlo se retira.
+   */
+  const changeStatus = useMutation({
+    mutationFn: async (status: Event["status"]) => {
+      await apiClient.post<Event>(`/events/${event.id}/status`, { status }, { token: token! });
+      if (status === "published") return publishToPublicSite(event.id, token!);
+      if (isPubliclyVisible(event.status)) return removeFromPublicSite(event.id);
+      return null;
+    },
+    onSuccess: async (outcome) => {
+      if (outcome) report(outcome);
+      else {
+        setFailed(false);
+        setMessage("Estado cambiado.");
+      }
+      await refresh();
+    },
+    onError: (error) => reportError(error, "No se pudo cambiar el estado.")
   });
 
   const remove = useMutation({
@@ -107,12 +148,21 @@ export function EventRowActions({ event }: { event: Event }) {
   const canReview = role === "superadmin";
   const reviewable = REVIEWABLE.includes(event.status);
 
-  const working = approve.isPending || reject.isPending || unpublish.isPending || remove.isPending;
+  const working =
+    approve.isPending ||
+    reject.isPending ||
+    withdraw.isPending ||
+    unpublish.isPending ||
+    changeStatus.isPending ||
+    remove.isPending;
 
   const acciones: { label: string; onClick: () => void; variant?: "outline" | "destructive" }[] = [];
   if (canReview && reviewable) {
     acciones.push({ label: approve.isPending ? "Publicando..." : "Aprobar y publicar", onClick: () => approve.mutate() });
     acciones.push({ label: "Rechazar", onClick: () => reject.mutate(), variant: "outline" });
+  }
+  if (canManage && reviewable) {
+    acciones.push({ label: "Retirar de revisión", onClick: () => withdraw.mutate(), variant: "outline" });
   }
   if (canManage && isPubliclyVisible(event.status)) {
     acciones.push({ label: "Retirar de la web", onClick: () => unpublish.mutate(), variant: "outline" });
@@ -172,6 +222,22 @@ export function EventRowActions({ event }: { event: Event }) {
           >
             Eliminar
           </Button>
+        )}
+
+        {canReview && (
+          <select
+            aria-label="Cambiar estado"
+            value={event.status}
+            disabled={working}
+            onChange={(e) => changeStatus.mutate(e.target.value as Event["status"])}
+            className="h-8 rounded-md border-2 border-foreground bg-surface px-2 text-xs font-bold text-foreground"
+          >
+            {ESTADOS_A_MANO.map((status) => (
+              <option key={status} value={status}>
+                {EVENT_STATUS_LABEL[status]}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 

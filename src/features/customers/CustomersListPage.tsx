@@ -30,7 +30,17 @@ function buildColumns(detailTo: (email: string) => string) {
     columnHelper.accessor("ordersCount", { header: "Pedidos" }),
     columnHelper.accessor("ticketsCount", { header: "Entradas" }),
     columnHelper.accessor("totalSpent", { header: "Gastado", cell: (info) => euro.format(info.getValue() / 100) }),
-    columnHelper.accessor("lastPurchaseAt", { header: "Última compra", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") })
+    // Quien se registro y todavia no ha comprado no tiene fecha: sale "Sin compras" en vez de una
+    // fecha invalida. Es cliente igual, y saber que existe es justo el motivo de listarlo.
+    columnHelper.accessor("lastPurchaseAt", {
+      header: "Última compra",
+      cell: (info) => {
+        const valor = info.getValue();
+        if (!valor) return <span className="text-muted-foreground">Sin compras</span>;
+        const fecha = new Date(valor);
+        return Number.isNaN(fecha.getTime()) ? <span className="text-muted-foreground">Sin compras</span> : fecha.toLocaleDateString("es-ES");
+      }
+    })
   ];
 }
 

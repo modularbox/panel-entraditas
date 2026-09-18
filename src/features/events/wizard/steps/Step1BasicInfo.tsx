@@ -10,6 +10,7 @@ import { Icon } from "@/shared/ui/icon";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { borrarBorrador, describirGuardado, guardarBorrador, leerBorrador, type EventDraft } from "../eventDraft";
 import { OptionButton, QuestionSection } from "./EventRulesQuestions";
+import { CoverImageCropper } from "./CoverImageCropper";
 import { step1Schema, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";
 import { useWizardStore } from "../wizardStore";
@@ -242,11 +243,6 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
     }
   }
 
-  async function handleCoverFiles(files: FileList | null) {
-    const [first] = await filesToDataUrls(files);
-    if (first) setValue("coverImageUrl", first, { shouldDirty: true, shouldValidate: true });
-  }
-
   async function handleGalleryFiles(files: FileList | null) {
     const urls = await filesToDataUrls(files);
     if (urls.length) setValue("gallery", [...galleryImages, ...urls].join("\n"), { shouldDirty: true });
@@ -298,11 +294,12 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
             ))}
           </div>
           {coverMode === "upload" ? (
-            <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-foreground bg-background p-4 text-center text-sm font-bold">
-              <Icon name="upload" size={22} />
-              Adjuntar imagen de portada
-              <input type="file" accept="image/*" className="sr-only" onChange={(e) => void handleCoverFiles(e.target.files)} />
-            </label>
+            // Con recorte: la portada se pinta recortada (object-fit: cover), asi que sin elegir
+            // el encuadre lo decide el navegador y casi nunca acierta.
+            <CoverImageCropper
+              value={values.coverImageUrl ?? ""}
+              onChange={(dataUrl) => setValue("coverImageUrl", dataUrl, { shouldDirty: true, shouldValidate: true })}
+            />
           ) : (
             <input
               placeholder="https://..."
@@ -420,7 +417,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         </fieldset>
 
         {/* Al final del paso: es lo que decide si el siguiente paso es "Varias funciones". */}
-        <QuestionSection title="¿Tendrá varias sesiones, pases o fechas?" hint="Festivales y giras suelen tener varias funciones.">
+        <QuestionSection title="Sesiones" hint="Festivales y giras suelen tener varias funciones, pases o fechas.">
           <input type="hidden" {...register("hasSubEvents")} />
           <div className="flex flex-wrap gap-2">
             <OptionButton
