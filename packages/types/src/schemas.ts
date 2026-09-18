@@ -433,8 +433,30 @@ export const RefundSchema = z.object({
 });
 export type Refund = z.infer<typeof RefundSchema>;
 
+// Perfil de cuenta de un cliente comprador, tal como vive en la bd (tabla customers). La "ficha de
+// cliente" del panel fusiona este perfil con los pedidos visibles del email correspondiente, de modo
+// que el email hace de id igual que en el resto de la entidad de clientes.
+export const CustomerProfileSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  fullName: z.string(),
+  phone: z.string().nullable().optional(),
+  // Contraseña de la cuenta del comprador. Mock: se guarda como texto plano solo para poder mostrarla.
+  password: z.string(),
+  acceptsAdvertising: z.boolean(),
+  createdAt: z.string() // fecha de alta del cliente en la plataforma
+});
+export type CustomerProfile = z.infer<typeof CustomerProfileSchema>;
+
 export const CustomerSchema = z.object({
-  id: z.string(), name: z.string(), email: z.string().email(), ordersCount: z.number().int().nonnegative(), ticketsCount: z.number().int().nonnegative(), totalSpent: z.number().int().nonnegative(), lastPurchaseAt: z.string()
+  id: z.string(), name: z.string(), email: z.string().email(),
+  // Campos de perfil, opcionales porque las entidades derivadas de pedidos sin registro no los tienen.
+  phone: z.string().nullable().optional(),
+  // La contraseña solo viaja en la respuesta al superadmin (nunca en el listado): la UI la muestra igualmente.
+  password: z.string().nullable().optional(),
+  acceptsAdvertising: z.boolean().optional(),
+  createdAt: z.string().optional(), // fecha de alta
+  ordersCount: z.number().int().nonnegative(), ticketsCount: z.number().int().nonnegative(), totalSpent: z.number().int().nonnegative(), lastPurchaseAt: z.string()
 });
 export type Customer = z.infer<typeof CustomerSchema>;
 

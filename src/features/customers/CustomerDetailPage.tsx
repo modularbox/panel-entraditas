@@ -35,6 +35,7 @@ export interface CustomerDetailPageProps {
 export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetailPageProps) {
   const { email } = useParams<{ email: string }>();
   const token = useSessionStore((s) => s.token);
+  const isSuperadmin = useSessionStore((s) => s.user?.role === "superadmin");
 
   const { data: customer, isLoading, error } = useQuery({
     queryKey: ["customer", email],
@@ -63,6 +64,43 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
           <p className="mt-1 text-sm text-muted-foreground">{customer.email}</p>
         </header>
       </div>
+
+      {/* DATOS DEL CLIENTE */}
+      <section aria-labelledby="profile-heading">
+        <h2 id="profile-heading" className="mb-3 font-display text-lg font-semibold uppercase tracking-wide">Datos del cliente</h2>
+        <dl className="grid gap-x-8 gap-y-3 rounded-lg border-2 border-foreground bg-surface px-4 py-3 shadow-flat sm:grid-cols-3">
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Nombre y apellidos</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{customer.name || "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Correo</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{customer.email}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Teléfono</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{customer.phone ?? "—"}</dd>
+          </div>
+          {isSuperadmin && (
+            <div>
+              <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Contraseña</dt>
+              <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{customer.password ?? "—"}</dd>
+            </div>
+          )}
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Acepta publicidad</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">
+              {customer.acceptsAdvertising === undefined ? "—" : customer.acceptsAdvertising ? "Sí" : "No"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Fecha de alta</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">
+              {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("es-ES") : "—"}
+            </dd>
+          </div>
+        </dl>
+      </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <article className="border-2 border-foreground bg-surface p-4 shadow-flat">

@@ -8,7 +8,7 @@ import {
   DEMO_SUPERADMIN_ID,
   DEMO_USER_ID
 } from "./db";
-import { EventSchema, GateSchema, GuestListEntrySchema, GuestListSchema, OrderItemSchema, OrderSchema, RefundSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
+import { EventSchema, GateSchema, GuestListEntrySchema, GuestListSchema, CustomerProfileSchema, OrderItemSchema, OrderSchema, RefundSchema, TicketTypeSchema, UserSchema } from "@entraditas/types";
 import { resolveEffectivePermissions } from "@/shared/auth/permissions";
 
 describe("createSeedDatabase", () => {
@@ -19,6 +19,15 @@ describe("createSeedDatabase", () => {
     for (const event of db.events) expect(() => EventSchema.parse(event)).not.toThrow();
     for (const user of db.users) expect(() => UserSchema.parse(user)).not.toThrow();
     for (const tt of db.ticketTypes) expect(() => TicketTypeSchema.parse(tt)).not.toThrow();
+  });
+
+  it("seeds 8 schema-valid customer accounts matching the qualifying order emails", () => {
+    const db = createSeedDatabase();
+    expect(db.customers).toHaveLength(8);
+    for (const customer of db.customers) expect(() => CustomerProfileSchema.parse(customer)).not.toThrow();
+
+    const orderEmails = new Set(db.orders.map((order) => order.customerEmail));
+    for (const customer of db.customers) expect(orderEmails.has(customer.email)).toBe(true);
   });
 
   it("seeds exactly one draft event with zero ticket types", () => {

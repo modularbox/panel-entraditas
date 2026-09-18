@@ -21,6 +21,12 @@ describe("customers handlers", () => {
     expect(customers.map((c) => c.email)).not.toContain("elena.castro@example.com"); // cancelled-only
   });
 
+  it("the list never exposes the customers' passwords", async () => {
+    const token = await loginAs("superadmin@entraditas.com");
+    const customers = await apiClient.get<Customer[]>("/customers", { token });
+    expect(customers.every((c) => c.password === undefined)).toBe(true);
+  });
+
   it("a fully refunded order still counts, with totalSpent 0", async () => {
     const token = await loginAs("superadmin@entraditas.com");
     const customers = await apiClient.get<Customer[]>("/customers", { token });
@@ -87,5 +93,29 @@ describe("customers handlers", () => {
     await expect(
       apiClient.get(`/customers/${encodeURIComponent("hugo.serrano@example.com")}`, { token }) // org-2
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("detail to a superadmin merges the account profile and the password", async () => {
+    const token = await loginAs("superadmin@entraditas.com");
+    const attendee = await apiClient.get<AttendeeDetail>(
+      `/customers/${encodeURIComponent("marta.ruiz@example.com")}`,
+      { token }
+    );
+    expect(attendee.name).toBe("Marta Ruiz");
+    expect(attendee.phone).toBe("+34 611 010 101");
+    expect(attendee.password).toBe("marta1234");
+    expect(attendee.acceptsAdvertising).toBe(true);
+    expect(attendee.createdAt).toBe("2026-06-15T10:00:00.000Z");
+  });
+
+  it("detail to a non-superadmin never carries the password", async () => {
+    const token = await loginAs("admin@entraditas.com");
+    const attendee = await apiClient.get<AttendeeDetail>(
+      `/customers/${encodeURIComponent("marta.ruiz@example.com")}`,
+      { token }
+    );
+    expect(attendee.name).toBe("Marta Ruiz");
+    expect(attendee.phone).toBe("+34 611 010 101");
+    expect(attendee.password).toBeUndefined();
   });
 });

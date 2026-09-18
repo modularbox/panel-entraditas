@@ -73,6 +73,16 @@
       "phone": "+34 650 333 444"
     }
   ],
+  "customers": [
+    { "id": "marta.ruiz@example.com", "email": "marta.ruiz@example.com", "fullName": "Marta Ruiz", "phone": "+34 611 010 101", "password": "marta1234", "acceptsAdvertising": true, "createdAt": "2026-06-15T10:00:00.000Z" },
+    { "id": "javier.soto@example.com", "email": "javier.soto@example.com", "fullName": "Javier Soto", "phone": "+34 622 020 202", "password": "javier1234", "acceptsAdvertising": false, "createdAt": "2026-06-20T12:30:00.000Z" },
+    { "id": "diego.molina@example.com", "email": "diego.molina@example.com", "fullName": "Diego Molina", "phone": "+34 633 030 303", "password": "diego1234", "acceptsAdvertising": true, "createdAt": "2026-05-02T09:15:00.000Z" },
+    { "id": "sara.gomez@example.com", "email": "sara.gomez@example.com", "fullName": "Sara Gómez", "phone": "+34 644 040 404", "password": "sara1234", "acceptsAdvertising": true, "createdAt": "2026-07-01T08:45:00.000Z" },
+    { "id": "pablo.ibanez@example.com", "email": "pablo.ibanez@example.com", "fullName": "Pablo Ibáñez", "phone": "+34 655 050 505", "password": "pablo1234", "acceptsAdvertising": false, "createdAt": "2026-03-18T14:00:00.000Z" },
+    { "id": "nuria.vidal@example.com", "email": "nuria.vidal@example.com", "fullName": "Nuria Vidal", "phone": "+34 666 060 606", "password": "nuria1234", "acceptsAdvertising": true, "createdAt": "2026-04-22T11:20:00.000Z" },
+    { "id": "prensa@surlive.example", "email": "prensa@surlive.example", "fullName": "Prensa Sur", "phone": null, "password": "prensa1234", "acceptsAdvertising": false, "createdAt": "2026-06-30T16:10:00.000Z" },
+    { "id": "hugo.serrano@example.com", "email": "hugo.serrano@example.com", "fullName": "Hugo Serrano", "phone": "+34 677 070 707", "password": "hugo1234", "acceptsAdvertising": false, "createdAt": "2026-05-30T18:40:00.000Z" }
+  ],
   "venues": [
     { "id": "venue-1", "organizationId": "org-1", "name": "Sala Apolo", "city": "Madrid", "totalCapacity": 1200, "latitude": 40.4203, "longitude": -3.7058 },
     { "id": "venue-2", "organizationId": "org-1", "name": "Teatro Circo", "city": "Barcelona", "totalCapacity": 400, "latitude": 41.3874, "longitude": 2.1686 },

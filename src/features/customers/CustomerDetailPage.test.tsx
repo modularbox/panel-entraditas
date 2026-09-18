@@ -38,4 +38,26 @@ describe("CustomerDetailPage", () => {
     renderDetail("lucia.fernandez@example.com"); // only a pending order
     expect(await screen.findByText("Cliente no encontrado.")).toBeInTheDocument();
   });
+
+  it("shows the customer profile to a superadmin, including the password", async () => {
+    await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
+    renderDetail("marta.ruiz@example.com");
+    expect(await screen.findByRole("heading", { name: "Datos del cliente" })).toBeInTheDocument();
+    expect(screen.getByText("Nombre y apellidos")).toBeInTheDocument();
+    expect(screen.getAllByText("Marta Ruiz").length).toBeGreaterThan(0); // encabezado + perfil
+    expect(screen.getByText("+34 611 010 101")).toBeInTheDocument();
+    expect(screen.getByText("Contraseña")).toBeInTheDocument();
+    expect(screen.getByText("marta1234")).toBeInTheDocument();
+    expect(screen.getByText("Acepta publicidad")).toBeInTheDocument();
+    expect(screen.getAllByText(/2026/).length).toBeGreaterThan(0); // fecha de alta + métricas
+  });
+
+  it("hides the password from the customer profile for a non-superadmin", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderDetail("marta.ruiz@example.com");
+    expect(await screen.findByRole("heading", { name: "Datos del cliente" })).toBeInTheDocument();
+    expect(screen.getByText("+34 611 010 101")).toBeInTheDocument();
+    expect(screen.queryByText("Contraseña")).not.toBeInTheDocument();
+    expect(screen.queryByText("marta1234")).not.toBeInTheDocument();
+  });
 });

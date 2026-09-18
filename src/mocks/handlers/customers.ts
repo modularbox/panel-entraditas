@@ -26,11 +26,26 @@ function requireUser(request: Request): User | null {
 }
 
 // There's no Customer table in the db — a "customer" is derived on the fly by grouping
-// this user's visible orders by email, so the email doubles as the customer's id.
-function buildCustomer(email: string, orders: Order[]): Customer {
+// this user's visible orders by email, so the email doubles as the customer's id. The account
+// profile (phone, password, advertising opt-in, signup date) lives in db.customers, when known.
+function buildCustomer(email: string, orders: Order[], includePassword = false): Customer {
+  const profile = db.customers.find((c) => c.id === email) ?? null;
+  const credential = includePassword ? { password: profile?.password ?? null } : {};
   const qualifying = orders.filter((order) => QUALIFYING_STATUSES.has(order.status));
   if (qualifying.length === 0) {
-    return { id: email, name: "", email, ordersCount: 0, ticketsCount: 0, totalSpent: 0, lastPurchaseAt: "" };
+    return {
+      id: email,
+      name: profile?.fullName ?? "",
+      email,
+      phone: profile?.phone ?? null,
+      ...credential,
+      acceptsAdvertising: profile?.acceptsAdvertising ?? false,
+      createdAt: profile?.createdAt ?? "",
+      ordersCount: 0,
+      ticketsCount: 0,
+      totalSpent: 0,
+      lastPurchaseAt: ""
+    };
   }
   const sorted = [...qualifying].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const latest = sorted[0]!;
@@ -42,8 +57,12 @@ function buildCustomer(email: string, orders: Order[]): Customer {
   const totalSpent = qualifying.reduce((sum, order) => sum + (order.total - order.refundedAmount), 0);
   return {
     id: email,
-    name: latest.customerName,
+    name: profile?.fullName ?? latest.customerName,
     email,
+    phone: profile?.phone ?? null,
+    ...credential,
+    acceptsAdvertising: profile?.acceptsAdvertising ?? false,
+    createdAt: profile?.createdAt ?? latest.createdAt,
     ordersCount: qualifying.length,
     ticketsCount,
     totalSpent,
@@ -87,7 +106,8 @@ export const customersHandlers = [
 
     const email = decodeURIComponent(params.email as string);
     const allOrders = db.orders.filter((order) => order.customerEmail === email && canAccessOrder(order, user));
-    const customer = buildCustomer(email, allOrders);
+    // La contraseña de la cuenta solo se devuelve al superadmin.
+    const customer = buildCustomer(email, allOrders, user.role === "superadmin");
     if (customer.ordersCount === 0) return notFound("req_customers_get");
 
     const orders = [...allOrders]

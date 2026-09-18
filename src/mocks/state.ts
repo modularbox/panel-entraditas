@@ -52,6 +52,7 @@ function isDatabase(value: unknown): value is Database {
   return (
     Array.isArray(candidate.organizations) &&
     Array.isArray(candidate.users) &&
+    Array.isArray(candidate.customers) &&
     Array.isArray(candidate.venues) &&
     Array.isArray(candidate.zones) &&
     Array.isArray(candidate.events) &&
