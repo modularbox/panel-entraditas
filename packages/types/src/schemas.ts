@@ -457,6 +457,8 @@ export const CustomerSchema = z.object({
   phone: z.string().nullable().optional(),
   // La contraseña solo viaja en la respuesta al superadmin (nunca en el listado): la UI la muestra igualmente.
   password: z.string().nullable().optional(),
+  // Si ha dado permiso para recibir publicidad, desde la Configuración de entraditas.com.
+  // Ausente cuenta como que no: un consentimiento que se da por supuesto no es un consentimiento.
   acceptsAdvertising: z.boolean().optional(),
   createdAt: z.string().optional(), // fecha de alta
   ordersCount: z.number().int().nonnegative(), ticketsCount: z.number().int().nonnegative(), totalSpent: z.number().int().nonnegative(), lastPurchaseAt: z.string()

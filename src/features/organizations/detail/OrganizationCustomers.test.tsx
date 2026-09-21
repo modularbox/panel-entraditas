@@ -21,6 +21,7 @@ const CLIENTE: api.ApiCustomer = {
   email: "marta.ruiz@example.com",
   phone: "+34 611 010 101",
   status: "active",
+  acceptsAdvertising: true,
   ordersCount: 2,
   ticketsCount: 3,
   totalSpent: 7500,

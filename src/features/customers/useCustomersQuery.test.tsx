@@ -36,6 +36,7 @@ describe("useCustomersQuery", () => {
         email: "nuria@example.com",
         phone: "+34600000001",
         status: "active",
+        acceptsAdvertising: false,
         ordersCount: 0,
         ticketsCount: 0,
         totalSpent: 0,

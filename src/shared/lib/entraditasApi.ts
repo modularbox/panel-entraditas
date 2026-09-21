@@ -275,6 +275,8 @@ export interface ApiCustomer {
   email: string;
   phone: string;
   status: string;
+  /** Si ha dado permiso para recibir publicidad, desde la Configuracion de entraditas.com. */
+  acceptsAdvertising: boolean;
   ordersCount: number;
   ticketsCount: number;
   totalSpent: number;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
 import type { SortingState } from "@tanstack/react-table";
@@ -29,6 +29,13 @@ function buildColumns(detailTo: (email: string) => string, conectar: (email: str
       )
     }),
     columnHelper.accessor("email", { header: "Email" }),
+    // Quien ha dado permiso para recibir publicidad. Sin permiso se deja en blanco y no se escribe
+    // "No": lo que importa de un vistazo es a quien SI se le puede escribir.
+    columnHelper.accessor((fila) => fila.acceptsAdvertising === true, {
+      id: "acceptsAdvertising",
+      header: "Publicidad",
+      cell: (info) => (info.getValue() ? "Sí" : <span className="text-muted-foreground">—</span>)
+    }),
     columnHelper.accessor("ordersCount", { header: "Pedidos" }),
     columnHelper.accessor("ticketsCount", { header: "Entradas" }),
     columnHelper.accessor("totalSpent", { header: "Gastado", cell: (info) => euro.format(info.getValue() / 100) }),
@@ -72,6 +79,7 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
   const [q, setQ] = useState("");
   const [conectandoEmail, setConectandoEmail] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [soloPublicidad, setSoloPublicidad] = useState(false);
   const { data: events = [] } = useEventsQuery();
   const { data: customers = [], isLoading } = useCustomersQuery({ eventId: eventId || undefined, q: q || undefined });
 
@@ -90,8 +98,20 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
     }
   }
 
+  // Se filtra aqui y no en la API: la lista ya viene entera y son pocos, asi que marcar la casilla
+  // responde al instante en vez de esperar otra vuelta al servidor.
+  //
+  // `useMemo` NO es un adorno: sin el, `filter` devuelve un array nuevo en cada render, la tabla
+  // ve un `data` distinto cada vez y se vuelve a renderizar sola sin parar. Marcar la casilla
+  // colgaba la pestaña entera, y de forma sincrona: ni siquiera saltaba el limite de tiempo de
+  // las pruebas.
+  const visibles = useMemo(
+    () => (soloPublicidad ? customers.filter((cliente) => cliente.acceptsAdvertising === true) : customers),
+    [customers, soloPublicidad]
+  );
+
   const table = useReactTable({
-    data: customers,
+    data: visibles,
     columns: buildColumns(detailTo, conectar, conectandoEmail),
     state: { sorting },
     onSortingChange: setSorting,
@@ -120,14 +140,28 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
 
         <label htmlFor="customer-search-filter" className="sr-only">Buscar</label>
         <input id="customer-search-filter" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre o email" className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm" />
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={soloPublicidad}
+            onChange={(e) => setSoloPublicidad(e.target.checked)}
+            className="h-4 w-4 accent-primary"
+          />
+          Solo los que aceptan publicidad
+        </label>
       </div>
 
       {connectError && <p role="alert">{connectError}</p>}
 
       {isLoading ? (
         <p className="text-muted-foreground">Cargando…</p>
-      ) : customers.length === 0 ? (
-        <p className="text-muted-foreground">No hay clientes que coincidan con los filtros.</p>
+      ) : visibles.length === 0 ? (
+        <p className="text-muted-foreground">
+          {soloPublicidad && customers.length > 0
+            ? "Ninguno de estos clientes ha aceptado recibir publicidad."
+            : "No hay clientes que coincidan con los filtros."}
+        </p>
       ) : (
         <div className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
           <table className="w-full text-left text-sm">

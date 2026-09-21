@@ -23,6 +23,7 @@ export function desdeLaApi(cliente: ApiCustomer): Customer {
     email: cliente.email,
     phone: cliente.phone || null,
     createdAt: cliente.createdAt ?? undefined,
+    acceptsAdvertising: cliente.acceptsAdvertising === true,
     ordersCount: cliente.ordersCount,
     ticketsCount: cliente.ticketsCount ?? 0,
     totalSpent: cliente.totalSpent,
