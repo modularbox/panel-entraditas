@@ -52,7 +52,7 @@ describe("Step2Schedule", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Varias sesiones" }));
     fireEvent.change(screen.getByLabelText("Fecha inicio"), { target: { value: "2026-12-05" } });
-    fireEvent.change(screen.getByLabelText("Sesiones"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Número de sesiones"), { target: { value: "3" } });
     fireEvent.click(screen.getByRole("button", { name: "Generar sesiones" }));
 
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(4));
@@ -77,7 +77,7 @@ describe("Step2Schedule", () => {
     server.use(
       http.post("http://localhost:4000/api/v1/events/:eventId/sub-events/bulk", () =>
         HttpResponse.json(
-          { error: { code: "VALIDATION_ERROR", message: "No se pudieron generar las funciones", requestId: "req_fail" } },
+          { error: { code: "VALIDATION_ERROR", message: "No se pudieron generar las sesiones", requestId: "req_fail" } },
           { status: 422 }
         )
       )
@@ -87,10 +87,10 @@ describe("Step2Schedule", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Varias sesiones" }));
     fireEvent.change(screen.getByLabelText("Fecha inicio"), { target: { value: "2026-12-05" } });
-    fireEvent.change(screen.getByLabelText("Sesiones"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Número de sesiones"), { target: { value: "3" } });
     fireEvent.click(screen.getByRole("button", { name: "Generar sesiones" }));
 
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No se pudieron generar las funciones"));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No se pudieron generar las sesiones"));
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
 

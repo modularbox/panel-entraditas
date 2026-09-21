@@ -34,12 +34,12 @@ describe("EventDetailPage", () => {
     expect(await screen.findByLabelText("Título")).toHaveValue("La Casa de Bernarda Alba");
   });
 
-  it("switches to the Subeventos tab and shows its 4 functions", async () => {
+  it("switches to the Sesiones tab and shows its 4 sessions", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderDetail("event-3");
-    fireEvent.click(await screen.findByRole("button", { name: "Subeventos" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Sesiones" }));
 
-    const list = await screen.findByRole("list", { name: "Funciones" });
+    const list = await screen.findByRole("list", { name: "Sesiones" });
     await waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(4));
   });
 

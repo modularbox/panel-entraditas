@@ -420,13 +420,13 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
               checked={scopeMode === "subevents"}
               onChange={() => setScopeMode("subevents")}
             />
-            Subeventos concretos
+            Sesiones concretas
           </label>
         </div>
 
         {scopeMode === "subevents" && (
           <fieldset>
-            <legend>Selecciona los subeventos</legend>
+            <legend>Selecciona las sesiones</legend>
             <div className="flex flex-col gap-1.5">
               {subEvents.map((s) => (
                 <label key={s.id} className="flex items-center gap-2 text-sm font-medium">

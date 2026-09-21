@@ -110,7 +110,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         await apiClient.post<SubEvent>(
           `/events/${eventId}/sub-events`,
           {
-            name: event.hasSubEvents ? "Primera funcion" : "Funcion unica",
+            name: event.hasSubEvents ? "Primera sesion" : "Sesion unica",
             startsAt: event.startsAt,
             endsAt: event.endsAt,
             doorsOpenAt: null,

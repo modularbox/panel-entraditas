@@ -221,11 +221,58 @@ function buildChannels(orders: Order[]): { label: string; value: number; color: 
   })).filter((channel) => channel.value > 0);
 }
 
+const BRAND_ORANGE = "#e3572e";
+const WARM_BACKGROUND = "#faf7f2";
+const ALT_ROW_BACKGROUND = "#edebe3";
+const SOFT_BORDER = "#e3e0da";
+const TEXT_MUTED = "#6b655d";
+const TEAL = "#279e8f";
+
 function toCsvBlock(title: string, rows: string[][]): string {
   return [title, ...rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(","))].join("\n");
 }
-function toHtmlTable(title: string, rows: string[][]): string {
-  return `<h3>${title}</h3><table>${rows.map((row) => `<tr>${row.map((value) => `<td>${value}</td>`).join("")}</tr>`).join("")}</table>`;
+
+function excelHtml(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+// La exportación XLSX es de hecho HTML que Excel abre como hoja de cálculo (importación HTML nativa de
+// Microsoft). Para que las tres exportaciones compartan el aspecto del PDF se replica aquí su diseño:
+// fondo cálido, cabecera naranja de marca, filas alternadas y las dos secciones de gráficos.
+function excelTable(header: string[], rows: string[][]): string {
+  const headCells = header
+    .map((cell) => `<th style="padding:5px 10px;border:1px solid ${BRAND_ORANGE};background:${BRAND_ORANGE};color:#ffffff;text-align:left;font-weight:bold;">${excelHtml(cell)}</th>`)
+    .join("");
+  const bodyRows = rows
+    .map((row, index) =>
+      `<tr>${row
+        .map((cell) => `<td style="padding:4px 10px;border:1px solid ${SOFT_BORDER};${index % 2 === 0 ? `background:${ALT_ROW_BACKGROUND};` : ""}">${excelHtml(cell)}</td>`)
+        .join("")}</tr>`
+    )
+    .join("");
+  return `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 26px 0;width:100%;">${headCells ? `<tr>${headCells}</tr>` : ""}${bodyRows}</table>`;
+}
+
+function createXlsxReport(
+  kpiRows: string[][],
+  eventRows: string[][],
+  salesRows: string[][],
+  exportEvents: { label: string; capacity: number; sold: number }[],
+  salesSeries: { label: string; value: number }[]
+): string {
+  const maxCapacity = Math.max(...exportEvents.map((event) => event.capacity), 1);
+  const cell = `padding:4px 10px;border:1px solid ${SOFT_BORDER};`;
+  const barRows = exportEvents
+    .map((event) => {
+      const barWidth = Math.max(4, Math.round((event.sold / maxCapacity) * 220));
+      return `<tr><td style="${cell}font-weight:bold;">${excelHtml(event.label)}</td><td style="padding:2px 10px;border:1px solid ${SOFT_BORDER};"><div style="height:14px;width:${barWidth}px;background:${BRAND_ORANGE};">&nbsp;</div></td><td style="${cell}"><b>${event.sold}</b> / ${event.capacity}</td></tr>`;
+    })
+    .join("");
+  const pointRows = salesSeries
+    .map((point) => `<tr><td style="${cell}">${excelHtml(point.label)}</td><td style="${cell}"><b style="color:${TEAL};">${point.value}</b> entradas</td></tr>`)
+    .join("");
+  const msoNamespaces = ' xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"';
+  return `<html${msoNamespaces}><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>InformeDashboard</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body style="background:${WARM_BACKGROUND};font-family:'Segoe UI',Calibri,Arial,sans-serif;color:#1b1b1b;margin:0;padding:20px;">\n<div style="height:3px;background:${BRAND_ORANGE};margin:0 0 18px;"></div>\n<h1 style="color:${BRAND_ORANGE};margin:0 0 2px;font-size:22px;">ENTRADITAS / INFORME DASHBOARD</h1>\n<p style="margin:0 0 18px;color:${TEXT_MUTED};">Datos de prueba · resumen comercial</p>\n<h2 style="font-size:14px;margin:0 0 8px;">Resumen</h2>\n${excelTable(kpiRows[0] ?? [], kpiRows.slice(1))}<h2 style="font-size:14px;margin:0 0 8px;">Detalle de eventos</h2>\n${excelTable(eventRows[0] ?? [], eventRows.slice(1))}<h2 style="font-size:14px;margin:0 0 8px;">Gráficos operativos</h2>\n<h3 style="font-size:12px;margin:0 0 8px;">Aforo por evento · entradas / capacidad</h3>\n<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 26px 0;">${barRows}</table>\n<h3 style="font-size:12px;margin:0 0 8px;">Ventas acumuladas</h3>\n<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 8px 0;"><tr><th style="padding:5px 10px;border:1px solid ${BRAND_ORANGE};background:${BRAND_ORANGE};color:#ffffff;text-align:left;">Fecha</th><th style="padding:5px 10px;border:1px solid ${BRAND_ORANGE};background:${BRAND_ORANGE};color:#ffffff;text-align:left;">Entradas</th></tr>${pointRows}</table>\n<p style="font-size:10px;color:${TEXT_MUTED};">Escala vertical: entradas</p>\n</body></html>`;
 }
 
 function pdfText(text: string, x: number, y: number, size = 10) {
@@ -348,8 +395,16 @@ export const dashboardHandlers = [
     const salesSeries = buildSalesTimeline(revenueOrders).map((point) => ({ label: point.label, value: point.actual }));
     const salesRows = [["Fecha", "Entradas"], ...salesSeries.map((point) => [point.label, `${point.value}`])];
     const format = body.format === "xlsx" || body.format === "pdf" ? body.format : "csv";
-    const csv = [toCsvBlock("Resumen", kpiRows), toCsvBlock("Detalle de eventos", eventRows), toCsvBlock("Ventas acumuladas", salesRows)].join("\n\n");
-    const xlsx = [toHtmlTable("Resumen", kpiRows), toHtmlTable("Detalle de eventos", eventRows), toHtmlTable("Ventas acumuladas", salesRows)].join("");
+    // Igual que el PDF: cabecera con el nombre del informe y después los bloques de datos. El CSV es
+    // texto plano, así que comparte estructura y títulos con el PDF (no colores).
+    const csv = [
+      "ENTRADITAS / INFORME DASHBOARD",
+      "Datos de prueba · resumen comercial",
+      toCsvBlock("Resumen", kpiRows),
+      toCsvBlock("Detalle de eventos", eventRows),
+      toCsvBlock("Ventas acumuladas", salesRows)
+    ].join("\n\n");
+    const xlsx = createXlsxReport(kpiRows, eventRows, salesRows, exportEvents, salesSeries);
     const content = format === "csv" ? csv : format === "xlsx" ? xlsx : createPdf(kpiRows, exportEvents, salesSeries);
     return HttpResponse.json({ data: { id: `export-${Date.now()}`, status: "completed", report: body.report, format, filename: `entraditas-dashboard.${format}`, mimeType: format === "csv" ? "text/csv;charset=utf-8" : format === "xlsx" ? "application/vnd.ms-excel" : "application/pdf", content, message: "Exportacion generada con los datos de prueba." }, meta: { requestId: "req_export" } });
   })

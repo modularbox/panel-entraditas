@@ -340,7 +340,7 @@ describe("SeatingPlanSection", () => {
 
     await waitFor(() => expect(db.subEvents.filter((s) => s.eventId === "event-2")).toHaveLength(1));
     const session = db.subEvents.find((s) => s.eventId === "event-2")!;
-    expect(session.name).toBe("Funcion unica");
+    expect(session.name).toBe("Sesion unica");
     // And the capacity the seats hang off follows the session.
     await waitFor(() => expect(db.capacityPools.some((p) => p.subEventId === session.id && p.zoneId === "zone-grada")).toBe(true));
     expect(screen.queryByText(/no tiene ninguna fecha o sesion todavia/i)).not.toBeInTheDocument();

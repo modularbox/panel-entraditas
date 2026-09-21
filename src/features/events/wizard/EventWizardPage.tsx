@@ -50,7 +50,7 @@ interface WizardStep {
  */
 const ALL_STEPS: WizardStep[] = [
   { key: "info", label: "Informacion del evento", needsEventId: false },
-  { key: "subeventos", label: "Varias funciones", needsEventId: true },
+  { key: "subeventos", label: "Sesiones", needsEventId: true },
   { key: "tipos", label: "Tipos de entrada", needsEventId: true },
   { key: "plano", label: "Asientos", needsEventId: true },
   { key: "descuentos", label: "Codigos de descuento", needsEventId: true },
@@ -83,7 +83,7 @@ export function EventWizardPage() {
     setTiposValid(false);
   }, [params.id, setEventId, reset]);
 
-  // "Varias funciones" solo aparece si el evento las tiene, y eso se decide al final del paso 1.
+  // "Sesiones" solo aparece si el evento las tiene, y eso se decide al final del paso 1.
   const steps = ALL_STEPS.filter((step) => step.key !== "subeventos" || Boolean(event?.hasSubEvents));
 
   const activeIndex = Math.min(stepIndex, steps.length - 1);

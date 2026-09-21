@@ -16,7 +16,7 @@ import { GatesSection } from "../wizard/steps/GatesSection";
 
 const ENABLED_TABS = [
   { key: "general", label: "Información general" },
-  { key: "subeventos", label: "Subeventos" },
+  { key: "subeventos", label: "Sesiones" },
   { key: "aforos", label: "Aforos y zonas" },
   { key: "tipos", label: "Tipos de entrada" },
   { key: "descuentos", label: "Códigos de descuento" },

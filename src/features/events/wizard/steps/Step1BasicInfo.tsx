@@ -51,6 +51,11 @@ function toIsoDate(date: string | undefined, time: string | undefined): string |
   return `${date}T${time}:00.000Z`;
 }
 
+function fechaEnTitulo(fecha: string): string {
+  const [anio, mes, dia] = fecha.split("-").map(Number);
+  return new Date(anio!, mes! - 1, dia!).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+}
+
 async function filesToDataUrls(files: FileList | null): Promise<string[]> {
   if (!files) return [];
   return Promise.all(
@@ -101,7 +106,8 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
       description: "",
       serviceFeeType: "none",
       serviceFeeValue: 0,
-      hasSubEvents: false
+      hasSubEvents: false,
+      extraDates: []
     }
   });
 
@@ -165,7 +171,8 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         description: existingEvent.description,
         serviceFeeType: existingEvent.serviceFeeType ?? "none",
         serviceFeeValue: existingEvent.serviceFeeValue ?? 0,
-        hasSubEvents: existingEvent.hasSubEvents
+        hasSubEvents: existingEvent.hasSubEvents,
+        extraDates: []
       });
     } else {
       reset();
@@ -192,7 +199,8 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         description: existingEvent.description,
         serviceFeeType: existingEvent.serviceFeeType ?? "none",
         serviceFeeValue: existingEvent.serviceFeeValue ?? 0,
-        hasSubEvents: existingEvent.hasSubEvents
+        hasSubEvents: existingEvent.hasSubEvents,
+        extraDates: []
       });
     }
   }, [existingEvent, isDirty, borrador, reset]);
@@ -224,9 +232,33 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         ...(eventId ? {} : draftRules ? { rules: draftRules } : {}),
         hasSubEvents: formValues.hasSubEvents
       };
-      const event = eventId
-        ? await apiClient.patch<Event>(`/events/${eventId}`, payload, { token: token! })
-        : await apiClient.post<Event>("/events", payload, { token: token! });
+
+      // "Varias sesiones" en paso 1 + fechas distintas al crear: crea un evento por cada fecha,
+      // cada uno titulado "Titulo fecha" y como borrador. El asistente continua con el primero.
+      const diasExtra = (formValues.extraDates ?? []).map((d) => d.trim()).filter(Boolean);
+      const esCreacionVariosDias =
+        !eventId && formValues.hasSubEvents && !formValues.datePending && Boolean(formValues.startDate) && diasExtra.length > 0;
+
+      let event: Event;
+      if (esCreacionVariosDias) {
+        const dias = [formValues.startDate!, ...diasExtra];
+        let primero: Event | null = null;
+        for (const dia of dias) {
+          const inicio = toIsoDate(dia, formValues.startTime)!;
+          const fin = new Date(new Date(inicio).getTime() + 2 * 60 * 60 * 1000).toISOString();
+          const creado = await apiClient.post<Event>(
+            "/events",
+            { ...payload, title: `${formValues.title} ${fechaEnTitulo(dia)}`, startsAt: inicio, endsAt: fin },
+            { token: token! }
+          );
+          primero ??= creado;
+        }
+        event = primero!;
+      } else {
+        event = eventId
+          ? await apiClient.patch<Event>(`/events/${eventId}`, payload, { token: token! })
+          : await apiClient.post<Event>("/events", payload, { token: token! });
+      }
       // Ya esta guardado de verdad: el borrador ha cumplido y estorbaria la proxima vez.
       borrarBorrador();
       setBorrador(null);
@@ -255,6 +287,20 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
       setValue("startDate", "", { shouldDirty: true, shouldValidate: true });
       setValue("startTime", "", { shouldDirty: true, shouldValidate: true });
     }
+  }
+
+  function addExtraDate() {
+    setValue("extraDates", [...(values.extraDates ?? []), ""], { shouldDirty: true, shouldValidate: true });
+  }
+
+  function setExtraDate(index: number, value: string) {
+    const next = [...(values.extraDates ?? [])];
+    next[index] = value;
+    setValue("extraDates", next, { shouldDirty: true, shouldValidate: true });
+  }
+
+  function removeExtraDate(index: number) {
+    setValue("extraDates", (values.extraDates ?? []).filter((_, i) => i !== index), { shouldDirty: true, shouldValidate: true });
   }
 
   return (
@@ -416,8 +462,8 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
           <NumericInput id="serviceFeeValue" allowDecimal maxLength={7} step="0.01" min="0" {...register("serviceFeeValue")} />
         </fieldset>
 
-        {/* Al final del paso: es lo que decide si el siguiente paso es "Varias funciones". */}
-        <QuestionSection title="Sesiones" hint="Festivales y giras suelen tener varias funciones, pases o fechas.">
+        {/* Al final del paso: es lo que decide si el siguiente paso es "Sesiones". */}
+        <QuestionSection title="Sesiones" hint="Festivales y giras suelen tener varias sesiones, pases o fechas.">
           <input type="hidden" {...register("hasSubEvents")} />
           <div className="flex flex-wrap gap-2">
             <OptionButton
@@ -434,6 +480,39 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
             </OptionButton>
           </div>
         </QuestionSection>
+
+        {values.hasSubEvents && !eventId && !values.datePending && (
+          <fieldset>
+            <legend>Días del evento</legend>
+            <p className="mt-1 mb-3 text-sm text-muted-foreground">
+              Cada día crea un evento con su propio nombre y fecha (se guardan como "Título fecha").
+            </p>
+            <ul className="flex flex-col gap-2">
+              {(values.extraDates ?? []).map((dia, index) => (
+                <li key={index} className="flex items-end gap-2">
+                  <div className="min-w-0 flex-1">
+                    <label htmlFor={`dias-extra-${index}`}>Día {index + 2}</label>
+                    <input
+                      id={`dias-extra-${index}`}
+                      type="date"
+                      value={dia}
+                      onChange={(e) => setExtraDate(index, e.target.value)}
+                    />
+                  </div>
+                  <Button type="button" variant="outline" onClick={() => removeExtraDate(index)}>
+                    Quitar
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            <Button type="button" variant="outline" className="mt-2" onClick={addExtraDate}>
+              Añadir otro día
+            </Button>
+            {(errors.extraDates as { message?: string } | undefined)?.message && (
+              <span role="alert">{(errors.extraDates as { message?: string }).message}</span>
+            )}
+          </fieldset>
+        )}
 
         {hasLoadError && <p role="alert">No se pudo cargar el evento.</p>}
         {saveError && <p role="alert">{saveError}</p>}

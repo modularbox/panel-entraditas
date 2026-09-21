@@ -86,6 +86,61 @@ describe("Step1BasicInfo", () => {
     expect(creado?.hasSubEvents).toBe(true);
   });
 
+  it("crea un evento por cada dia adicional, titulado 'Titulo fecha', y continua con el primero", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+    const onSaved = vi.fn();
+    const goNext = vi.fn();
+    renderStep1({ eventId: null, onSaved, goNext });
+
+    fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Gira de despedida" } });
+    fillDescription("Una descripcion valida");
+    fillRequiredLocation();
+    fireEvent.click(screen.getByLabelText("Fecha por confirmar"));
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-12-10" } });
+    fireEvent.change(screen.getByLabelText("Hora"), { target: { value: "20:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Varias sesiones" }));
+    fireEvent.click(screen.getByRole("button", { name: "Añadir otro día" }));
+    fireEvent.change(screen.getByLabelText("Día 2"), { target: { value: "2026-12-11" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.any(String)));
+    expect(goNext).toHaveBeenCalledOnce();
+    const creados = db.events.filter((event) => event.title.startsWith("Gira de despedida "));
+    expect(creados).toHaveLength(2);
+    expect(creados.map((e) => e.title).sort()).toEqual([
+      "Gira de despedida 10 de diciembre de 2026",
+      "Gira de despedida 11 de diciembre de 2026"
+    ]);
+    // Iguales al primero, salvo el titulo y la fecha, y todos como borrador.
+    const primero = creados.find((e) => e.title === "Gira de despedida 10 de diciembre de 2026")!;
+    expect(creados.every((e) => e.status === "draft")).toBe(true);
+    expect(creados.every((e) => e.startsAt?.startsWith("2026-12-") ?? false)).toBe(true);
+    expect(creados[0]!.description).toBe(primero.description);
+    expect(onSaved).toHaveBeenCalledWith(primero.id);
+  });
+
+  it("pide la fecha para los dias adicionales de 'Varias sesiones'", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
+    const onSaved = vi.fn();
+    renderStep1({ eventId: null, onSaved, goNext: vi.fn() });
+
+    fireEvent.change(screen.getByLabelText(/T.tulo/), { target: { value: "Gira de despedida" } });
+    fillDescription("Una descripcion valida");
+    fillRequiredLocation();
+    fireEvent.click(screen.getByLabelText("Fecha por confirmar"));
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-12-10" } });
+    fireEvent.change(screen.getByLabelText("Hora"), { target: { value: "20:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Varias sesiones" }));
+    fireEvent.click(screen.getByRole("button", { name: "Añadir otro día" }));
+    fireEvent.change(screen.getByLabelText("Día 2"), { target: { value: "2026-12-10" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y continuar" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Los días no pueden repetirse."));
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
   it("crear sin respuestas del cuestionario no llegan reglas al evento", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     const onSaved = vi.fn();

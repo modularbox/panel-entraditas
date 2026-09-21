@@ -360,7 +360,7 @@
     {
       "id": "sub-event-1",
       "eventId": "event-1",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-10-10T21:00:00.000Z",
       "endsAt": "2026-10-10T23:30:00.000Z",
       "doorsOpenAt": "2026-10-10T20:30:00.000Z",
@@ -370,7 +370,7 @@
     {
       "id": "sub-event-2",
       "eventId": "event-2",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-11-05T21:00:00.000Z",
       "endsAt": "2026-11-05T23:59:00.000Z",
       "doorsOpenAt": "2026-11-05T20:00:00.000Z",
@@ -450,7 +450,7 @@
     {
       "id": "sub-event-5",
       "eventId": "event-5",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-12-01T18:00:00.000Z",
       "endsAt": "2026-12-01T21:00:00.000Z",
       "doorsOpenAt": null,
@@ -460,7 +460,7 @@
     {
       "id": "sub-event-6",
       "eventId": "event-6",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-11-14T20:00:00.000Z",
       "endsAt": "2026-11-14T23:00:00.000Z",
       "doorsOpenAt": null,
@@ -470,7 +470,7 @@
     {
       "id": "sub-event-7",
       "eventId": "event-7",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-11-07T18:00:00.000Z",
       "endsAt": "2026-11-07T21:00:00.000Z",
       "doorsOpenAt": null,
@@ -480,7 +480,7 @@
     {
       "id": "sub-event-8",
       "eventId": "event-8",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-11-21T21:00:00.000Z",
       "endsAt": "2026-11-21T23:30:00.000Z",
       "doorsOpenAt": null,
@@ -490,7 +490,7 @@
     {
       "id": "sub-event-9",
       "eventId": "event-9",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-10-24T21:00:00.000Z",
       "endsAt": "2026-10-24T23:00:00.000Z",
       "doorsOpenAt": null,
@@ -500,7 +500,7 @@
     {
       "id": "sub-event-10",
       "eventId": "event-10",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-11-28T20:00:00.000Z",
       "endsAt": "2026-11-28T23:00:00.000Z",
       "doorsOpenAt": null,
@@ -510,7 +510,7 @@
     {
       "id": "sub-event-11",
       "eventId": "event-11",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-12-05T17:00:00.000Z",
       "endsAt": "2026-12-05T19:00:00.000Z",
       "doorsOpenAt": null,
@@ -520,7 +520,7 @@
     {
       "id": "sub-event-12",
       "eventId": "event-12",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-08-15T18:00:00.000Z",
       "endsAt": "2026-08-15T23:59:00.000Z",
       "doorsOpenAt": null,
@@ -530,7 +530,7 @@
     {
       "id": "sub-event-13",
       "eventId": "event-13",
-      "name": "Función única",
+      "name": "Sesión única",
       "startsAt": "2026-10-03T09:00:00.000Z",
       "endsAt": "2026-10-03T12:00:00.000Z",
       "doorsOpenAt": null,

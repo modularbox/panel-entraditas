@@ -79,8 +79,8 @@ describe("GatesSection", () => {
 
     fireEvent.change(within(createForm).getByLabelText("Nombre"), { target: { value: "Puerta Grada" } });
     fireEvent.change(within(createForm).getByLabelText("Código"), { target: { value: "GRADA" } });
-    fireEvent.click(within(createForm).getByLabelText("Subevento concreto"));
-    fireEvent.change(within(createForm).getByLabelText("Subevento"), { target: { value: "sub-event-2" } });
+    fireEvent.click(within(createForm).getByLabelText("Sesión concreta"));
+    fireEvent.change(within(createForm).getByLabelText("Sesión"), { target: { value: "sub-event-2" } });
     fireEvent.change(within(createForm).getByLabelText("Zona"), { target: { value: "zone-grada" } });
     fireEvent.click(within(createForm).getByLabelText("Ambas"));
     fireEvent.click(within(createForm).getByLabelText("Permite reentrada"));

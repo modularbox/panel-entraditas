@@ -173,7 +173,7 @@ export function GatesSection({ eventId }: GatesSectionProps) {
         {gates.map((gate) => {
           const subEventName = gate.subEventId
             ? subEvents.find((s) => s.id === gate.subEventId)?.name ?? ""
-            : "Todos los subeventos";
+            : "Todas las sesiones";
           const zoneName = gate.zoneId ? zones.find((z) => z.id === gate.zoneId)?.name ?? "" : "Sin zona";
           const typesLabel =
             gate.allowedTicketTypeGroupIds === null
@@ -331,7 +331,7 @@ export function GatesSection({ eventId }: GatesSectionProps) {
                     checked={subEventMode === "all"}
                     onChange={() => setSubEventMode("all")}
                   />
-                  Todos los subeventos
+                  Todas las sesiones
                 </label>
                 <label className="flex items-center gap-2 text-sm font-medium">
                   <input
@@ -340,16 +340,16 @@ export function GatesSection({ eventId }: GatesSectionProps) {
                     checked={subEventMode === "specific"}
                     onChange={() => setSubEventMode("specific")}
                   />
-                  Subevento concreto
+                  Sesión concreta
                 </label>
                 {subEventMode === "specific" && (
                   <select
-                    aria-label="Subevento"
+                    aria-label="Sesión"
                     value={selectedSubEventId}
                     onChange={(e) => setSelectedSubEventId(e.target.value)}
                     className={`${CASILLA} w-56`}
                   >
-                    <option value="">Selecciona un subevento</option>
+                    <option value="">Selecciona una sesión</option>
                     {subEvents.map((s) => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}

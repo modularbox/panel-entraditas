@@ -26,6 +26,7 @@ export function normalizeApiBase(value: string | undefined): string {
 }
 
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
+const WEB_BASE = normalizeApiBase(import.meta.env.VITE_WEB_URL);
 const TOKEN_STORAGE_KEY = "entraditas.panel.apiToken";
 
 export interface ApiStaff {
@@ -390,6 +391,49 @@ export async function fetchApiOrganizationCustomers(organizationId: string): Pro
     `/v1/panel/organizations/${encodeURIComponent(organizationId)}/customers`
   );
   return result.items ?? [];
+}
+
+/** La cuenta de comprador que la web guarda como sesión (la forma de `cuentaPublica`). */
+export interface ApiBuyerAccount {
+  name: string;
+  surname?: string | null;
+  email: string;
+  phone: string;
+  role: "user";
+  avatarUrl?: string | null;
+  birthDate?: string | null;
+  documentId?: string | null;
+}
+
+/**
+ * Pide a la API una sesión de comprador para ese cliente («Conectar»).
+ *
+ * La API valida que quien pide sea de panel, abre una sesión real de comprador para ese correo
+ * (sin conocer su contraseña) y devuelve el token y la cuenta. Luego el panel deja que la web la
+ * consuma abriendo `VITE_WEB_URL/conectar?token=...`.
+ *
+ * Devuelve null cuando no se pudo: la API no responde, el correo no existe o no hay permiso.
+ */
+export async function connectApiCustomerSession(email: string): Promise<{ token: string; account: ApiBuyerAccount } | null> {
+  if (!canReadFromApi()) return null;
+  try {
+    return await request<{ token: string; account: ApiBuyerAccount }>(
+      `/v1/panel/customers/${encodeURIComponent(email)}/connect`,
+      { method: "POST" }
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** Base de la web publica sobre la que se abren sesiones de clientes ("VITE_WEB_URL"). */
+export function getWebBase(): string {
+  return WEB_BASE;
+}
+
+/** Si hay donde abrir la sesion de un cliente: la web configurada y sesion de API valida. */
+export function canConnectCustomerToWeb(): boolean {
+  return canReadFromApi() && WEB_BASE !== "";
 }
 
 export async function fetchApiOrganizations(): Promise<ApiOrganization[]> {

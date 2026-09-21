@@ -88,7 +88,7 @@ export const subEventsHandlers = [
     const soldElsewhere = db.capacityPools.some((p) => p.subEventId === result.subEvent.id && p.soldCount > 0);
     if (soldElsewhere) {
       return HttpResponse.json(
-        { error: { code: "VALIDATION_ERROR", message: "No se puede eliminar una función con entradas vendidas", requestId: "req_sub_events_delete" } },
+        { error: { code: "VALIDATION_ERROR", message: "No se puede eliminar una sesión con entradas vendidas", requestId: "req_sub_events_delete" } },
         { status: 409 }
       );
     }

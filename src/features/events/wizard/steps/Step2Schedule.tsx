@@ -217,12 +217,12 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
     <div className="flex flex-col gap-5">
       {hasPendingSubEvents && (
         <div className="rounded-lg border-2 border-dashed border-foreground bg-background p-4 text-sm font-bold text-muted-foreground">
-          Hay subeventos con fecha por confirmar. En la web no se venderan entradas para esas sesiones: solo aparecera la opcion de aviso.
+          Hay sesiones con fecha por confirmar. En la web no se venderan entradas para esas sesiones: solo aparecera la opcion de aviso.
         </div>
       )}
 
       {subEvents.length > 0 ? (
-        <ul aria-label="Funciones" className="grid gap-2 md:grid-cols-2">
+        <ul aria-label="Sesiones" className="grid gap-2 md:grid-cols-2">
           {subEvents.map((s) => (
             <li key={s.id} className="rounded-md border-2 border-border bg-surface px-3 py-2 text-sm font-bold">
               <div className="flex items-start gap-3">
@@ -399,7 +399,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
               <input id="session-recurring-time" type="time" value={pattern.time} onChange={(e) => setPattern({ ...pattern, time: e.target.value })} />
             </div>
             <div>
-              <label htmlFor="occurrences">Sesiones</label>
+              <label htmlFor="occurrences">Número de sesiones</label>
               <NumericInput id="occurrences" min={1} maxLength={4} value={pattern.occurrences} onChange={(e) => setPattern({ ...pattern, occurrences: Number(e.target.value) })} />
             </div>
             <div>

@@ -65,4 +65,30 @@ describe("dashboard overview filters", () => {
     expect(result.content).toContain("Festival del Sur");
     expect(result.content).not.toContain("Rock en Directo");
   });
+
+  it("gives every export format the same look as the PDF (title, sections and brand style)", async () => {
+    const token = await login("admin@entraditas.com", "admin1234");
+    const csv = await apiClient.post<{ content: string }>("/reports/export", { report: "dashboard", format: "csv" }, { token });
+    const xlsx = await apiClient.post<{ content: string }>("/reports/export", { report: "dashboard", format: "xlsx" }, { token });
+    const pdf = await apiClient.post<{ content: string }>("/reports/export", { report: "dashboard", format: "pdf" }, { token });
+
+    // El PDF conserva su cabecera canónica.
+    expect(pdf.content).toContain("ENTRADITAS / INFORME DASHBOARD");
+    expect(pdf.content).toContain("Detalle de eventos");
+
+    // El CSV comparte con el PDF la cabecera y los mismos bloques.
+    expect(csv.content).toContain("ENTRADITAS / INFORME DASHBOARD");
+    expect(csv.content).toContain("Datos de prueba");
+    expect(csv.content).toContain("Detalle de eventos");
+    expect(csv.content).toContain("Ventas acumuladas");
+
+    // El XLSX replica el diseño del PDF (colores de marca, filas alternadas y gráficos).
+    expect(xlsx.content).toContain("ENTRADITAS / INFORME DASHBOARD");
+    expect(xlsx.content).toContain("#e3572e");
+    expect(xlsx.content).toContain("#faf7f2");
+    expect(xlsx.content).toContain("Detalle de eventos");
+    expect(xlsx.content).toContain("Gráficos operativos");
+    expect(xlsx.content).toContain("Aforo por evento");
+    expect(xlsx.content).toContain("Ventas acumuladas");
+  });
 });

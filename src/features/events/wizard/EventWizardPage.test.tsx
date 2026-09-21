@@ -131,22 +131,22 @@ fireEvent.click(screen.getByRole("button", { name: "6. Publicar evento" }));
     expect(screen.getByRole("region", { name: /Informaci.n del evento/ })).toBeInTheDocument();
   });
 
-  it("includes the multiple-functions step for an event with hasSubEvents set", async () => {
+  it("includes the multiple-sessions step for an event with hasSubEvents set", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-3/editar"); // seeded with hasSubEvents: true
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
 
     next();
-    expect(screen.getByRole("region", { name: "Varias funciones" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Sesiones" })).toBeInTheDocument();
   });
 
-  it("excludes the multiple-functions step for a single-function event", async () => {
+  it("excludes the multiple-sessions step for a single-session event", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-1/editar"); // seeded with hasSubEvents: false
     await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
 
     next();
-    expect(screen.queryByRole("region", { name: "Varias funciones" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Sesiones" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
   });
 

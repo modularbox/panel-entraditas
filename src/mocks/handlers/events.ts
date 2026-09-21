@@ -137,7 +137,7 @@ function upsertSingleSubEvent(event: Event, startsAt: string | null, endsAt?: st
   db.subEvents.push({
     id: `sub-event-${event.id}`,
     eventId: event.id,
-    name: "Funcion unica",
+    name: "Sesion unica",
     startsAt,
     endsAt: nextEndsAt,
     doorsOpenAt: null,

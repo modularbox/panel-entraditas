@@ -53,7 +53,7 @@ describe("Step4TicketTypes", () => {
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1));
 
     fillTicketDraft("VIP funciones seleccionadas", "30.00", "80");
-    fireEvent.click(screen.getByLabelText("Subeventos concretos"));
+    fireEvent.click(screen.getByLabelText("Sesiones concretas"));
     const sessionChecks = screen.getAllByRole("checkbox");
     fireEvent.click(sessionChecks[0]!);
     fireEvent.click(sessionChecks[1]!);

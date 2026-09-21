@@ -5,7 +5,9 @@ import type { SortingState } from "@tanstack/react-table";
 import type { Customer } from "@entraditas/types";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
+import { Button } from "@/shared/ui/button";
 import { useCustomersQuery } from "./useCustomersQuery";
+import { canConnectCustomerToWeb, connectApiCustomerSession, getWebBase } from "@/shared/lib/entraditasApi";
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 
@@ -15,7 +17,7 @@ export interface CustomersListPageProps {
   detailTo?: (email: string) => string;
 }
 
-function buildColumns(detailTo: (email: string) => string) {
+function buildColumns(detailTo: (email: string) => string, conectar: (email: string) => void, conectandoEmail: string | null) {
   const columnHelper = createColumnHelper<Customer>();
   return [
     columnHelper.accessor("name", {
@@ -40,7 +42,27 @@ function buildColumns(detailTo: (email: string) => string) {
         const fecha = new Date(valor);
         return Number.isNaN(fecha.getTime()) ? <span className="text-muted-foreground">Sin compras</span> : fecha.toLocaleDateString("es-ES");
       }
-    })
+    }),
+    ...(canConnectCustomerToWeb()
+      ? [
+          columnHelper.display({
+            id: "actions",
+            header: "",
+            enableSorting: false,
+            cell: ({ row }) => (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 px-3 text-xs"
+                disabled={conectandoEmail === row.original.email}
+                onClick={() => conectar(row.original.email)}
+              >
+                {conectandoEmail === row.original.email ? "Conectando…" : "Conectar"}
+              </Button>
+            )
+          })
+        ]
+      : [])
   ];
 }
 
@@ -48,11 +70,29 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
   const [sorting, setSorting] = useState<SortingState>([]);
   const [eventId, setEventId] = useState("");
   const [q, setQ] = useState("");
+  const [conectandoEmail, setConectandoEmail] = useState<string | null>(null);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const { data: events = [] } = useEventsQuery();
   const { data: customers = [], isLoading } = useCustomersQuery({ eventId: eventId || undefined, q: q || undefined });
+
+  async function conectar(email: string) {
+    setConnectError(null);
+    setConectandoEmail(email);
+    try {
+      const sesion = await connectApiCustomerSession(email);
+      if (!sesion) {
+        setConnectError("No se pudo abrir la sesión de este cliente en entraditas.com.");
+        return;
+      }
+      window.open(`${getWebBase()}/conectar?token=${encodeURIComponent(sesion.token)}`, "_blank", "noopener,noreferrer");
+    } finally {
+      setConectandoEmail(null);
+    }
+  }
+
   const table = useReactTable({
     data: customers,
-    columns: buildColumns(detailTo),
+    columns: buildColumns(detailTo, conectar, conectandoEmail),
     state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -64,6 +104,11 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="font-display text-2xl font-semibold">{title}</h1>
+        {canConnectCustomerToWeb() && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Con &quot;Conectar&quot; se abre entraditas.com con la sesión de ese cliente, para ver y resolver lo que él ve.
+          </p>
+        )}
       </header>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -76,6 +121,8 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
         <label htmlFor="customer-search-filter" className="sr-only">Buscar</label>
         <input id="customer-search-filter" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre o email" className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm" />
       </div>
+
+      {connectError && <p role="alert">{connectError}</p>}
 
       {isLoading ? (
         <p className="text-muted-foreground">Cargando…</p>
