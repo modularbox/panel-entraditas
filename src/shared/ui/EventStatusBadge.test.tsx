@@ -5,9 +5,9 @@ import { EventStatusBadge } from "./EventStatusBadge";
 
 const cases: { status: Event["status"]; label: string; border: string; bg: string; text: string }[] = [
   { status: "draft", label: "Borrador", border: "border-status-draft", bg: "bg-status-draft-bg", text: "text-status-draft" },
-  { status: "in_review", label: "En revisión", border: "border-status-published", bg: "bg-status-published-bg", text: "text-status-published" },
+  { status: "in_review", label: "En revisión", border: "border-status-cancelled", bg: "bg-status-cancelled-bg", text: "text-status-cancelled" },
   { status: "published", label: "Publicado", border: "border-status-published", bg: "bg-status-published-bg", text: "text-status-published" },
-  { status: "rejected", label: "Rechazado", border: "border-status-cancelled", bg: "bg-status-cancelled-bg", text: "text-status-cancelled" },
+  { status: "rejected", label: "Rechazado", border: "border-status-rejected", bg: "bg-status-rejected-bg", text: "text-status-rejected" },
   { status: "finished", label: "Finalizado", border: "border-status-finished", bg: "bg-status-finished-bg", text: "text-status-finished" }
 ];
 

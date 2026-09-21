@@ -11,9 +11,9 @@ export const EVENT_STATUS_LABEL: Record<Event["status"], string> = {
 
 const STATUS_STYLES: Record<Event["status"], string> = {
   draft: "border-status-draft bg-status-draft-bg text-status-draft",
-  in_review: "border-status-published bg-status-published-bg text-status-published",
+  in_review: "border-status-cancelled bg-status-cancelled-bg text-status-cancelled",
   published: "border-status-published bg-status-published-bg text-status-published",
-  rejected: "border-status-cancelled bg-status-cancelled-bg text-status-cancelled",
+  rejected: "border-status-rejected bg-status-rejected-bg text-status-rejected",
   finished: "border-status-finished bg-status-finished-bg text-status-finished"
 };
 

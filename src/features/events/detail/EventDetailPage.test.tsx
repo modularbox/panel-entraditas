@@ -75,6 +75,15 @@ describe("EventDetailPage", () => {
     expect(await screen.findByText("Evento no encontrado.")).toBeInTheDocument();
   });
 
+  it("switches to the Diseño de entradas tab and shows the ticket editor", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderDetail("event-2");
+    fireEvent.click(await screen.findByRole("button", { name: "Diseño de entradas" }));
+
+    expect(await screen.findByText("Vista previa")).toBeInTheDocument();
+    expect(await screen.findByLabelText(/Datos del titular/)).toBeInTheDocument();
+  });
+
   it("lets a web-retired event (back to draft) be sent to review again from the detail view", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     const token = useSessionStore.getState().token!;

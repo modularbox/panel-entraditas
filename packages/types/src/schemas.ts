@@ -210,6 +210,57 @@ export const EVENT_RULE_DEFAULTS: Required<EventRules> = {
 export const EventStatusSchema = z.enum(["draft", "in_review", "published", "rejected", "finished"]);
 export type EventStatus = z.infer<typeof EventStatusSchema>;
 
+/**
+ * Datos de UNA entrada ya emitida. El emisor los rellena en el momento de la compra
+ * (titular, documento, entradas, total...); el organizador nunca los toca.
+ * Es el contrato que el editor de diseño espera al renderizar la plantilla.
+ */
+export const TicketDesignDataSchema = z.object({
+  titulo: z.string(), // tipo de entrada, se muestra como "Entrada: <titulo>"
+  titular: z.string(),
+  documento: z.string(),
+  tipoEntrada: z.string(),
+  entradas: z.number().int().nonnegative(),
+  total: z.string(),
+  referencia: z.string(), // lote de compra
+  pin: z.string(),
+  qrTexto: z.string() // texto o URL que se codifica en el QR
+});
+export type TicketDesignData = z.infer<typeof TicketDesignDataSchema>;
+
+/**
+ * Diseño de la plantilla de entradas, editado por el organizador en el panel (vista previa A4).
+ *
+ * La plantilla es institucional (azul corporativo, blanco, tipografia moderna) y distingue:
+ * datos del titular, un bloque de informacion del EVENTO, un bloque de la SESION (los antiguos
+ * "visitas" de la plantilla de turismo no aplican aqui) y un bloque legal con terminos.
+ *
+ * Aqui SOLO vive la configuracion visual y los textos que escribe el organizador. La informacion
+ * de la entrada (titular, documento, total, PIN, QR...) no se guarda: la genera el emisor al
+ * comprar. La informacion del evento y de la sesion tampoco: sale del propio evento y subevento.
+ */
+export const TicketDesignSchema = z.object({
+  // Estilo de la plantilla.
+  colorPrimario: z.string(), // azul corporativo (p. ej. #243B8F)
+  fuente: z.enum(["Inter", "Open Sans", "Roboto"]),
+  // Logo de la cabecera: URL o dataURL (SVG/PNG). Va sobre el fondo azul, asi que el logo
+  // deberia leerse en blanco. null oculta el logo y usa la marca por defecto.
+  logo: z.string().nullable(),
+  // Marca de agua centrada del documento, muy transparente (5-8%).
+  marcaAgua: z.string().nullable(),
+  opacidadMarcaAgua: z.number().min(0).max(1),
+  // Bloques de la plantilla que se imprimiran. El contenido de cada bloque lo rellena el emisor.
+  mostrarInformacion: z.boolean(), // datos del titular
+  mostrarQR: z.boolean(),
+  mostrarPIN: z.boolean(),
+  mostrarSesion: z.boolean(), // bloque de sesion (si un pedido lleva sesion)
+  mostrarTerminos: z.boolean(),
+  // Textos fijos de la plantilla.
+  terminos: z.array(z.string()), // bloque legal (numerado)
+  pie: z.string() // texto centrado muy pequeno al pie ("... · Verificacion segura")
+});
+export type TicketDesign = z.infer<typeof TicketDesignSchema>;
+
 export const EventSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -266,6 +317,9 @@ export const EventSchema = z.object({
   // false = no se permite dejar un hueco de exactamente 1 asiento libre entre grupos
   // (ej: en una fila de 14, no se permite grupo de 6 + hueco 1 + grupo de 7).
   allowSingleSeatGaps: z.boolean().optional(),
+  // Diseño de la entrada configurado en el panel. null = no se ha personalizado todavía,
+  // el emisor aplica la plantilla por defecto derivada del evento.
+  ticketDesign: TicketDesignSchema.nullable().optional(),
   createdAt: z.string(),
   publishedAt: z.string().nullable().optional() // set once the event leaves draft status
 });
@@ -282,6 +336,8 @@ export const SubEventSchema = z.object({
   sortOrder: z.number().int()
 });
 export type SubEvent = z.infer<typeof SubEventSchema>;
+
+// Which ticket type an individual seat of a numbered zone is sold as. Seats are identified by
 
 // Which ticket type an individual seat of a numbered zone is sold as. Seats are identified by
 // the label derived from the zone's layout ("A-1"), not by a stored row.

@@ -8,14 +8,10 @@ export interface MenuProps {
   items: NavItem[];
   user: SessionUser | null;
   onLogout: () => void;
-  onResetDemoData?: () => void;
   onReturnToSuperadmin?: () => void;
-  /** Volver a pedir los datos sin recargar la pagina entera. */
-  onRefresh?: () => void;
-  refreshing?: boolean;
 }
 
-export function Menu({ items, user, onLogout, onResetDemoData, onReturnToSuperadmin, onRefresh, refreshing }: MenuProps) {
+export function Menu({ items, user, onLogout, onReturnToSuperadmin }: MenuProps) {
   const location = useLocation();
 
   return (
@@ -59,19 +55,9 @@ export function Menu({ items, user, onLogout, onResetDemoData, onReturnToSuperad
           })}
         </ul>
 
-        {onRefresh ? (
-          <Button variant="outline" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing}>
-            {refreshing ? "Actualizando…" : "Actualizar información"}
-          </Button>
-        ) : null}
         {onReturnToSuperadmin ? (
           <Button variant="outline" onClick={onReturnToSuperadmin}>
             Volver a superadmin
-          </Button>
-        ) : null}
-        {onResetDemoData ? (
-          <Button variant="outline" onClick={onResetDemoData}>
-            Restablecer datos
           </Button>
         ) : null}
         <Button variant="ghost" onClick={onLogout}>

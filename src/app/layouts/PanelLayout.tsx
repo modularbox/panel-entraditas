@@ -1,9 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Menu } from "@/components/Menu";
-import { db, resetDb, sessions } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useInactivityLogout } from "@/shared/auth/useInactivityLogout";
 import { usePermissions } from "@/shared/auth/usePermissions";
@@ -47,44 +46,12 @@ export function PanelLayout() {
     queryClient.clear();
   };
 
-  /**
-   * Volver a pedir los datos, sin recargar la pagina.
-   *
-   * `refetchQueries` y no `clear()`: clear() tira la cache entera y deja cada pantalla en blanco
-   * mientras vuelve a pedir, que se ve como si el panel se hubiera roto. Asi se refresca lo que
-   * hay en pantalla y lo de antes sigue puesto hasta que llega lo nuevo.
-   */
-  const [actualizando, setActualizando] = useState(false);
-  const handleRefresh = async () => {
-    setActualizando(true);
-    try {
-      await queryClient.refetchQueries({ type: "active" });
-    } finally {
-      setActualizando(false);
-    }
-  };
-
-  const handleResetDemoData = () => {
-    if (!window.confirm("¿Restablecer los datos de ejemplo? Se perderán los cambios guardados.")) return;
-    resetDb();
-    const { token, user: currentUser } = useSessionStore.getState();
-    // resetDb clears the in-memory session map; re-register the current session so the
-    // superadmin stays logged in on the freshly re-seeded data.
-    if (token && currentUser && db.users.some((u) => u.id === currentUser.id)) {
-      sessions.set(token, currentUser.id);
-    }
-    queryClient.clear();
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <Menu
         items={visibleItems}
         user={user}
         onLogout={() => logout()}
-        onRefresh={handleRefresh}
-        refreshing={actualizando}
-        onResetDemoData={user?.role === "superadmin" ? handleResetDemoData : undefined}
         onReturnToSuperadmin={impersonatorToken ? handleReturnToSuperadmin : undefined}
       />
       <main className="mx-auto max-w-7xl px-6 py-8">

@@ -36,7 +36,9 @@ export default {
           finished: "hsl(var(--status-finished))",
           "finished-bg": "hsl(var(--status-finished-bg))",
           cancelled: "hsl(var(--status-cancelled))",
-          "cancelled-bg": "hsl(var(--status-cancelled-bg))"
+          "cancelled-bg": "hsl(var(--status-cancelled-bg))",
+          rejected: "hsl(var(--status-rejected))",
+          "rejected-bg": "hsl(var(--status-rejected-bg))"
         }
       },
       fontFamily: {

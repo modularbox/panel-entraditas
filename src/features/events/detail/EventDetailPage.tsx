@@ -13,12 +13,14 @@ import { Step5Publish } from "../wizard/steps/Step5Publish";
 import { SeatingPlanSection } from "../wizard/steps/SeatingPlanSection";
 import { DiscountCodesSection } from "../wizard/steps/DiscountCodesSection";
 import { GatesSection } from "../wizard/steps/GatesSection";
+import { TicketDesignSection } from "@/features/ticketDesign/TicketDesignSection";
 
 const ENABLED_TABS = [
   { key: "general", label: "Información general" },
   { key: "subeventos", label: "Sesiones" },
   { key: "aforos", label: "Aforos y zonas" },
   { key: "tipos", label: "Tipos de entrada" },
+  { key: "diseno", label: "Diseño de entradas" },
   { key: "descuentos", label: "Códigos de descuento" },
   { key: "puertas", label: "Puertas" },
   // Retirar de la web deja el evento en borrador: desde aqui se vuelve a enviar a revision
@@ -113,6 +115,7 @@ export function EventDetailPage() {
         {activeTab === "subeventos" && <Step2Schedule eventId={eventId} onSaved={noop} />}
         {activeTab === "aforos" && <SeatingPlanSection eventId={eventId} />}
         {activeTab === "tipos" && <Step4TicketTypes eventId={eventId} onSaved={noop} />}
+        {activeTab === "diseno" && <TicketDesignSection eventId={eventId} />}
         {activeTab === "descuentos" && <DiscountCodesSection eventId={eventId} />}
         {activeTab === "puertas" && <GatesSection eventId={eventId} />}
         {activeTab === "publicar" && <Step5Publish eventId={eventId} onSaved={noop} />}

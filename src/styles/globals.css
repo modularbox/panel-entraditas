@@ -45,6 +45,8 @@
   --status-finished-bg: 262 60% 93%;
   --status-cancelled: 17 18% 8%;
   --status-cancelled-bg: 39 12% 90%;
+  --status-rejected: 0 68% 40%;
+  --status-rejected-bg: 0 65% 93%;
 
   --radius-sm: 4px;
   --radius-md: 8px;
