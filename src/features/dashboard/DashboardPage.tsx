@@ -19,11 +19,18 @@ import { DATE_RANGE_PRESETS, EMPTY_DASHBOARD_FILTERS, type DashboardFilters } fr
  * Esta franja no: sale de la web publica -cuentas registradas, pedidos cobrados, solicitudes sin
  * atender- y por eso va arriba y separada, para que no se confunda una cosa con la otra.
  */
-function DatosDeLaWeb() {
+function DatosDeLaWeb({ filters }: { filters: DashboardFilters }) {
   const hayApi = canReadFromApi();
   const { data, isLoading } = useQuery({
-    queryKey: ["api-metrics"],
-    queryFn: fetchApiMetrics,
+    // Los filtros entran aquí también. Antes esta franja los ignoraba: se filtraba por un evento y
+    // seguía enseñando el total de la plataforma, sin decir que no le afectaban.
+    queryKey: ["api-metrics", filters],
+    queryFn: () => fetchApiMetrics({
+      organizationId: filters.organizationId || undefined,
+      eventId: filters.eventId || undefined,
+      from: filters.from || undefined,
+      to: filters.to || undefined
+    }),
     enabled: hayApi,
     refetchInterval: 60_000
   });
@@ -51,10 +58,16 @@ function DatosDeLaWeb() {
       </div>
       <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Clientes registrados</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            {data.compradores?.soloDelAlcance ? "Clientes que han comprado" : "Clientes registrados"}
+          </p>
           <p className="font-display text-2xl font-semibold">{dato(data.compradores?.total ?? 0)}</p>
+          {/* Con un filtro puesto solo se pueden contar los compradores de ese alcance: "los
+              registrados" es una cifra de toda la plataforma y mezclarla confundiría. */}
           <p className="text-xs text-muted-foreground">
-            {dato(data.compradores?.sinCompras ?? 0)} sin comprar todavía · {dato(data.compradores?.ultimos7dias ?? 0)} esta semana
+            {data.compradores?.soloDelAlcance
+              ? "Solo los de este filtro"
+              : `${dato(data.compradores?.sinCompras ?? 0)} sin comprar todavía · ${dato(data.compradores?.ultimos7dias ?? 0)} esta semana`}
           </p>
         </div>
         <div>
@@ -66,7 +79,9 @@ function DatosDeLaWeb() {
         </div>
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Eventos publicados</p>
-          <p className="font-display text-2xl font-semibold">{dato(data.eventos?.porEstado?.published ?? 0)}</p>
+          {/* `publicados` y no `porEstado.published`: un evento a la venta o agotado también está
+              publicado, y mirando solo un estado no contaban. */}
+          <p className="font-display text-2xl font-semibold">{dato(data.eventos?.publicados ?? 0)}</p>
           <p className="text-xs text-muted-foreground">{dato(data.eventos?.total ?? 0)} en total</p>
         </div>
         <div>
@@ -140,15 +155,25 @@ export function DashboardPage() {
   const refreshed = new Date(dataUpdatedAt || data.lastUpdated).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
   const funnelBase = data.funnel[0]?.value ?? 1;
   const eventDate = (value: string | null) => value ? new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value)) : "Fecha por confirmar";
+  // Con datos reales se esconde todo lo que hoy no se puede calcular (conversión, origen, embudo,
+  // curva de entrada): hace falta medir visitas y escaneos minuto a minuto, y eso no existe.
+  // Enseñarlos con números puestos a mano, al lado de unos ingresos que sí son ciertos, es lo que
+  // hace que no se sepa de cuáles fiarse.
+  const real = data.esReal;
+  const sinVentas = real && kpis.grossRevenue.value === 0 && kpis.ticketsSold.value === 0;
   return <div className="flex flex-col gap-6">
     <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Resumen operativo</p><h1 className="mt-1 font-display text-3xl font-semibold">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Actualizado a las {refreshed} · sincronización automática cada 15 s</p></div><div className="flex items-center gap-2"><label htmlFor="report-format" className="sr-only">Formato de informe</label><select id="report-format" className="h-10 rounded-md border-2 border-foreground bg-surface px-3 text-sm"><option value="csv">CSV</option><option value="xlsx">XLSX</option><option value="pdf">PDF</option></select><Button onClick={() => exportReport((document.getElementById("report-format") as HTMLSelectElement).value)}>Exportar informe</Button></div></header>
     {exportMessage && <p role="status" className="border-2 border-success bg-success-bg px-4 py-3 text-sm font-semibold">{exportMessage}</p>}{exportError && <p role="alert">{exportError}</p>}
-    <DatosDeLaWeb />
+    <DatosDeLaWeb filters={filters} />
     <FilterBar filters={filters} onChange={setFilters} isSuperadmin={user?.role === "superadmin"} organizations={organizationsQuery.data ?? []} events={eventsQuery.data ?? []} />
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Kpi label="Ingresos brutos" metric={kpis.grossRevenue} format={euro.format} /><Kpi label="Ingresos netos" metric={kpis.netRevenue} format={euro.format} /><Kpi label="Entradas vendidas" metric={kpis.ticketsSold} /><Kpi label="Ticket medio" metric={kpis.averageTicket} format={euro.format} /><Kpi label="Aforo ocupado" metric={kpis.occupancy} format={(value) => `${value}%`} /><Kpi label="Conversión" metric={kpis.conversion} format={(value) => `${value}%`} sample /><Kpi label="Asistencia" metric={kpis.attendance} format={(value) => `${value}%`} sample /><Kpi label="Reembolsos" metric={kpis.refunds} format={euro.format} /></div>
-    <Section title="Detalle por evento" note="Datos del periodo actual"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead className="border-b-2 border-foreground"><tr><th className="px-3 py-3">Evento</th><th className="px-3 py-3">Fecha</th><th className="px-3 py-3">Ingresos brutos</th><th className="px-3 py-3">Ingresos netos</th><th className="px-3 py-3">Entradas vendidas</th><th className="px-3 py-3">Ticket medio</th><th className="px-3 py-3">Aforo</th><th className="px-3 py-3">Conversión</th><th className="px-3 py-3">Asistencia</th><th className="px-3 py-3">Reembolsos</th></tr></thead><tbody>{data.eventMetrics.map((event) => <tr key={event.id} className="border-b border-border last:border-0"><td className="px-3 py-3 font-semibold"><Link to={`/eventos/${event.id}`} className="hover:underline">{event.title}</Link><span className="mt-1 block text-xs font-normal text-muted-foreground">{event.status}</span></td><td className="whitespace-nowrap px-3 py-3">{eventDate(event.startsAt)}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.grossRevenue)}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.netRevenue)}</td><td className="px-3 py-3">{number.format(event.ticketsSold)}</td><td className="whitespace-nowrap px-3 py-3">{event.averageTicket === null ? "—" : euro.format(event.averageTicket)}</td><td className="px-3 py-3">{event.occupancy === null ? "—" : `${event.occupancy}%`}</td><td className="px-3 py-3">{event.conversion}%</td><td className="px-3 py-3">{event.attendance}%</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.refunds)}</td></tr>)}</tbody></table></div></Section>
+    {data.recortadoAlPropio && <p role="status" className="border-2 border-foreground bg-surface px-4 py-3 text-sm">Estás viendo los datos de tu organización: el filtro de organización solo lo usa el superadmin.</p>}
+    {!real && <p className="text-xs text-muted-foreground">Estas cifras salen de los datos de ejemplo del panel. Con sesión en entraditas.com se leen de su base de ventas.</p>}
+    {sinVentas && <p role="status" className="border-2 border-foreground bg-surface px-4 py-3 text-sm">Todavía no hay ventas en entraditas.com con estos filtros. Las cifras están a cero porque no hay nada que contar, no porque falle nada.</p>}
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Kpi label="Ingresos brutos" metric={kpis.grossRevenue} format={euro.format} /><Kpi label="Ingresos netos" metric={kpis.netRevenue} format={euro.format} /><Kpi label="Entradas vendidas" metric={kpis.ticketsSold} /><Kpi label="Ticket medio" metric={kpis.averageTicket} format={euro.format} /><Kpi label="Aforo ocupado" metric={kpis.occupancy} format={(value) => `${value}%`} />{!real && <Kpi label="Conversión" metric={kpis.conversion} format={(value) => `${value}%`} sample />}<Kpi label="Asistencia" metric={kpis.attendance} format={(value) => `${value}%`} sample={!real} /><Kpi label="Reembolsos" metric={kpis.refunds} format={euro.format} /></div>
+    <Section title="Detalle por evento" note="Datos del periodo actual"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead className="border-b-2 border-foreground"><tr><th className="px-3 py-3">Evento</th><th className="px-3 py-3">Fecha</th><th className="px-3 py-3">Ingresos brutos</th><th className="px-3 py-3">Ingresos netos</th><th className="px-3 py-3">Entradas vendidas</th><th className="px-3 py-3">Ticket medio</th><th className="px-3 py-3">Aforo</th><th className="px-3 py-3">Conversión</th><th className="px-3 py-3">Asistencia</th><th className="px-3 py-3">Reembolsos</th></tr></thead><tbody>{data.eventMetrics.map((event) => <tr key={event.id} className="border-b border-border last:border-0"><td className="px-3 py-3 font-semibold"><Link to={`/eventos/${event.id}`} className="hover:underline">{event.title}</Link><span className="mt-1 block text-xs font-normal text-muted-foreground">{event.status}</span></td><td className="whitespace-nowrap px-3 py-3">{eventDate(event.startsAt)}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.grossRevenue)}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.netRevenue)}</td><td className="px-3 py-3">{number.format(event.ticketsSold)}</td><td className="whitespace-nowrap px-3 py-3">{event.averageTicket === null ? "—" : euro.format(event.averageTicket)}</td><td className="px-3 py-3">{event.occupancy === null ? "—" : `${event.occupancy}%`}</td><td className="px-3 py-3">{event.conversion === null ? "—" : `${event.conversion}%`}</td><td className="px-3 py-3">{event.attendance === null ? "—" : `${event.attendance}%`}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.refunds)}</td></tr>)}</tbody></table></div></Section>
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]"><Section title="Ventas acumuladas" note="Incluye proyección"><LineChart points={data.salesTimeline} /></Section><Section title="Ventas por tipo" note="Mix de producto">{data.ticketMix.length === 0 ? <EmptyState /> : <HorizontalBars items={data.ticketMix} />}</Section></div>
-    <div className="grid gap-6 lg:grid-cols-2"><Section title="Aforo por evento" note="Vendidas / capacidad">{data.occupancy.length === 0 ? <EmptyState /> : <div className="flex flex-col gap-4">{data.occupancy.map((item) => <div key={item.label}><div className="mb-1 flex justify-between gap-3 text-xs"><span className="truncate">{item.label}</span><strong>{item.sold} / {item.capacity}</strong></div><div className="h-3 bg-muted"><div className="h-full bg-accent" style={{ width: `${Math.min((item.sold / item.capacity) * 100, 100)}%` }} /></div></div>)}</div>}</Section><Section title="Curva de entrada" note="Personas acumuladas"><LineChart points={data.attendanceCurve.map((point) => ({ label: point.label, actual: point.value }))} /></Section></div>
-    <div className="grid gap-6 lg:grid-cols-3"><Section title="Canales de venta">{data.channels.length === 0 ? <EmptyState /> : <Donut channels={data.channels} />}</Section><Section title="Origen de compradores" note="Índice relativo" sample><HorizontalBars items={data.geoHeat} /></Section><Section title="Embudo de conversión" sample><HorizontalBars items={data.funnel.map((item) => ({ label: item.label, value: Math.round((item.value / funnelBase) * 100) }))} /></Section></div>
+    <div className={`grid gap-6 ${real ? "" : "lg:grid-cols-2"}`}><Section title="Aforo por evento" note="Vendidas / capacidad">{data.occupancy.length === 0 ? <EmptyState message={real ? "Ningún evento de estos filtros tiene aforo configurado todavía." : undefined} /> : <div className="flex flex-col gap-4">{data.occupancy.map((item) => <div key={item.label}><div className="mb-1 flex justify-between gap-3 text-xs"><span className="truncate">{item.label}</span><strong>{item.sold} / {item.capacity}</strong></div><div className="h-3 bg-muted"><div className="h-full bg-accent" style={{ width: `${Math.min((item.sold / item.capacity) * 100, 100)}%` }} /></div></div>)}</div>}</Section>{!real && <Section title="Curva de entrada" note="Personas acumuladas"><LineChart points={data.attendanceCurve.map((point) => ({ label: point.label, actual: point.value }))} /></Section>}</div>
+    <div className={`grid gap-6 ${real ? "" : "lg:grid-cols-3"}`}><Section title="Canales de venta">{data.channels.length === 0 ? <EmptyState message={real ? "Todavía no hay ventas por las que repartir canales." : undefined} /> : <Donut channels={data.channels} />}</Section>{!real && <Section title="Origen de compradores" note="Índice relativo" sample><HorizontalBars items={data.geoHeat} /></Section>}{!real && <Section title="Embudo de conversión" sample><HorizontalBars items={data.funnel.map((item) => ({ label: item.label, value: Math.round((item.value / funnelBase) * 100) }))} /></Section>}</div>
+    {real && <p className="text-xs text-muted-foreground">Conversión, origen de compradores, embudo y curva de entrada no aparecen con datos reales: harían falta medidas de visitas y de escaneo minuto a minuto que hoy no se recogen. Antes que enseñarlos inventados, no se enseñan.</p>}
   </div>;
 }

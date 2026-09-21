@@ -341,12 +341,42 @@ export interface ApiOrganizerApplication {
   reviewedAt: string | null;
 }
 
+/** Un evento con lo que lleva vendido, tal y como lo calcula la API sobre la base. */
+export interface ApiEventMetrics {
+  id: string;
+  title: string;
+  status: string;
+  startsAt: string | null;
+  organizationId: string | null;
+  gross: number;
+  net: number;
+  refunded: number;
+  orders: number;
+  tickets: number;
+  capacity: number;
+  soldSeats: number;
+  /** Entradas emitidas y escaneadas: de aqui sale la asistencia, sin inventarla. */
+  issued: number;
+  used: number;
+}
+
+/** Los filtros que la API dice haber aplicado de verdad, que no siempre son los que se pidieron. */
+export interface ApiMetricsFilters {
+  organizacion: string | null;
+  evento: string | null;
+  desde: string | null;
+  hasta: string | null;
+  /** Se pidio otra organizacion y se recorto a la propia de quien pregunta. */
+  recortadoAlPropio: boolean;
+}
+
 /** Los numeros del dashboard, calculados por la API sobre la base de datos. */
 export interface ApiMetrics {
   disponible: boolean;
   motivo?: string;
-  compradores?: { total: number; sinCompras: number; ultimos7dias: number };
-  eventos?: { total: number; porEstado: Record<string, number> };
+  filtros?: ApiMetricsFilters;
+  compradores?: { total: number; sinCompras: number; ultimos7dias: number; soloDelAlcance: boolean };
+  eventos?: { total: number; porEstado: Record<string, number>; publicados: number };
   ventas?: {
     pedidos: number;
     bruto: number;
@@ -355,10 +385,22 @@ export interface ApiMetrics {
     entradas: number;
     ticketMedio: number;
     porCanal: { channel: string; orders: number; net: number }[];
+    porTipoDeEntrada: { name: string; tickets: number; amount: number }[];
+    porDia: { date: string; net: number; orders: number; cumulative: number }[];
   };
+  aforo?: { capacidad: number; vendidas: number; ocupacion: number | null };
+  asistencia?: { emitidas: number; usadas: number; porcentaje: number | null };
   organizadores?: { organizaciones: number; solicitudesPendientes: number };
-  ultimosEventos?: { id: string; title: string; status: string; startsAt: string | null; net: number; orders: number }[];
+  porEvento?: ApiEventMetrics[];
   actualizado?: string;
+}
+
+/** Los filtros del dashboard, en el idioma de la barra de arriba. */
+export interface FiltrosDeMetricas {
+  organizationId?: string;
+  eventId?: string;
+  from?: string;
+  to?: string;
 }
 
 /** Si se puede leer de la API ahora mismo: hay base configurada y sesion abierta en ella. */
@@ -461,6 +503,12 @@ export async function rejectApiOrganizerApplication(id: string): Promise<void> {
   await request(`/v1/panel/organizer-applications/${encodeURIComponent(id)}/reject`, { method: "POST" });
 }
 
-export async function fetchApiMetrics(): Promise<ApiMetrics> {
-  return request<ApiMetrics>("/v1/panel/metrics");
+export async function fetchApiMetrics(filtros: FiltrosDeMetricas = {}): Promise<ApiMetrics> {
+  const params = new URLSearchParams();
+  if (filtros.organizationId) params.set("organizationId", filtros.organizationId);
+  if (filtros.eventId) params.set("eventId", filtros.eventId);
+  if (filtros.from) params.set("from", filtros.from);
+  if (filtros.to) params.set("to", filtros.to);
+  const query = params.toString();
+  return request<ApiMetrics>(`/v1/panel/metrics${query ? `?${query}` : ""}`);
 }

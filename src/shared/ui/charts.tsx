@@ -1,6 +1,7 @@
 export interface MetricValue {
   value: number;
-  change: number;
+  /** Variación respecto al periodo anterior, o `null` cuando no hay con qué comparar. */
+  change: number | null;
   trend: "up" | "down";
 }
 
@@ -13,7 +14,13 @@ export function SampleDataBadge() {
 }
 
 export function Kpi({ label, metric, format = (value: number) => number.format(value), sample = false }: { label: string; metric: MetricValue; format?: (value: number) => string; sample?: boolean }) {
-  return <article className="border-2 border-foreground bg-surface p-4 shadow-flat"><p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}{sample && <SampleDataBadge />}</p><p className="mt-2 font-display text-2xl font-semibold">{format(metric.value)}</p><p className={`mt-1 text-xs font-semibold ${metric.trend === "up" ? "text-success" : "text-primary"}`}>{metric.change > 0 ? "+" : ""}{metric.change}% vs periodo anterior</p></article>;
+  return <article className="border-2 border-foreground bg-surface p-4 shadow-flat"><p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}{sample && <SampleDataBadge />}</p><p className="mt-2 font-display text-2xl font-semibold">{format(metric.value)}</p>{
+    // Sin variación no se pinta una flecha vacía ni un "0%": se dice que no hay con qué comparar.
+    // Con datos reales es lo normal hoy, porque nadie calcula todavía el periodo anterior.
+    metric.change === null
+      ? <p className="mt-1 text-xs text-muted-foreground">Sin comparación con el periodo anterior</p>
+      : <p className={`mt-1 text-xs font-semibold ${metric.trend === "up" ? "text-success" : "text-primary"}`}>{metric.change > 0 ? "+" : ""}{metric.change}% vs periodo anterior</p>
+  }</article>;
 }
 
 export function Section({ title, note, sample = false, children }: { title: string; note?: string; sample?: boolean; children: React.ReactNode }) {
