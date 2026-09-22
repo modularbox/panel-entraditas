@@ -94,7 +94,9 @@ async function reunirPayload(eventId: string, token: string): Promise<EventoReun
 
     // Solo llegan aqui eventos aprobados, que es lo unico que la web puede vender: "publicado".
     const payload = toApiEventPayload(
-      toPublicEvent({ event, organization, venue, zones, subEvents, ticketTypes, pools, discountCodes })
+      toPublicEvent({ event, organization, venue, zones, subEvents, ticketTypes, pools, discountCodes }),
+      "published",
+      event.organizationId ?? null
     );
     return { event, payload };
   } catch {

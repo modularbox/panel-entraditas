@@ -20,6 +20,14 @@ export interface ApiEventPayload extends PublicEvent {
   /** Fecha y hora separadas, obligatorias cuando `dateStatus` es "confirmed". */
   date: string | null;
   time: string | null;
+  /**
+   * De quién es el evento.
+   *
+   * Normalmente la API lo saca de la sesión que publica y esto le sobra. Hace falta cuando
+   * publica un superadmin, que no tiene organización propia: sin esto el evento quedaría sin
+   * dueño, y entonces su organizador no vería ni sus ventas ni sus clientes.
+   */
+  organizationId: string | null;
 }
 
 /** La web no sabe representar cupo ilimitado; se usa un tope alto en vez de fingir agotado. */
@@ -43,7 +51,8 @@ export function splitStartsAt(startsAt: string | null): { date: string | null; t
 
 export function toApiEventPayload(
   event: PublicEvent,
-  status: ApiEventPayload["status"] = "published"
+  status: ApiEventPayload["status"] = "published",
+  organizationId: string | null = null
 ): ApiEventPayload {
   const { date, time } = splitStartsAt(event.startsAt);
   return {
@@ -51,6 +60,7 @@ export function toApiEventPayload(
     status,
     date,
     time,
+    organizationId,
     ticketTiers: event.tiers.map((tier) => ({
       id: tier.id,
       name: tier.name,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
 import type { SortingState } from "@tanstack/react-table";
@@ -50,12 +50,16 @@ export function OrdersListPage() {
   const [channel, setChannel] = useState("");
   const [q, setQ] = useState("");
   const { data: events = [] } = useEventsQuery();
-  const { data: orders = [], isLoading } = useOrdersQuery({
+  const { data, isLoading } = useOrdersQuery({
     eventId: eventId || undefined,
     status: status || undefined,
     channel: channel || undefined,
     q: q || undefined
   });
+  // useMemo, y no `data?.items ?? []`: una lista nueva en cada render cambia la identidad de
+  // `data` para la tabla y la deja redibujandose sin parar.
+  const orders = useMemo(() => data?.items ?? [], [data]);
+  const esReal = data?.esReal ?? false;
   const table = useReactTable({
     data: orders,
     columns,
@@ -70,6 +74,12 @@ export function OrdersListPage() {
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="font-display text-2xl font-semibold">Pedidos</h1>
+        {esReal && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Compras reales de entraditas.com. El cobro todavía no pasa por una pasarela: el pedido se guarda
+            como pagado, y por eso aún no se puede reembolsar desde aquí.
+          </p>
+        )}
       </header>
 
       <div className="flex flex-wrap items-center gap-3">

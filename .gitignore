@@ -6,3 +6,6 @@ coverage
 playwright-report
 test-results
 .env
+
+# Registros del servidor de desarrollo: son de la maquina de cada uno, no del proyecto.
+*.log

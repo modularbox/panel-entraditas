@@ -408,6 +408,75 @@ export function canReadFromApi(): boolean {
   return isApiConfigured() && getApiToken() !== null;
 }
 
+/** Una linea de un pedido, con el nombre y el precio copiados en el momento de la compra. */
+export interface ApiOrderLine {
+  id: string;
+  ticketTypeId: string | null;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+}
+
+/** Una entrada emitida. El codigo del QR no viaja: en la base solo esta su hash. */
+export interface ApiOrderTicket {
+  id: string;
+  orderItemId: string | null;
+  reference: string;
+  seat: string | null;
+  status: string;
+  scanCount?: number;
+}
+
+/** Un pedido de verdad, de la base de ventas de entraditas.com. Importes en centimos. */
+export interface ApiPanelOrder {
+  id: string;
+  number: string;
+  eventId: string;
+  organizationId: string | null;
+  eventTitle: string;
+  eventStartsAt: string | null;
+  status: string;
+  channel: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string | null;
+  subtotal: number;
+  discount: number;
+  serviceFee: number;
+  total: number;
+  refunded: number;
+  currency: string;
+  createdAt: string | null;
+  items: ApiOrderLine[];
+  tickets: ApiOrderTicket[];
+}
+
+export interface FiltrosDePedidos {
+  eventId?: string;
+  from?: string;
+  to?: string;
+  /** Un pedido concreto, para abrir su ficha. */
+  id?: string;
+}
+
+/**
+ * Los pedidos que esta sesion puede ver.
+ *
+ * La API los recorta a la organizacion de quien pregunta, igual que las metricas: aqui no hace
+ * falta pedirlo, y pedir otra no serviria de nada.
+ */
+export async function fetchApiOrders(filtros: FiltrosDePedidos = {}): Promise<ApiPanelOrder[]> {
+  const params = new URLSearchParams();
+  if (filtros.eventId) params.set("eventId", filtros.eventId);
+  if (filtros.from) params.set("from", filtros.from);
+  if (filtros.to) params.set("to", filtros.to);
+  if (filtros.id) params.set("id", filtros.id);
+  const query = params.toString();
+  const result = await request<{ items: ApiPanelOrder[] }>(`/v1/panel/orders${query ? `?${query}` : ""}`);
+  return result.items ?? [];
+}
+
 export async function fetchApiCustomers(search?: string): Promise<ApiCustomer[]> {
   const query = search ? `?q=${encodeURIComponent(search)}` : "";
   const result = await request<{ items: ApiCustomer[] }>(`/v1/panel/customers${query}`);

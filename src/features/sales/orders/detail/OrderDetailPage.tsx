@@ -8,8 +8,10 @@ import { Button } from "@/shared/ui/button";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
+import { canReadFromApi, fetchApiOrders } from "@/shared/lib/entraditasApi";
+import { pedidoDesdeLaApi } from "../desdeLaApi";
 
-type OrderDetail = Order & { items: OrderItem[]; refunds: Refund[] };
+type OrderDetail = Order & { items: OrderItem[]; refunds: Refund[]; esReal?: boolean };
 
 const STATUS_LABELS: Record<Order["status"], string> = {
   pending: "Pendiente",
@@ -103,15 +105,26 @@ export function OrderDetailPage() {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
 
+  // Con sesión en la API la ficha sale de la base de ventas; sin ella, de los datos de ejemplo.
+  // Un pedido de verdad no trae reembolsos porque todavía no hay por dónde hacerlos: se dice.
+  const desdeApi = canReadFromApi();
   const { data: order, isLoading, error } = useQuery({
-    queryKey: ["order", orderId],
-    queryFn: () => apiClient.get<OrderDetail>(`/orders/${orderId}`, { token: token! }),
+    queryKey: ["order", orderId, desdeApi],
+    queryFn: async (): Promise<OrderDetail | null> => {
+      if (desdeApi) {
+        const [pedido] = await fetchApiOrders({ id: orderId });
+        return pedido ? { ...pedidoDesdeLaApi(pedido), refunds: [], esReal: true } : null;
+      }
+      return apiClient.get<OrderDetail>(`/orders/${orderId}`, { token: token! });
+    },
     enabled: Boolean(token),
     retry: false
   });
 
   if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;
-  if (error instanceof AppError && error.code === "NOT_FOUND") {
+  // Sin pedido y sin error tambien es un 404: la API devuelve una lista vacia cuando el pedido no
+  // existe o no es de esta organizacion. Dejarlo en blanco parecia que la pantalla se habia roto.
+  if (!order || (error instanceof AppError && error.code === "NOT_FOUND")) {
     return (
       <div className="rounded-lg border-2 border-dashed border-border bg-surface-alt p-10 text-center">
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Error 404</p>
@@ -119,7 +132,6 @@ export function OrderDetailPage() {
       </div>
     );
   }
-  if (!order) return null;
 
   const remaining = order.total - order.refundedAmount;
 
@@ -188,7 +200,12 @@ export function OrderDetailPage() {
 
       <section className="rounded-lg border-2 border-foreground bg-surface p-5 shadow-flat">
         <h2 className="font-display text-lg font-semibold">Reembolsos</h2>
-        {order.refunds.length === 0 ? (
+        {order.esReal ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Todavía no se puede reembolsar desde aquí: el cobro no pasa por una pasarela, así que no hay nada
+            que devolver. Llegará con el pago real.
+          </p>
+        ) : order.refunds.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">Este pedido no tiene reembolsos.</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2 text-sm">
@@ -201,7 +218,7 @@ export function OrderDetailPage() {
           </ul>
         )}
 
-        {remaining > 0 && (order.status === "paid" || order.status === "partially_refunded") && (
+        {!order.esReal && remaining > 0 && (order.status === "paid" || order.status === "partially_refunded") && (
           <Can do="orders:refund">
             <RefundForm
               orderId={order.id}
