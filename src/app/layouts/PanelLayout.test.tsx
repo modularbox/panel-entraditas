@@ -5,11 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ROLE_BASE_PERMISSIONS, type Permission } from "@/shared/auth/permissions";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient } from "@/shared/lib/apiClient";
-import { db, resetDb, sessions, STORAGE_KEY } from "@/mocks/state";
+import { resetDb } from "@/mocks/state";
 import type { SessionResponse, SessionUser } from "@/shared/auth/sessionStore";
 import { PanelLayout } from "./PanelLayout";
 
-const superAdminUser: SessionUser = { id: "user-superadmin", email: "superadmin@entraditas.com", fullName: "Super Admin", role: "superadmin", organizationId: null };
 const organizadorUser: SessionUser = { id: "user-admin", email: "admin@entraditas.com", fullName: "Organizador de Producciones Norte", role: "organizador", organizationId: "org-1" };
 
 function renderLayout() {
@@ -81,20 +80,6 @@ describe("PanelLayout navigation", () => {
     expect(labels).toEqual(["Control de accesos", "Eventos"]);
   });
 
-  it("shows the reset data button only to a superadmin", () => {
-    setRole("superadmin");
-    useSessionStore.setState({ user: superAdminUser });
-    renderLayout();
-    expect(screen.getByRole("button", { name: "Restablecer datos" })).toBeInTheDocument();
-  });
-
-  it("hides the reset data button for non-superadmin roles", () => {
-    setRole("organizador");
-    useSessionStore.setState({ user: organizadorUser });
-    renderLayout();
-    expect(screen.queryByRole("button", { name: "Restablecer datos" })).not.toBeInTheDocument();
-  });
-
   it("hides the return-to-superadmin button for a direct login", () => {
     setRole("organizador");
     useSessionStore.setState({ user: organizadorUser });
@@ -114,18 +99,5 @@ describe("PanelLayout navigation", () => {
     await waitFor(() => expect(useSessionStore.getState().token).toBe(superadminToken));
     expect(useSessionStore.getState().user?.role).toBe("superadmin");
     expect(useSessionStore.getState().impersonatorToken).toBeNull();
-  });
-
-  it("resets the demo data from the button but keeps the superadmin logged in", () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    setRole("superadmin");
-    useSessionStore.setState({ user: superAdminUser, token: "token-superadmin" });
-    renderLayout();
-    db.events[0]!.title = "Título editado";
-    fireEvent.click(screen.getByRole("button", { name: "Restablecer datos" }));
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
-    expect(db.events[0]!.title).not.toBe("Título editado");
-    expect(db.events).toHaveLength(13);
-    expect(sessions.get("token-superadmin")).toBe("user-superadmin");
   });
 });

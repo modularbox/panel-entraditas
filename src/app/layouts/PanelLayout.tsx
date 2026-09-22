@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Menu } from "@/components/Menu";
-import { db, resetDb, sessions } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useInactivityLogout } from "@/shared/auth/useInactivityLogout";
 import { usePermissions } from "@/shared/auth/usePermissions";
@@ -64,18 +63,6 @@ export function PanelLayout() {
     }
   };
 
-  const handleResetDemoData = () => {
-    if (!window.confirm("¿Restablecer los datos de ejemplo? Se perderán los cambios guardados.")) return;
-    resetDb();
-    const { token, user: currentUser } = useSessionStore.getState();
-    // resetDb clears the in-memory session map; re-register the current session so the
-    // superadmin stays logged in on the freshly re-seeded data.
-    if (token && currentUser && db.users.some((u) => u.id === currentUser.id)) {
-      sessions.set(token, currentUser.id);
-    }
-    queryClient.clear();
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <Menu
@@ -84,7 +71,6 @@ export function PanelLayout() {
         onLogout={() => logout()}
         onRefresh={handleRefresh}
         refreshing={actualizando}
-        onResetDemoData={user?.role === "superadmin" ? handleResetDemoData : undefined}
         onReturnToSuperadmin={impersonatorToken ? handleReturnToSuperadmin : undefined}
       />
       <main className="mx-auto max-w-7xl px-6 py-8">

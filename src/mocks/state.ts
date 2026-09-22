@@ -120,7 +120,7 @@ function ensureSeedAccounts(database: Database): Database {
 // Los roles pasaron de cuatro (superadmin/admin/user/subuser) a tres. Un snapshot guardado antes
 // del cambio trae los nombres viejos, y un rol que ya no existe no tiene permisos base: la sesión
 // se quedaría sin poder hacer nada (o reventando al construirlos). Se renombran al cargar, que es
-// más amable que obligar a "Restablecer datos de demostración" y perder lo que hubiera hecho.
+// más amable que declarar el snapshot inservible y perder lo que hubiera hecho.
 const ROLES_VIEJOS: Record<string, RoleSlug> = {
   admin: "organizador",
   user: "suborganizador",

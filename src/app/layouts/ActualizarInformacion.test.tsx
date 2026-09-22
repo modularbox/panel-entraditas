@@ -102,7 +102,5 @@ describe("Actualizar información", () => {
     pintar(async () => "x");
 
     expect(screen.getByRole("button", { name: "Actualizar información" })).toBeInTheDocument();
-    // Restablecer los datos de ejemplo sigue siendo solo del superadmin.
-    expect(screen.queryByRole("button", { name: "Restablecer datos" })).not.toBeInTheDocument();
   });
 });

@@ -268,7 +268,7 @@ export function TicketDesignSection({ eventId }: { eventId: string | null }) {
               value={terminosText}
               onChange={(e) => setTerminosText(e.target.value)}
               rows={8}
-              className="max-w-none"
+              className="w-full"
             />
             <label htmlFor="td-pie">Pie del documento</label>
             <input id="td-pie" value={draft.pie} onChange={(e) => update("pie", e.target.value)} />
