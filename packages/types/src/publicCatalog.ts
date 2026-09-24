@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { TicketDesign } from "./schemas";
 
 /**
  * The contract between the panel and the public buyer site.
@@ -218,6 +219,13 @@ export const PublicEventSchema = z.object({
   discountCodes: z.array(PublicDiscountCodeSchema),
   matchup: PublicMatchupSchema.nullable(),
   organizerName: z.string().nullable(),
-  publishedAt: z.string().nullable()
+  publishedAt: z.string().nullable(),
+  /**
+   * Diseño de la entrada configurado en el panel (logo, colores, textos, bloques). La API lo
+   * aplica al emitir el PDF: sin él, la plantilla sale con la marca por defecto. Se manda con el
+   * contrato público porque la entrada se emite al comprar, y comprar es cosa de la web, no del
+   * panel.
+   */
+  ticketDesign: z.custom<TicketDesign>().nullable()
 });
 export type PublicEvent = z.infer<typeof PublicEventSchema>;

@@ -265,6 +265,7 @@ export function toPublicEvent(input: PublishInput): PublicEvent {
         }
       : null,
     organizerName: organization?.name ?? null,
-    publishedAt: event.publishedAt ?? null
+    publishedAt: event.publishedAt ?? null,
+    ticketDesign: event.ticketDesign ?? null
   };
 }
