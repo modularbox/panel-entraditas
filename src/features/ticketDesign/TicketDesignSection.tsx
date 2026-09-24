@@ -69,7 +69,12 @@ function FileControl({
   );
 }
 
-export function TicketDesignSection({ eventId }: { eventId: string | null }) {
+export interface TicketDesignSectionProps {
+  eventId: string | null;
+  onValidationChange?: (saved: boolean) => void;
+}
+
+export function TicketDesignSection({ eventId, onValidationChange }: TicketDesignSectionProps) {
   const token = useSessionStore((s) => s.token);
   const { data, isLoading, error } = useTicketDesignQuery(eventId);
   const { data: subEvents = [] } = useSubEventsQuery(eventId);
@@ -80,6 +85,12 @@ export function TicketDesignSection({ eventId }: { eventId: string | null }) {
     retry: false
   });
   const save = useSaveTicketDesign(eventId);
+  const disenoGuardado = Boolean(event?.ticketDesign) || save.isSuccess;
+
+  useEffect(() => {
+    onValidationChange?.(disenoGuardado);
+  }, [disenoGuardado, onValidationChange]);
+
   const [draft, setDraft] = useState<TicketDesign | null>(null);
   const [terminosText, setTerminosText] = useState("");
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);

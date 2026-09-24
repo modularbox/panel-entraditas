@@ -1,15 +1,15 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { db, resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { TicketDesignSection } from "./TicketDesignSection";
 
-function renderSection(eventId: string) {
+function renderSection(eventId: string, onValidationChange?: (saved: boolean) => void) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <TicketDesignSection eventId={eventId} />
+      <TicketDesignSection eventId={eventId} onValidationChange={onValidationChange} />
     </QueryClientProvider>
   );
 }
@@ -48,6 +48,19 @@ describe("TicketDesignSection", () => {
     await waitFor(() => {
       expect(db.events.find((e) => e.id === "event-2")!.ticketDesign?.mostrarQR).toBe(false);
     });
+  });
+
+  it("reports the design as not saved until it is saved, then as saved", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    const onValidationChange = vi.fn();
+    renderSection("event-2", onValidationChange);
+
+    await screen.findByLabelText("Tipografía");
+    await waitFor(() => expect(onValidationChange).toHaveBeenCalledWith(false));
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar diseño" }));
+    await screen.findByText("Diseño de la entrada guardado.");
+    await waitFor(() => expect(onValidationChange).toHaveBeenCalledWith(true));
   });
 
   it("hides the QR and PIN from the preview when their blocks are disabled", async () => {

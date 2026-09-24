@@ -190,6 +190,11 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
       detail: hasTicketTypes ? "Hay al menos un tipo de entrada" : "Falta crear al menos un tipo de entrada"
     },
     {
+      label: "Diseño de la entrada",
+      ok: Boolean(event?.ticketDesign),
+      detail: event?.ticketDesign ? "Plantilla de la entrada guardada" : "Falta guardar el diseño de la entrada en el paso anterior"
+    },
+    {
       label: "Plano y zonas",
       ok:
         sellableZones.length === 0 ||

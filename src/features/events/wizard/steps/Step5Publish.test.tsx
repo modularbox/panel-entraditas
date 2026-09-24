@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { db, demoPasswordFor, resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { defaultTicketDesign } from "@/mocks/handlers/ticketDesign";
 import { buildSeatGrid, type SeatRowSpec } from "./seatMap";
 import { Step5Publish } from "./Step5Publish";
 
@@ -54,8 +55,10 @@ describe("Step5Publish", () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     db.events.find((event) => event.id === "event-3")!.location = "Teatro Principal";
     db.events.find((event) => event.id === "event-3")!.locality = "Alicante";
+    db.events.find((event) => event.id === "event-3")!.ticketDesign = defaultTicketDesign();
     renderStep("event-3");
     await waitFor(() => expect(screen.getByText(/Tipos de entrada/)).toHaveTextContent("OK"));
+    await waitFor(() => expect(screen.getByText(/Diseño de la entrada/)).toHaveTextContent("OK"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Enviar a revision" })).toBeEnabled());
 
     fireEvent.click(screen.getByRole("button", { name: "Enviar a revision" }));
@@ -112,6 +115,7 @@ describe("Step5Publish", () => {
     await useSessionStore.getState().login("admin@entraditas.com", demoPasswordFor("admin@entraditas.com"));
     db.events.find((event) => event.id === "event-3")!.location = "Teatro Principal";
     db.events.find((event) => event.id === "event-3")!.locality = "Alicante";
+    db.events.find((event) => event.id === "event-3")!.ticketDesign = defaultTicketDesign();
 
     const seatRows: SeatRowSpec[] = Array.from({ length: 10 }, () => ({ slots: 10 }));
     const zone = {

@@ -14,6 +14,7 @@ import { Step5Publish } from "./steps/Step5Publish";
 import { SeatingPlanSection } from "./steps/SeatingPlanSection";
 import { DiscountCodesSection } from "./steps/DiscountCodesSection";
 import { GatesSection } from "./steps/GatesSection";
+import { TicketDesignSection } from "@/features/ticketDesign/TicketDesignSection";
 
 function useEventQuery(eventId: string | null) {
   const token = useSessionStore((s) => s.token);
@@ -24,7 +25,7 @@ function useEventQuery(eventId: string | null) {
   });
 }
 
-type StepKey = "info" | "subeventos" | "tipos" | "plano" | "descuentos" | "puertas" | "publicar";
+type StepKey = "info" | "subeventos" | "tipos" | "plano" | "descuentos" | "puertas" | "diseno" | "publicar";
 
 interface WizardStep {
   key: StepKey;
@@ -55,6 +56,7 @@ const ALL_STEPS: WizardStep[] = [
   { key: "plano", label: "Asientos", needsEventId: true },
   { key: "descuentos", label: "Codigos de descuento", needsEventId: true },
   { key: "puertas", label: "Puertas", needsEventId: true },
+  { key: "diseno", label: "Diseño de la entrada", needsEventId: true },
   { key: "publicar", label: "Publicar evento", needsEventId: true }
 ];
 
@@ -67,6 +69,7 @@ export function EventWizardPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [planoValid, setPlanoValid] = useState(true);
   const [tiposValid, setTiposValid] = useState(false);
+  const [disenoValid, setDisenoValid] = useState(false);
 
   useEffect(() => {
     // ":id/nuevo" route means "start a fresh draft"; any other id resumes an existing event.
@@ -81,6 +84,7 @@ export function EventWizardPage() {
     setStepIndex(0);
     setPlanoValid(true);
     setTiposValid(false);
+    setDisenoValid(false);
   }, [params.id, setEventId, reset]);
 
   // "Sesiones" solo aparece si el evento las tiene, y eso se decide al final del paso 1.
@@ -118,7 +122,8 @@ export function EventWizardPage() {
               activeIndex >= steps.length - 1 ||
               !canVisitStep(nextStep) ||
               (activeStep.key === "plano" && !planoValid) ||
-              (activeStep.key === "tipos" && !tiposValid)
+              (activeStep.key === "tipos" && !tiposValid) ||
+              (activeStep.key === "diseno" && !disenoValid)
             }
             onClick={() => setStepIndex((i) => Math.min(steps.length - 1, i + 1))}
           >
@@ -165,6 +170,9 @@ export function EventWizardPage() {
         {activeStep.key === "plano" && <SeatingPlanSection eventId={eventId} onValidationChange={setPlanoValid} />}
         {activeStep.key === "descuentos" && <DiscountCodesSection eventId={eventId} />}
         {activeStep.key === "puertas" && <GatesSection eventId={eventId} />}
+        {activeStep.key === "diseno" && (
+          <TicketDesignSection eventId={eventId} onValidationChange={setDisenoValid} />
+        )}
         {activeStep.key === "publicar" && <Step5Publish eventId={eventId} onSaved={setEventId} />}
       </section>
     </div>

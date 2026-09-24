@@ -36,6 +36,7 @@ const PASOS_SESION_UNICA = [
   "Asientos",
   "Codigos de descuento",
   "Puertas",
+  "Diseño de la entrada",
   "Publicar evento"
 ];
 
@@ -55,7 +56,7 @@ describe("EventWizardPage", () => {
     expect(screen.getByTestId("wizard-event-id")).toHaveTextContent("sin-id");
     expect(screen.queryByRole("heading", { name: "Antes de crear el evento" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Informaci.n del evento/ })).toBeInTheDocument();
-    expect(screen.getByText(/Paso 1 de 6/)).toBeInTheDocument();
+    expect(screen.getByText(/Paso 1 de 7/)).toBeInTheDocument();
   });
 
   it("recupera los pasos de descuentos y puertas, en su orden", async () => {
@@ -87,7 +88,8 @@ describe("EventWizardPage", () => {
 
     expect(screen.getByRole("button", { name: "2. Tipos de entrada" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "4. Codigos de descuento" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "6. Publicar evento" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "6. Diseño de la entrada" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "7. Publicar evento" })).toBeDisabled();
   });
 
   // Los limites de compra y los asientos sueltos ya no se ajustan dentro de los pasos: los
@@ -95,7 +97,7 @@ describe("EventWizardPage", () => {
   it("el paso de tipos de entrada no repite los ajustes del cuestionario previo", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar");
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
 
     next();
     expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
@@ -103,24 +105,40 @@ describe("EventWizardPage", () => {
     expect(screen.queryByLabelText("Máximo por cliente")).not.toBeInTheDocument();
   });
 
-it("los pasos 4, 5 y 6 son descuentos, puertas y publicar", async () => {
+it("los pasos 4, 5, 6 y 7 son descuentos, puertas, diseño y publicar", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar");
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
 
     fireEvent.click(screen.getByRole("button", { name: "4. Codigos de descuento" }));
     expect(screen.getByRole("region", { name: "Codigos de descuento" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "5. Puertas" }));
     expect(screen.getByRole("region", { name: "Puertas" })).toBeInTheDocument();
-fireEvent.click(screen.getByRole("button", { name: "6. Publicar evento" }));
+    fireEvent.click(screen.getByRole("button", { name: "6. Diseño de la entrada" }));
+    expect(screen.getByRole("region", { name: "Diseño de la entrada" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "7. Publicar evento" }));
     expect(screen.getByRole("region", { name: "Publicar evento" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Invitados/ })).not.toBeInTheDocument();
+  });
+
+  it("blocks advancing past the ticket-design step until the design is saved", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderAt("/eventos/event-1/editar");
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
+
+    fireEvent.click(screen.getByRole("button", { name: "6. Diseño de la entrada" }));
+    expect(screen.getByRole("region", { name: "Diseño de la entrada" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar diseño" }));
+    await screen.findByText("Diseño de la entrada guardado.");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" })).toBeEnabled());
   });
 
   it("blocks advancing past the ticket-types step until at least one ticket type exists, but still allows going back", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-5/editar"); // seeded with zero ticket types
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
 
     next();
     expect(screen.getByRole("region", { name: "Tipos de entrada" })).toBeInTheDocument();
@@ -134,7 +152,7 @@ fireEvent.click(screen.getByRole("button", { name: "6. Publicar evento" }));
   it("includes the multiple-sessions step for an event with hasSubEvents set", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-3/editar"); // seeded with hasSubEvents: true
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 8"));
 
     next();
     expect(screen.getByRole("region", { name: "Sesiones" })).toBeInTheDocument();
@@ -143,7 +161,7 @@ fireEvent.click(screen.getByRole("button", { name: "6. Publicar evento" }));
   it("excludes the multiple-sessions step for a single-session event", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderAt("/eventos/event-1/editar"); // seeded with hasSubEvents: false
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
 
     next();
     expect(screen.queryByRole("region", { name: "Sesiones" })).not.toBeInTheDocument();
@@ -154,7 +172,7 @@ fireEvent.click(screen.getByRole("button", { name: "6. Publicar evento" }));
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     db.ticketTypes.find((t) => t.id === "tt-2-pista")!.quantityTotal = 700; // zone-pista assigns 800 from this ticket type
     renderAt("/eventos/event-2/editar"); // venue-1 (Sala Apolo), Pista already assigned to tt-2-pista
-    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 6"));
+    await waitFor(() => expect(screen.getByText(/Paso 1 de \d/)).toHaveTextContent("Paso 1 de 7"));
 
     next(); // -> Tipos de entrada
     await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" })).toBeEnabled());

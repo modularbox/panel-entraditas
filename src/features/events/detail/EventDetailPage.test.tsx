@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { db, resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient } from "@/shared/lib/apiClient";
+import { defaultTicketDesign } from "@/mocks/handlers/ticketDesign";
 import { EventDetailPage } from "./EventDetailPage";
 
 function renderDetail(eventId: string) {
@@ -91,6 +92,7 @@ describe("EventDetailPage", () => {
     const event = db.events.find((e) => e.id === "event-2")!;
     event.location = "Rock Arena";
     event.locality = "Madrid";
+    event.ticketDesign = defaultTicketDesign();
 
     renderDetail("event-2");
     fireEvent.click(await screen.findByRole("button", { name: "Publicar" }));
