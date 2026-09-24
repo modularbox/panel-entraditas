@@ -10,6 +10,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { useEventTicketTypesQuery } from "./useEventTicketTypesQuery";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 
@@ -167,6 +168,7 @@ export function TaquillaPage() {
                   <input
                     id="taquilla-customer-name"
                     type="text"
+                    maxLength={LIMITES.nombreCompleto}
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     className="mt-1 h-9 w-56 rounded-md border-2 border-foreground bg-surface px-2 text-sm"
@@ -177,6 +179,7 @@ export function TaquillaPage() {
                   <input
                     id="taquilla-customer-email"
                     type="email"
+                    maxLength={LIMITES.email}
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     className="mt-1 h-9 w-56 rounded-md border-2 border-foreground bg-surface px-2 text-sm"

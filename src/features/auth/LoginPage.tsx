@@ -8,10 +8,11 @@ import { leerCierre, mensajeDeCierre } from "@/shared/auth/sessionExpiry";
 import { MINUTOS_DE_INACTIVIDAD } from "@/shared/auth/useInactivityLogout";
 import { Button } from "@/shared/ui/button";
 import { NotARobotCaptcha } from "@/shared/ui/notARobotCaptcha";
+import { PasswordField } from "@/shared/ui/PasswordField";
+import { LIMITES } from "@/shared/lib/formLimits";
 import { loginSchema, type LoginFormValues } from "./loginSchema";
 
 export function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate();
   const login = useSessionStore((s) => s.login);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -75,6 +76,8 @@ export function LoginPage() {
             <input
               id="email"
               type="email"
+              maxLength={LIMITES.email}
+              autoComplete="email"
               className="h-10 rounded-md border-2 border-foreground bg-background px-3 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
               {...register("email")}
             />
@@ -90,22 +93,7 @@ export function LoginPage() {
               Contraseña
             </label>
 
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                className="h-10 w-full rounded-md border-2 border-foreground bg-background px-3 pr-20 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-                {...register("password")}
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm"
-              >
-                {showPassword ? "Ocultar" : "Mostrar"}
-              </button>
-            </div>
+            <PasswordField id="password" maxLength={LIMITES.contrasena} autoComplete="current-password" {...register("password")} />
 
             {errors.password && (
               <span role="alert" className="text-sm text-destructive">

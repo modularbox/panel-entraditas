@@ -9,6 +9,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useSubEventsQuery } from "@/features/events/wizard/steps/useSubEventsQuery";
 import { useTicketDesignQuery, useSaveTicketDesign } from "./useTicketDesignQuery";
 import { TicketDesignPreview } from "./TicketDesignPreview";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 const COLOR_PRESETS = ["#243B8F", "#0d6e6e", "#7a1fa2", "#b42318", "#0f172a"];
 
@@ -265,13 +266,14 @@ export function TicketDesignSection({ eventId }: { eventId: string | null }) {
             <label htmlFor="td-terminos">Texto (una línea por apartado · lista numerada)</label>
             <textarea
               id="td-terminos"
+              maxLength={LIMITES.texto}
               value={terminosText}
               onChange={(e) => setTerminosText(e.target.value)}
               rows={8}
               className="w-full"
             />
             <label htmlFor="td-pie">Pie del documento</label>
-            <input id="td-pie" value={draft.pie} onChange={(e) => update("pie", e.target.value)} />
+            <input id="td-pie" maxLength={LIMITES.linea} value={draft.pie} onChange={(e) => update("pie", e.target.value)} />
           </>
         )}
 

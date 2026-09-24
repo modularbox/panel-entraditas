@@ -7,6 +7,7 @@ import { Button } from "@/shared/ui/button";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { groupTicketTypes } from "./Step4TicketTypes";
 import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 export interface DiscountCodesSectionProps {
   eventId: string | null;
@@ -157,7 +158,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
             <label htmlFor="dc-code" className={ETIQUETA}>
               Código
             </label>
-            <input id="dc-code" value={code} onChange={(e) => setCode(e.target.value)} className={`${CASILLA} w-44`} />
+            <input id="dc-code" maxLength={LIMITES.codigo} value={code} onChange={(e) => setCode(e.target.value)} className={`${CASILLA} w-44`} />
           </div>
 
           {/* Porcentaje o importe: debajo del valor, porque es la unidad de la cifra que se acaba

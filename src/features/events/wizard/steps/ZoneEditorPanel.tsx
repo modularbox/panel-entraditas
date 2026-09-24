@@ -2,6 +2,7 @@ import type { Zone } from "@entraditas/types";
 import { Button } from "@/shared/ui/button";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { useTips } from "@/shared/ui/tips";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 export interface ZoneEditorPanelProps {
   zones: Zone[];
@@ -71,6 +72,7 @@ export function ZoneEditorPanel({
           <label htmlFor="zone-name">Nombre</label>
           <input
             id="zone-name"
+            maxLength={LIMITES.titulo}
             defaultValue={selectedZone.name}
             onBlur={(e) => onUpdateZone(selectedZone.id, { name: e.target.value })}
           />

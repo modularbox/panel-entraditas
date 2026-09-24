@@ -10,6 +10,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { canReadFromApi, fetchApiOrders } from "@/shared/lib/entraditasApi";
 import { pedidoDesdeLaApi } from "../desdeLaApi";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 type OrderDetail = Order & { items: OrderItem[]; refunds: Refund[]; esReal?: boolean };
 
@@ -88,6 +89,7 @@ function RefundForm({
         <input
           id="refund-reason"
           type="text"
+          maxLength={LIMITES.nota}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           className="mt-1 h-9 w-full rounded-md border-2 border-foreground bg-surface px-2 text-sm"
