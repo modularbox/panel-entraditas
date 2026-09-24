@@ -1,4 +1,4 @@
-﻿import type { Event } from "@entraditas/types";
+import type { Event } from "@entraditas/types";
 import { hasEventFinished } from "@/shared/lib/eventLifecycle";
 
 export const EVENT_STATUS_LABEL: Record<Event["status"], string> = {
@@ -37,7 +37,7 @@ export function EventStatusBadge({ status, event }: EventStatusBadgeProps) {
   const shown = finished ? "finished" : status;
   return (
     <span
-      className={`inline-block rounded-pill border-2 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide ${STATUS_STYLES[shown]}`}
+      className={`inline-block whitespace-nowrap rounded-pill border-2 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${STATUS_STYLES[shown]}`}
       title={finished && shown !== status ? `Estado en el panel: ${EVENT_STATUS_LABEL[status]}` : undefined}
     >
       {EVENT_STATUS_LABEL[shown]}

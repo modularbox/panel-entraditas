@@ -174,7 +174,7 @@ export function EventRowActions({ event }: { event: Event }) {
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-nowrap gap-2">
         {acciones.map((accion) => (
           <Button
             key={accion.label}

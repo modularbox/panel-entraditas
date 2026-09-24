@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
 import type { SortingState } from "@tanstack/react-table";
 import { Link, useNavigate } from "react-router-dom";
@@ -59,7 +59,13 @@ const columns = [
   columnHelper.accessor("title", {
     header: "Título",
     cell: (info) => (
-      <Link to={`/eventos/${info.row.original.id}`} className="font-semibold text-primary hover:underline">
+      // Una linea, con el titulo entero al pasar el raton: con titulos largos, la fila crecia al
+      // doble de alto y la tabla quedaba con escalones.
+      <Link
+        to={`/eventos/${info.row.original.id}`}
+        title={info.getValue()}
+        className="block max-w-[22rem] truncate font-semibold text-primary hover:underline"
+      >
         {info.getValue()}
       </Link>
     )
@@ -72,13 +78,17 @@ const columns = [
   }),
   columnHelper.accessor("startsAt", {
     header: "Fecha",
-    cell: (info) => (info.getValue() ? dateFormatter.format(new Date(info.getValue()!)) : "Fecha por confirmar")
+    cell: (info) => (
+      <span className="whitespace-nowrap">
+        {info.getValue() ? dateFormatter.format(new Date(info.getValue()!)) : "Fecha por confirmar"}
+      </span>
+    )
   }),
   columnHelper.display({
     id: "acciones",
     header: "Acciones",
     cell: (info) => (
-      <div className="flex flex-wrap items-start gap-2">
+      <div className="flex flex-nowrap items-center gap-2">
         <EditarEvento event={info.row.original} />
         <EventRowActions event={info.row.original} />
       </div>
@@ -180,7 +190,7 @@ export function EventsListPage() {
               {table.getRowModel().rows.map((row) => (
                 <tr key={row.id} className="border-t border-border">
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3">
+                    <td key={cell.id} className="px-4 py-3 align-middle">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}

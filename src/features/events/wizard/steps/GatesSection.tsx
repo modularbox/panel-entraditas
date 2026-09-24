@@ -8,6 +8,7 @@ import { NumericInput } from "@/shared/ui/NumericInput";
 import { groupTicketTypes } from "./Step4TicketTypes";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useZonesQuery } from "./useZonesQuery";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 export interface GatesSectionProps {
   eventId: string | null;
@@ -235,14 +236,14 @@ export function GatesSection({ eventId }: GatesSectionProps) {
             <label htmlFor="gate-name" className={ETIQUETA}>
               Nombre
             </label>
-            <input id="gate-name" value={name} onChange={(e) => setName(e.target.value)} className={`${CASILLA} w-48`} />
+            <input id="gate-name" maxLength={LIMITES.titulo} value={name} onChange={(e) => setName(e.target.value)} className={`${CASILLA} w-48`} />
           </div>
 
           <div className="flex flex-col gap-1">
             <label htmlFor="gate-code" className={ETIQUETA}>
               Código
             </label>
-            <input id="gate-code" value={code} onChange={(e) => setCode(e.target.value)} className={`${CASILLA} w-32`} />
+            <input id="gate-code" maxLength={LIMITES.codigo} value={code} onChange={(e) => setCode(e.target.value)} className={`${CASILLA} w-32`} />
           </div>
 
           <div className="flex flex-col gap-1">

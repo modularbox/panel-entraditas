@@ -102,8 +102,11 @@ function DatosDeLaWeb({ filters }: { filters: DashboardFilters }) {
 
 const euro = { format: (value: number) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(value / 100) };
 const number = new Intl.NumberFormat("es-ES");
-const filterLabel = "mb-1 block text-xs font-bold uppercase tracking-wide text-muted-foreground";
-const filterControl = "h-10 rounded-md border-2 border-foreground bg-surface px-3 text-sm";
+const filterLabel = "mb-1 block whitespace-nowrap text-[11px] font-bold uppercase tracking-wide text-muted-foreground";
+// Todo el filtro cabe en una linea. Antes se repartia en dos: los desplegables ocupaban lo que
+// midiera el titulo del evento mas largo y empujaban las fechas y "Limpiar filtros" abajo. Ahora
+// los desplegables se encogen (min-w-0 + max-w) y solo se parte en dos por debajo de 1280 px.
+const filterControl = "h-9 min-w-0 max-w-[13rem] rounded-md border-2 border-foreground bg-surface px-2 text-sm";
 function FilterBar({ filters, onChange, isSuperadmin, organizations, events }: {
   filters: DashboardFilters;
   onChange: (filters: DashboardFilters) => void;
@@ -114,13 +117,13 @@ function FilterBar({ filters, onChange, isSuperadmin, organizations, events }: {
   // Once an organization is picked, the event dropdown only offers that organization's events, so
   // the two filters can never point at inconsistent scopes.
   const eventOptions = filters.organizationId ? events.filter((event) => event.organizationId === filters.organizationId) : events;
-  return <section className="border-2 border-foreground bg-surface p-4 shadow-flat"><div className="flex flex-wrap items-end gap-4">
-    {isSuperadmin && <div><label htmlFor="dashboard-filter-organization" className={filterLabel}>Organización</label><select id="dashboard-filter-organization" className={filterControl} value={filters.organizationId} onChange={(event) => onChange({ ...filters, organizationId: event.target.value, eventId: "" })}><option value="">Todas las organizaciones</option>{organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}</select></div>}
-    <div><label htmlFor="dashboard-filter-event" className={filterLabel}>Evento</label><select id="dashboard-filter-event" className={filterControl} value={filters.eventId} onChange={(event) => onChange({ ...filters, eventId: event.target.value })}><option value="">Todos los eventos</option>{eventOptions.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}</select></div>
-    <div className="flex gap-2">{DATE_RANGE_PRESETS.map((preset) => <Button key={preset.id} type="button" variant={filters.datePreset === preset.id ? "default" : "outline"} aria-pressed={filters.datePreset === preset.id} onClick={() => onChange({ ...filters, ...preset.range(), datePreset: preset.id })}>{preset.label}</Button>)}</div>
-    <div><label htmlFor="dashboard-filter-from" className={filterLabel}>Desde</label><input id="dashboard-filter-from" type="date" className={filterControl} value={filters.from} onChange={(event) => onChange({ ...filters, from: event.target.value, datePreset: "custom" })} /></div>
-    <div><label htmlFor="dashboard-filter-to" className={filterLabel}>Hasta</label><input id="dashboard-filter-to" type="date" className={filterControl} value={filters.to} onChange={(event) => onChange({ ...filters, to: event.target.value, datePreset: "custom" })} /></div>
-    <Button type="button" variant="outline" onClick={() => onChange(EMPTY_DASHBOARD_FILTERS)}>Limpiar filtros</Button>
+  return <section className="border-2 border-foreground bg-surface p-4 shadow-flat"><div className="flex flex-wrap items-end gap-3 xl:flex-nowrap">
+    {isSuperadmin && <div className="min-w-0"><label htmlFor="dashboard-filter-organization" className={filterLabel}>Organización</label><select id="dashboard-filter-organization" className={filterControl} value={filters.organizationId} onChange={(event) => onChange({ ...filters, organizationId: event.target.value, eventId: "" })}><option value="">Todas las organizaciones</option>{organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}</select></div>}
+    <div className="min-w-0"><label htmlFor="dashboard-filter-event" className={filterLabel}>Evento</label><select id="dashboard-filter-event" className={filterControl} value={filters.eventId} onChange={(event) => onChange({ ...filters, eventId: event.target.value })}><option value="">Todos los eventos</option>{eventOptions.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}</select></div>
+    <div className="flex shrink-0 gap-1.5">{DATE_RANGE_PRESETS.map((preset) => <Button key={preset.id} type="button" className="h-9 px-2.5 text-xs" variant={filters.datePreset === preset.id ? "default" : "outline"} aria-pressed={filters.datePreset === preset.id} onClick={() => onChange({ ...filters, ...preset.range(), datePreset: preset.id })}>{preset.label}</Button>)}</div>
+    <div className="shrink-0"><label htmlFor="dashboard-filter-from" className={filterLabel}>Desde</label><input id="dashboard-filter-from" type="date" className={filterControl} value={filters.from} onChange={(event) => onChange({ ...filters, from: event.target.value, datePreset: "custom" })} /></div>
+    <div className="shrink-0"><label htmlFor="dashboard-filter-to" className={filterLabel}>Hasta</label><input id="dashboard-filter-to" type="date" className={filterControl} value={filters.to} onChange={(event) => onChange({ ...filters, to: event.target.value, datePreset: "custom" })} /></div>
+    <Button type="button" variant="outline" className="h-9 shrink-0 whitespace-nowrap px-2.5 text-xs" onClick={() => onChange(EMPTY_DASHBOARD_FILTERS)}>Limpiar filtros</Button>
   </div></section>;
 }
 

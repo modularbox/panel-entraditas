@@ -6,6 +6,7 @@ import type { Order } from "@entraditas/types";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { useOrdersQuery } from "./useOrdersQuery";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 const STATUS_LABELS: Record<Order["status"], string> = {
   pending: "Pendiente",
@@ -102,7 +103,7 @@ export function OrdersListPage() {
         </select>
 
         <label htmlFor="search-filter" className="sr-only">Buscar</label>
-        <input id="search-filter" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nº pedido, nombre o email" className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm" />
+        <input id="search-filter" type="search" maxLength={LIMITES.busqueda} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nº pedido, nombre o email" className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm" />
       </div>
 
       {isLoading ? (

@@ -93,6 +93,17 @@ describe("CustomersListPage", () => {
     vi.unstubAllGlobals();
   });
 
+  // Ver quien te ha comprado es una cosa; meterse en su cuenta es otra. La misma persona ha
+  // podido comprarle a varios organizadores, y dentro de su cuenta estan todas sus entradas.
+  it("no ofrece Conectar a un organizador, aunque el panel tenga sesion en la API", async () => {
+    canConnectMock.mockReturnValue(true);
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderPage();
+    await screen.findAllByRole("row");
+    expect(screen.queryByRole("button", { name: "Conectar" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/se abre entraditas.com con la sesión de ese cliente/i)).not.toBeInTheDocument();
+  });
+
   it("reports when the customer session could not be opened", async () => {
     canConnectMock.mockReturnValue(true);
     connectMock.mockResolvedValue(null);

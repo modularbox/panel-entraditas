@@ -4,6 +4,7 @@ import type { TemplateZone, VenuePlanTemplate, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 export interface PlanTemplatesProps {
   /** Zones currently defined, which is what "save as template" stores. */
@@ -82,6 +83,7 @@ export function PlanTemplates({ zones, mode, onApply }: PlanTemplatesProps) {
           </label>
           <input
             id="template-name"
+            maxLength={LIMITES.titulo}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={mode === "plan" ? "Teatro Circo - patio y anfiteatro" : "Sala Apolo - pista y grada"}

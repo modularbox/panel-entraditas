@@ -4,6 +4,7 @@ import { Icon } from "@/shared/ui/icon";
 import { cn } from "@/shared/lib/cn";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { computeRowCount } from "./seatMap";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 export interface ZoneListEditorProps {
   zones: Zone[];
@@ -66,6 +67,7 @@ export function ZoneListEditor({
                     </label>
                     <input
                       id={`zone-name-${zone.id}`}
+                      maxLength={LIMITES.titulo}
                       defaultValue={zone.name}
                       onBlur={(e) => onUpdateZone(zone.id, { name: e.target.value })}
                       className="h-10 w-48 rounded-md border-2 border-foreground bg-surface px-3 text-sm"

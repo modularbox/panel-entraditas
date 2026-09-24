@@ -7,6 +7,8 @@ import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { Button } from "@/shared/ui/button";
 import { useCustomersQuery } from "./useCustomersQuery";
+import { useSessionStore } from "@/shared/auth/sessionStore";
+import { LIMITES } from "@/shared/lib/formLimits";
 import { canConnectCustomerToWeb, connectApiCustomerSession, getWebBase } from "@/shared/lib/entraditasApi";
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
@@ -17,7 +19,12 @@ export interface CustomersListPageProps {
   detailTo?: (email: string) => string;
 }
 
-function buildColumns(detailTo: (email: string) => string, conectar: (email: string) => void, conectandoEmail: string | null) {
+function buildColumns(
+  detailTo: (email: string) => string,
+  conectar: (email: string) => void,
+  conectandoEmail: string | null,
+  puedeConectar: boolean
+) {
   const columnHelper = createColumnHelper<Customer>();
   return [
     columnHelper.accessor("name", {
@@ -50,7 +57,7 @@ function buildColumns(detailTo: (email: string) => string, conectar: (email: str
         return Number.isNaN(fecha.getTime()) ? <span className="text-muted-foreground">Sin compras</span> : fecha.toLocaleDateString("es-ES");
       }
     }),
-    ...(canConnectCustomerToWeb()
+    ...(puedeConectar
       ? [
           columnHelper.display({
             id: "actions",
@@ -83,6 +90,17 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
   const { data: events = [] } = useEventsQuery();
   const { data: customers = [], isLoading } = useCustomersQuery({ eventId: eventId || undefined, q: q || undefined });
 
+  /**
+   * Entrar en la cuenta de un cliente: solo el superadministrador.
+   *
+   * Ver quién te ha comprado y los datos de esa compra es una cosa; meterse en su cuenta es otra.
+   * La misma persona ha podido comprarle a varios organizadores, y dentro de su cuenta están
+   * todas sus entradas y sus datos. La API lo rechaza igualmente: esto solo evita enseñar un
+   * botón que iba a fallar.
+   */
+  const rol = useSessionStore((estado) => estado.user?.role);
+  const puedeConectar = canConnectCustomerToWeb() && rol === "superadmin";
+
   async function conectar(email: string) {
     setConnectError(null);
     setConectandoEmail(email);
@@ -110,9 +128,17 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
     [customers, soloPublicidad]
   );
 
+  // Memorizada por lo mismo que `visibles`: una lista de columnas nueva en cada render vuelve a
+  // montar la tabla entera sin motivo.
+  const columnas = useMemo(
+    () => buildColumns(detailTo, conectar, conectandoEmail, puedeConectar),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [detailTo, conectandoEmail, puedeConectar]
+  );
+
   const table = useReactTable({
     data: visibles,
-    columns: buildColumns(detailTo, conectar, conectandoEmail),
+    columns: columnas,
     state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -124,7 +150,7 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="font-display text-2xl font-semibold">{title}</h1>
-        {canConnectCustomerToWeb() && (
+        {puedeConectar && (
           <p className="mt-1 text-sm text-muted-foreground">
             Con &quot;Conectar&quot; se abre entraditas.com con la sesión de ese cliente, para ver y resolver lo que él ve.
           </p>
@@ -139,7 +165,7 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
         </select>
 
         <label htmlFor="customer-search-filter" className="sr-only">Buscar</label>
-        <input id="customer-search-filter" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre o email" className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm" />
+        <input id="customer-search-filter" type="search" maxLength={LIMITES.busqueda} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre o email" className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm" />
 
         <label className="flex items-center gap-2 text-sm">
           <input

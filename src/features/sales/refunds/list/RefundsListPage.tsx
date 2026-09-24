@@ -6,12 +6,13 @@ import type { Refund } from "@entraditas/types";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { useRefundsQuery } from "./useRefundsQuery";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const columnHelper = createColumnHelper<Refund>();
 const columns = [
   columnHelper.accessor("orderNumber", {
-    header: "Nº pedido",
+    header: "NÂº pedido",
     cell: (info) => (
       <Link to={`/ventas/pedidos/${info.row.original.orderId}`} className="font-semibold text-primary hover:underline">
         {info.getValue()}
@@ -57,11 +58,11 @@ export function RefundsListPage() {
         </select>
 
         <label htmlFor="refund-search-filter" className="sr-only">Buscar</label>
-        <input id="refund-search-filter" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nº pedido o comprador" className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm" />
+        <input id="refund-search-filter" type="search" maxLength={LIMITES.busqueda} value={q} onChange={(e) => setQ(e.target.value)} placeholder="NÂº pedido o comprador" className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm" />
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Cargando…</p>
+        <p className="text-muted-foreground">Cargandoâ€¦</p>
       ) : refunds.length === 0 ? (
         <p className="text-muted-foreground">No hay reembolsos que coincidan con los filtros.</p>
       ) : (

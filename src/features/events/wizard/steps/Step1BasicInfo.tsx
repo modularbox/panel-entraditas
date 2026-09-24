@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ import { step1Schema, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";
 import { useWizardStore } from "../wizardStore";
 import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
+import { LIMITES } from "@/shared/lib/formLimits";
 
 /**
  * Que ha pasado, en cristiano.
@@ -349,6 +350,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
           ) : (
             <input
               placeholder="https://..."
+              maxLength={LIMITES.texto}
               value={values.coverImageUrl ?? ""}
               onChange={(e) => setValue("coverImageUrl", e.target.value, { shouldDirty: true, shouldValidate: true })}
             />
