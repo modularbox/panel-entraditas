@@ -102,10 +102,6 @@ export function AppRoutes() {
             <Route path="pedidos" element={<OrdersListPage />} />
             <Route path="pedidos/:id" element={<OrderDetailPage />} />
             <Route path="reembolsos" element={<RefundsListPage />} />
-            {/* Taquilla y Asistentes se quitaron (tanda 17): eran datos de ejemplo y los
-                compradores ya están en Clientes. Un enlace guardado vuelve a Pedidos. */}
-            <Route path="taquilla" element={<Navigate to="/ventas/pedidos" replace />} />
-            <Route path="asistentes/*" element={<Navigate to="/clientes" replace />} />
           </Route>
           <Route path="/clientes" element={<CustomersListPage />} />
           <Route path="/clientes/:email" element={<CustomerDetailPage />} />

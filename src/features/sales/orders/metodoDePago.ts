@@ -31,5 +31,5 @@ export function metodoDePago(referencia: string | null | undefined): MetodoDePag
 export function textoDeMetodoDePago(referencia: string | null | undefined): string {
   const metodo = metodoDePago(referencia);
   if (!metodo) return "—";
-  return metodo.dePrueba ? `${metodo.nombre} (prueba)` : metodo.nombre;
+  return metodo.nombre;
 }

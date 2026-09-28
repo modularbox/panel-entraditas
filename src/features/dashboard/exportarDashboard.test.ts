@@ -69,7 +69,7 @@ describe("exportar el dashboard", () => {
       }
     ]);
     expect(csv).toContain("ENTRADITAS-ABC123");
-    expect(csv).toContain("Bizum (prueba);2;63,00;paid");
+    expect(csv).toContain("Bizum;2;63,00;paid");
   });
 
   it("un evento sin pedidos lo dice en vez de dejar la tabla vacía", () => {
