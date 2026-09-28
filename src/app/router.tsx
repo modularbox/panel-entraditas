@@ -9,12 +9,9 @@ import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { EventDetailPage } from "@/features/events/detail/EventDetailPage";
 import { EventsListPage } from "@/features/events/list/EventsListPage";
 import { EventWizardPage } from "@/features/events/wizard/EventWizardPage";
-import { AttendeeDetailPage } from "@/features/sales/attendees/detail/AttendeeDetailPage";
-import { AttendeesListPage } from "@/features/sales/attendees/list/AttendeesListPage";
 import { OrderDetailPage } from "@/features/sales/orders/detail/OrderDetailPage";
 import { OrdersListPage } from "@/features/sales/orders/list/OrdersListPage";
 import { RefundsListPage } from "@/features/sales/refunds/list/RefundsListPage";
-import { TaquillaPage } from "@/features/sales/taquilla/TaquillaPage";
 import { CustomersListPage } from "@/features/customers/CustomersListPage";
 import { CustomerDetailPage } from "@/features/customers/CustomerDetailPage";
 import { VentasLayout } from "@/features/sales/VentasLayout";
@@ -30,6 +27,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { PanelLayout } from "./layouts/PanelLayout";
 import { NAV_ITEMS } from "./navItems";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/accesos", "/clientes", "/organizaciones"]);
 
@@ -42,7 +40,7 @@ export function AppRoutes() {
     if (status === "idle") void restore();
   }, [status, restore]);
 
-  if (status === "idle") return <div>Cargando…</div>;
+  if (status === "idle") return <Cargando />;
 
   if (status !== "authenticated") {
     // Unauthenticated: only auth routes are reachable, everything else redirects to login.
@@ -104,9 +102,10 @@ export function AppRoutes() {
             <Route path="pedidos" element={<OrdersListPage />} />
             <Route path="pedidos/:id" element={<OrderDetailPage />} />
             <Route path="reembolsos" element={<RefundsListPage />} />
-            <Route path="taquilla" element={<TaquillaPage />} />
-            <Route path="asistentes" element={<AttendeesListPage />} />
-            <Route path="asistentes/:email" element={<AttendeeDetailPage />} />
+            {/* Taquilla y Asistentes se quitaron (tanda 17): eran datos de ejemplo y los
+                compradores ya están en Clientes. Un enlace guardado vuelve a Pedidos. */}
+            <Route path="taquilla" element={<Navigate to="/ventas/pedidos" replace />} />
+            <Route path="asistentes/*" element={<Navigate to="/clientes" replace />} />
           </Route>
           <Route path="/clientes" element={<CustomersListPage />} />
           <Route path="/clientes/:email" element={<CustomerDetailPage />} />

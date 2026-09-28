@@ -514,7 +514,7 @@ serviceFeeType: body.serviceFeeType ?? "none",
     }
     const { status } = (await request.json()) as { status?: Event["status"] };
     // "finished" no esta: se deduce de la fecha, no se guarda.
-    const permitidos: Event["status"][] = ["draft", "in_review", "published", "rejected"];
+    const permitidos: Event["status"][] = ["draft", "in_review", "published", "rejected", "cancelled"];
     if (!status || !permitidos.includes(status)) {
       return HttpResponse.json(
         {
@@ -530,6 +530,24 @@ serviceFeeType: body.serviceFeeType ?? "none",
     event.status = status;
     event.publishedAt = status === "published" ? new Date().toISOString() : null;
     return HttpResponse.json({ data: event, meta: { requestId: "req_events_status" } });
+  }),
+
+  /**
+   * Cancela el evento: no se celebra. Es lo que antes era borrarlo (tanda 17). A diferencia del
+   * borrado, lo vendido y la ficha se quedan, y lo puede hacer el organizador del evento, no solo
+   * el superadmin.
+   */
+  http.post(`${BASE}/events/:id/cancel`, ({ request, params }) => {
+    const user = requireUser(request);
+    if (!user) return unauthenticated("req_events_cancel");
+    const event = db.events.find((e) => e.id === params.id);
+    if (!event || !canAccessEvent(event, user)) return notFound("req_events_cancel");
+    if (user.role !== "superadmin" && user.role !== "organizador") {
+      return forbidden("req_events_cancel", "Solo quien organiza el evento puede cancelarlo");
+    }
+    event.status = "cancelled";
+    event.publishedAt = null;
+    return HttpResponse.json({ data: event, meta: { requestId: "req_events_cancel" } });
   }),
 
   http.get(`${BASE}/events/:id/summary`, ({ request, params }) => {

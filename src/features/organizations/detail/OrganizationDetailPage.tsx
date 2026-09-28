@@ -9,6 +9,7 @@ import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
 import { EventStatusBadge } from "@/shared/ui/EventStatusBadge";
 import { OrganizationCustomers } from "./OrganizationCustomers";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
 
@@ -45,7 +46,7 @@ export function OrganizationDetailPage() {
     }
   }
 
-  if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;
+  if (isLoading) return <Cargando />;
   if (error instanceof AppError && error.code === "NOT_FOUND") {
     return (
       <div className="rounded-lg border-2 border-dashed border-border bg-surface-alt p-10 text-center">

@@ -7,6 +7,8 @@ import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { useOrdersQuery } from "./useOrdersQuery";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { LIMITES } from "@/shared/lib/formLimits";
+import { textoDeMetodoDePago } from "../metodoDePago";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const STATUS_LABELS: Record<Order["status"], string> = {
   pending: "Pendiente",
@@ -26,23 +28,30 @@ const CHANNEL_LABELS: Record<Order["channel"], string> = {
 };
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
-const columnHelper = createColumnHelper<Order>();
-const columns = [
-  columnHelper.accessor("orderNumber", {
-    header: "Nº pedido",
-    cell: (info) => (
-      <Link to={`/ventas/pedidos/${info.row.original.id}`} className="font-semibold text-primary hover:underline">
-        {info.getValue()}
-      </Link>
-    )
-  }),
-  columnHelper.accessor("customerName", { header: "Comprador" }),
-  columnHelper.accessor("customerEmail", { header: "Correo" }),
-  columnHelper.accessor("channel", { header: "Canal", cell: (info) => CHANNEL_LABELS[info.getValue()] }),
-  columnHelper.accessor("status", { header: "Estado", cell: (info) => STATUS_LABELS[info.getValue()] }),
-  columnHelper.accessor("total", { header: "Total", cell: (info) => euro.format(info.getValue() / 100) }),
-  columnHelper.accessor("createdAt", { header: "Fecha", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") })
-];
+type Fila = Order & { eventTitle?: string };
+const columnHelper = createColumnHelper<Fila>();
+
+/** Las columnas dependen de los eventos: un pedido de ejemplo solo trae el id del suyo. */
+function columnasDePedidos(tituloDe: (fila: Fila) => string) {
+  return [
+    columnHelper.accessor("orderNumber", {
+      header: "Nº pedido",
+      cell: (info) => (
+        <Link to={`/ventas/pedidos/${info.row.original.id}`} className="font-semibold text-primary hover:underline">
+          {info.getValue()}
+        </Link>
+      )
+    }),
+    columnHelper.accessor((fila) => tituloDe(fila), { id: "evento", header: "Evento" }),
+    columnHelper.accessor("customerName", { header: "Comprador" }),
+    columnHelper.accessor("customerEmail", { header: "Correo" }),
+    columnHelper.accessor((fila) => textoDeMetodoDePago(fila.paymentReference), { id: "pago", header: "Pago" }),
+    columnHelper.accessor("channel", { header: "Canal", cell: (info) => CHANNEL_LABELS[info.getValue()] }),
+    columnHelper.accessor("status", { header: "Estado", cell: (info) => STATUS_LABELS[info.getValue()] }),
+    columnHelper.accessor("total", { header: "Total", cell: (info) => euro.format(info.getValue() / 100) }),
+    columnHelper.accessor("createdAt", { header: "Fecha", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") })
+  ];
+}
 
 export function OrdersListPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -50,7 +59,9 @@ export function OrdersListPage() {
   const [status, setStatus] = useState("");
   const [channel, setChannel] = useState("");
   const [q, setQ] = useState("");
-  const { data: events = [] } = useEventsQuery();
+  const { data: eventsData } = useEventsQuery();
+  // Memorizado por lo mismo que `orders`: de él salen las columnas de la tabla.
+  const events = useMemo(() => eventsData ?? [], [eventsData]);
   const { data, isLoading } = useOrdersQuery({
     eventId: eventId || undefined,
     status: status || undefined,
@@ -61,6 +72,10 @@ export function OrdersListPage() {
   // `data` para la tabla y la deja redibujandose sin parar.
   const orders = useMemo(() => data?.items ?? [], [data]);
   const esReal = data?.esReal ?? false;
+  const columns = useMemo(() => {
+    const titulos = new Map(events.map((event) => [event.id, event.title]));
+    return columnasDePedidos((fila) => fila.eventTitle || titulos.get(fila.eventId) || "—");
+  }, [events]);
   const table = useReactTable({
     data: orders,
     columns,
@@ -107,7 +122,7 @@ export function OrdersListPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Cargando…</p>
+        <Cargando />
       ) : orders.length === 0 ? (
         <p className="text-muted-foreground">No hay pedidos que coincidan con los filtros.</p>
       ) : (

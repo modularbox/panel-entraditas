@@ -447,6 +447,8 @@ export interface ApiPanelOrder {
   total: number;
   refunded: number;
   currency: string;
+  /** Con qué se pagó: `sin-pasarela:tarjeta` mientras no haya pasarela. */
+  paymentReference?: string | null;
   createdAt: string | null;
   items: ApiOrderLine[];
   tickets: ApiOrderTicket[];

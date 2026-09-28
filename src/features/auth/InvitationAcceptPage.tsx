@@ -9,6 +9,7 @@ import { Button } from "@/shared/ui/button";
 import { PasswordField } from "@/shared/ui/PasswordField";
 import { LIMITES } from "@/shared/lib/formLimits";
 import { invitationAcceptSchema, type InvitationAcceptFormValues } from "./invitationAcceptSchema";
+import { Cargando } from "@/shared/ui/Cargando";
 
 interface InvitationDetails { email: string; fullName: string; organizationName: string; role: string }
 interface AcceptedSession { accessToken: string; user: { id: string; email: string; fullName: string; role: "superadmin" | "organizador" | "suborganizador"; organizationId: string | null }; effectivePermissions: string[]; eventScopes: string[] }
@@ -30,7 +31,7 @@ export function InvitationAcceptPage() {
       if (cause instanceof AppError) setAcceptError(cause.message);
     }
   }
-  if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;
+  if (isLoading) return <Cargando />;
   if (error instanceof AppError) return <div className="flex min-h-screen items-center justify-center px-4"><div className="w-full max-w-sm rounded-lg border-2 border-foreground bg-surface p-8 text-center shadow-flat"><p className="font-display text-2xl font-semibold">Invitación no disponible</p><p className="mt-2 text-sm text-muted-foreground">{error.message}</p></div></div>;
   if (!details) return null;
   return <div className="flex min-h-screen items-center justify-center px-4"><div className="w-full max-w-sm rounded-lg border-2 border-foreground bg-surface p-8 shadow-flat"><p className="font-display text-2xl font-semibold text-primary">entraditas</p><h1 className="mt-1 text-sm text-muted-foreground">Te han invitado a unirte a {details.organizationName}, {details.fullName}</h1><form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-4"><div className="flex flex-col gap-1.5"><label htmlFor="password">Contraseña</label><PasswordField id="password" maxLength={LIMITES.contrasena} autoComplete="new-password" {...register("password")} />{errors.password && <span role="alert">{errors.password.message}</span>}</div><div className="flex flex-col gap-1.5"><label htmlFor="confirmPassword">Confirma la contraseña</label><PasswordField id="confirmPassword" maxLength={LIMITES.contrasena} autoComplete="new-password" {...register("confirmPassword")} />{errors.confirmPassword && <span role="alert">{errors.confirmPassword.message}</span>}</div>{acceptError && <p role="alert">{acceptError}</p>}<Button type="submit" disabled={isSubmitting}>Activar mi cuenta</Button></form></div></div>;

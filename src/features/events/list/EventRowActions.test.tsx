@@ -131,53 +131,66 @@ describe("EventRowActions", () => {
     });
   });
 
-  describe("eliminar", () => {
-    it("pide confirmacion antes de borrar", async () => {
+  describe("cancelar (antes eliminar)", () => {
+    it("ya no hay boton de eliminar", async () => {
+      await loginAs("admin@entraditas.com");
+      renderActions(eventById("event-5"));
+      expect(screen.queryByRole("button", { name: "Eliminar" })).not.toBeInTheDocument();
+    });
+
+    it("pide confirmacion antes de cancelar", async () => {
       await loginAs("admin@entraditas.com");
       renderActions(eventById("event-5"));
 
-      fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar evento" }));
 
-      expect(screen.getByRole("button", { name: "Confirmar borrado" })).toBeInTheDocument();
-      expect(screen.getByText(/No se puede deshacer/)).toBeInTheDocument();
-      expect(eventById("event-5")).toBeDefined();
+      expect(screen.getByRole("button", { name: "Confirmar cancelación" })).toBeInTheDocument();
+      expect(screen.getByText(/se retira de entraditas.com/)).toBeInTheDocument();
+      expect(eventById("event-5").status).toBe("draft");
     });
 
-    it("se puede cancelar la confirmacion sin borrar nada", async () => {
+    it("se puede volver atras sin cancelar nada", async () => {
       await loginAs("admin@entraditas.com");
       renderActions(eventById("event-5"));
 
-      fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
-      fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar evento" }));
+      fireEvent.click(screen.getByRole("button", { name: "Volver" }));
 
-      expect(screen.queryByRole("button", { name: "Confirmar borrado" })).not.toBeInTheDocument();
-      expect(eventById("event-5")).toBeDefined();
+      expect(screen.queryByRole("button", { name: "Confirmar cancelación" })).not.toBeInTheDocument();
+      expect(eventById("event-5").status).toBe("draft");
     });
 
-    it("borra el evento y todo lo que colgaba de el", async () => {
-      await loginAs("admin@entraditas.com");
-      renderActions(eventById("event-5"));
-
-      fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
-      fireEvent.click(screen.getByRole("button", { name: "Confirmar borrado" }));
-
-      await waitFor(() => expect(db.events.find((e) => e.id === "event-5")).toBeUndefined());
-      expect(db.subEvents.filter((s) => s.eventId === "event-5")).toEqual([]);
-      expect(db.ticketTypes.filter((t) => t.eventId === "event-5")).toEqual([]);
-      expect(db.gates.filter((g) => g.eventId === "event-5")).toEqual([]);
-    });
-
-    it("no borra un evento que ya ha vendido, y explica por que", async () => {
-      // Borrarlo destruiria pedidos y entradas de gente que ha pagado.
+    it("un evento con ventas se cancela sin perder nada de lo vendido", async () => {
       await loginAs("admin@entraditas.com");
       const conVentas = db.orders[0]!.eventId;
+      const pedidos = db.orders.filter((o) => o.eventId === conVentas).length;
       renderActions(eventById(conVentas));
 
-      fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
-      fireEvent.click(screen.getByRole("button", { name: "Confirmar borrado" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar evento" }));
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar cancelación" }));
 
-      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/pedido/i));
-      expect(db.events.find((e) => e.id === conVentas)).toBeDefined();
+      await waitFor(() => expect(eventById(conVentas).status).toBe("cancelled"));
+      expect(eventById(conVentas).publishedAt).toBeNull();
+      expect(db.orders.filter((o) => o.eventId === conVentas)).toHaveLength(pedidos);
+      expect(screen.getByRole("status")).toHaveTextContent(/cancelado/i);
+    });
+
+    it("un evento ya cancelado no ofrece cancelarlo otra vez", async () => {
+      await loginAs("admin@entraditas.com");
+      eventById("event-5").status = "cancelled";
+      renderActions(eventById("event-5"));
+      expect(screen.queryByRole("button", { name: "Cancelar evento" })).not.toBeInTheDocument();
+    });
+
+    it("un admin no puede cancelar el evento de otra organizacion", async () => {
+      await loginAs("admin@entraditas.com"); // org-1
+      renderActions(eventById("event-4")); // org-2
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar evento" }));
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar cancelación" }));
+
+      await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
+      expect(eventById("event-4").status).toBe("published");
     });
   });
 

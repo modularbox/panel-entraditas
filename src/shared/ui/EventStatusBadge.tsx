@@ -6,7 +6,8 @@ export const EVENT_STATUS_LABEL: Record<Event["status"], string> = {
   in_review: "En revisión",
   published: "Publicado",
   rejected: "Rechazado",
-  finished: "Finalizado"
+  finished: "Finalizado",
+  cancelled: "Cancelado"
 };
 
 const STATUS_STYLES: Record<Event["status"], string> = {
@@ -14,7 +15,8 @@ const STATUS_STYLES: Record<Event["status"], string> = {
   in_review: "border-status-cancelled bg-status-cancelled-bg text-status-cancelled",
   published: "border-status-published bg-status-published-bg text-status-published",
   rejected: "border-status-rejected bg-status-rejected-bg text-status-rejected",
-  finished: "border-status-finished bg-status-finished-bg text-status-finished"
+  finished: "border-status-finished bg-status-finished-bg text-status-finished",
+  cancelled: "border-foreground bg-foreground text-background"
 };
 
 interface EventStatusBadgeProps {
@@ -33,7 +35,8 @@ interface EventStatusBadgeProps {
  * la lista mostraba como "A LA VENTA" un festival celebrado hace dos meses.
  */
 export function EventStatusBadge({ status, event }: EventStatusBadgeProps) {
-  const finished = event ? hasEventFinished(event) : false;
+  // Un evento cancelado se queda como cancelado aunque su fecha ya haya pasado.
+  const finished = event && status !== "cancelled" ? hasEventFinished(event) : false;
   const shown = finished ? "finished" : status;
   return (
     <span

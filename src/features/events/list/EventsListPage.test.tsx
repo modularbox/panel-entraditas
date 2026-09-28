@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { db, resetDb } from "@/mocks/state";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useWizardStore } from "../wizard/wizardStore";
@@ -55,6 +55,13 @@ describe("EventsListPage", () => {
   });
 
   it("colors each event's status label with its state color", async () => {
+    // Fecha fija: "Bernarda Alba" es de finales de septiembre de 2026 y, pasada esa fecha, la
+    // lista la marca como finalizada (con razón). La prueba es del color, no del calendario.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-01T10:00:00Z"));
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     await useSessionStore.getState().login("superadmin@entraditas.com", "superadmin1234");
     renderPage();
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(14));

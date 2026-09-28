@@ -10,9 +10,12 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { canReadFromApi, fetchApiOrders } from "@/shared/lib/entraditasApi";
 import { pedidoDesdeLaApi } from "../desdeLaApi";
+import { metodoDePago } from "../metodoDePago";
+import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { LIMITES } from "@/shared/lib/formLimits";
+import { Cargando } from "@/shared/ui/Cargando";
 
-type OrderDetail = Order & { items: OrderItem[]; refunds: Refund[]; esReal?: boolean };
+type OrderDetail = Order & { items: OrderItem[]; refunds: Refund[]; esReal?: boolean; eventTitle?: string };
 
 const STATUS_LABELS: Record<Order["status"], string> = {
   pending: "Pendiente",
@@ -122,8 +125,10 @@ export function OrderDetailPage() {
     enabled: Boolean(token),
     retry: false
   });
+  // Un pedido de ejemplo solo trae el id de su evento; el de verdad ya trae el título.
+  const { data: events } = useEventsQuery();
 
-  if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;
+  if (isLoading) return <Cargando />;
   // Sin pedido y sin error tambien es un 404: la API devuelve una lista vacia cuando el pedido no
   // existe o no es de esta organizacion. Dejarlo en blanco parecia que la pantalla se habia roto.
   if (!order || (error instanceof AppError && error.code === "NOT_FOUND")) {
@@ -136,6 +141,8 @@ export function OrderDetailPage() {
   }
 
   const remaining = order.total - order.refundedAmount;
+  const metodo = metodoDePago(order.paymentReference);
+  const eventoDeEjemplo = events?.find((event) => event.id === order.eventId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -149,11 +156,24 @@ export function OrderDetailPage() {
         </header>
       </div>
 
-      <section className="rounded-lg border-2 border-foreground bg-surface p-5 shadow-flat">
-        <h2 className="font-display text-lg font-semibold">Comprador</h2>
-        <p className="mt-2 text-sm">{order.customerName}</p>
-        <p className="text-sm text-muted-foreground">{order.customerEmail}</p>
-      </section>
+      <div className="grid gap-4 md:grid-cols-3">
+        <section className="min-w-0 rounded-lg border-2 border-foreground bg-surface p-5 shadow-flat">
+          <h2 className="font-display text-lg font-semibold">Comprador</h2>
+          <p className="mt-2 break-words text-sm">{order.customerName}</p>
+          <p className="break-words text-sm text-muted-foreground">{order.customerEmail}</p>
+        </section>
+        <section className="min-w-0 rounded-lg border-2 border-foreground bg-surface p-5 shadow-flat">
+          <h2 className="font-display text-lg font-semibold">Evento</h2>
+          <p className="mt-2 break-words text-sm">{order.eventTitle || eventoDeEjemplo?.title || "—"}</p>
+        </section>
+        <section className="min-w-0 rounded-lg border-2 border-foreground bg-surface p-5 shadow-flat">
+          <h2 className="font-display text-lg font-semibold">Pago</h2>
+          <p className="mt-2 text-sm">{metodo?.nombre ?? "Sin indicar"}</p>
+          {metodo?.dePrueba && (
+            <p className="text-sm text-muted-foreground">Compra de prueba: no ha pasado por una pasarela.</p>
+          )}
+        </section>
+      </div>
 
       <section className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
         <table className="w-full text-left text-sm">

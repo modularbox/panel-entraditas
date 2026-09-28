@@ -12,6 +12,7 @@ import { useWizardStore } from "../wizard/wizardStore";
 import { CreateEventDialog } from "../create/CreateEventDialog";
 import { EventRowActions } from "./EventRowActions";
 import { useEventsQuery } from "./useEventsQuery";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const STATUS_FILTERS: Array<{ value: "" | Event["status"]; label: string }> = [
   { value: "", label: "Todos" },
@@ -167,7 +168,7 @@ export function EventsListPage() {
       </p>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Cargando...</p>
+        <Cargando />
       ) : (
         <div className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
           <table className="w-full text-left text-sm">

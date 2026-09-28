@@ -7,6 +7,7 @@ import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { useRefundsQuery } from "./useRefundsQuery";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { LIMITES } from "@/shared/lib/formLimits";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const columnHelper = createColumnHelper<Refund>();
@@ -62,7 +63,7 @@ export function RefundsListPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Cargandoâ€¦</p>
+        <Cargando />
       ) : refunds.length === 0 ? (
         <p className="text-muted-foreground">No hay reembolsos que coincidan con los filtros.</p>
       ) : (

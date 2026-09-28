@@ -65,33 +65,21 @@ export function AutoSincronizacionConLaWeb({ eventos }: AutoSincronizacionConLaW
 
   // Sin sesion en la API no hay nada que sincronizar; el aviso de conexion ya lo explica.
   if (!canPublishToApi()) return null;
-  // Sin novedades ni problemas, no hay nada que contar.
-  if (!estado.trabajando && estado.actualizados === 0 && estado.fallos.length === 0) return null;
-
-  const hayFallos = estado.fallos.length > 0;
+  // Mientras revisa y cuando todo ha ido bien no dice nada (tanda 17: fuera los textos de carga).
+  // Un aviso que aparece y desaparece al entrar solo empuja la pagina arriba y abajo; lo unico que
+  // merece sitio es un problema.
+  if (estado.trabajando || estado.fallos.length === 0) return null;
 
   return (
     <div className="flex flex-col items-start gap-1">
-      {estado.trabajando ? (
-        <p role="status" className="text-xs text-muted-foreground">
-          Comprobando con entraditas.com...
+      <p role="status" className="text-xs font-medium text-destructive">
+        {`${estado.actualizados} publicados en entraditas.com. ${estado.fallos.length} con problemas:`}
+      </p>
+      {estado.fallos.map((fallo) => (
+        <p key={fallo} className="max-w-2xl text-xs text-destructive">
+          {fallo}
         </p>
-      ) : (
-        <p
-          role="status"
-          className={`text-xs font-medium ${hayFallos ? "text-destructive" : "text-success"}`}
-        >
-          {hayFallos
-            ? `${estado.actualizados} publicados en entraditas.com. ${estado.fallos.length} con problemas:`
-            : `${estado.actualizados} eventos actualizados en entraditas.com.`}
-        </p>
-      )}
-      {!estado.trabajando &&
-        estado.fallos.map((fallo) => (
-          <p key={fallo} className="max-w-2xl text-xs text-destructive">
-            {fallo}
-          </p>
-        ))}
+      ))}
     </div>
   );
 }

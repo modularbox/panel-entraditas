@@ -10,6 +10,7 @@ import { useCustomersQuery } from "./useCustomersQuery";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { LIMITES } from "@/shared/lib/formLimits";
 import { canConnectCustomerToWeb, connectApiCustomerSession, getWebBase } from "@/shared/lib/entraditasApi";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 
@@ -181,7 +182,7 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
       {connectError && <p role="alert">{connectError}</p>}
 
       {isLoading ? (
-        <p className="text-muted-foreground">Cargando…</p>
+        <Cargando />
       ) : visibles.length === 0 ? (
         <p className="text-muted-foreground">
           {soloPublicidad && customers.length > 0

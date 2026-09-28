@@ -10,6 +10,7 @@ import { useSubEventsQuery } from "@/features/events/wizard/steps/useSubEventsQu
 import { useTicketDesignQuery, useSaveTicketDesign } from "./useTicketDesignQuery";
 import { TicketDesignPreview } from "./TicketDesignPreview";
 import { LIMITES } from "@/shared/lib/formLimits";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const COLOR_PRESETS = ["#243B8F", "#0d6e6e", "#7a1fa2", "#b42318", "#0f172a"];
 
@@ -120,7 +121,7 @@ export function TicketDesignSection({ eventId, onValidationChange }: TicketDesig
     }
   }
 
-  if (isLoading) return <p className="text-muted-foreground">Cargando diseño de la entrada…</p>;
+  if (isLoading) return <Cargando />;
   if (error) return <p role="alert">{error instanceof AppError ? error.message : "No se pudo cargar el diseño."}</p>;
   if (!draft) return null;
 

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { canReadFromApi, fetchApiOrganizationCustomers, fetchApiOrganizations } from "@/shared/lib/entraditasApi";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const fecha = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium" });
@@ -50,7 +51,7 @@ export function OrganizationCustomers({ organizationId }: { organizationId: stri
         </p>
       )}
 
-      {desdeApi && isLoading && <p className="text-muted-foreground">Cargando…</p>}
+      {desdeApi && isLoading && <Cargando />}
 
       {desdeApi && error && (
         <p className="text-destructive">

@@ -10,6 +10,7 @@ import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { useOrganizationsQuery } from "./useOrganizationsQuery";
+import { Cargando } from "@/shared/ui/Cargando";
 
 export function OrganizationsListPage() {
   const token = useSessionStore((state) => state.token);
@@ -113,7 +114,7 @@ export function OrganizationsListPage() {
       {error && <p role="alert">No se pudieron cargar las organizaciones.</p>}
 
       {isLoading ? (
-        <p className="text-muted-foreground">Cargando…</p>
+        <Cargando />
       ) : organizations.length === 0 ? (
         <p className="text-muted-foreground">No hay organizaciones.</p>
       ) : (

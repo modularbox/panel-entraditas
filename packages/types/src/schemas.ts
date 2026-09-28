@@ -207,7 +207,9 @@ export const EVENT_RULE_DEFAULTS: Required<EventRules> = {
 };
 
 // Los 5 estados de events.status: borrador, en revision, publicado, rechazado y finalizado.
-export const EventStatusSchema = z.enum(["draft", "in_review", "published", "rejected", "finished"]);
+// "cancelled": el evento no se celebra. Sustituye a borrarlo (tanda 17): lo vendido y su historia
+// siguen ahí, y deja de anunciarse en la web.
+export const EventStatusSchema = z.enum(["draft", "in_review", "published", "rejected", "finished", "cancelled"]);
 export type EventStatus = z.infer<typeof EventStatusSchema>;
 
 /**

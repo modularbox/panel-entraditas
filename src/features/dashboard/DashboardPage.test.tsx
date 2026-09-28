@@ -128,13 +128,20 @@ describe("DashboardPage", () => {
     expect(within(sectionByTitle("Aforo por evento")).getByText("No hay datos para estos filtros.")).toBeInTheDocument();
   });
 
-  it("queues the selected report format", async () => {
+  it("exporta el dashboard entero", async () => {
     await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
     renderPage();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Exportar informe" })).toBeInTheDocument());
-    fireEvent.change(screen.getByLabelText("Formato de informe"), { target: { value: "pdf" } });
-    fireEvent.click(screen.getByRole("button", { name: "Exportar informe" }));
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("PDF"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Exportar todo (CSV)" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Exportar todo (CSV)" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Dashboard exportado"));
+  });
+
+  it("exporta un evento suelto con sus pedidos", async () => {
+    await useSessionStore.getState().login("admin@entraditas.com", "admin1234");
+    renderPage();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Exportar Noche de Jazz" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Exportar Noche de Jazz" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent('"Noche de Jazz" exportado'));
   });
 
   it("shows the organization filter only to a superadmin", async () => {

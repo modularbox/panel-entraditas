@@ -5,6 +5,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { canReadFromApi, fetchApiCustomer, type ApiCustomerDetail } from "@/shared/lib/entraditasApi";
 import { BackButton } from "@/shared/ui/BackButton";
+import { Cargando } from "@/shared/ui/Cargando";
 
 type CustomerDetail = Customer & { orders: (Order & { eventTitle: string })[] };
 
@@ -82,7 +83,7 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
     retry: false // a 404 here is a valid "not found" outcome, not a transient failure to retry
   });
 
-  if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;
+  if (isLoading) return <Cargando />;
   if (customer === null || (error instanceof AppError && error.code === "NOT_FOUND")) {
     return (
       <div className="rounded-lg border-2 border-dashed border-border bg-surface-alt p-10 text-center">

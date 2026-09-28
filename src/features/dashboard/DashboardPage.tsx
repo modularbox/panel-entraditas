@@ -8,10 +8,13 @@ import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { Donut, EmptyState, HorizontalBars, Kpi, LineChart, Section } from "@/shared/ui/charts";
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
-import { canReadFromApi, fetchApiMetrics } from "@/shared/lib/entraditasApi";
+import { canReadFromApi, fetchApiMetrics, fetchApiOrders } from "@/shared/lib/entraditasApi";
+import { pedidoDesdeLaApi } from "@/features/sales/orders/desdeLaApi";
+import { csvDeEvento, csvGeneral, descargar, nombreDeFichero, type PedidoExportable } from "./exportarDashboard";
 import { useDashboardQuery } from "./useDashboardQuery";
 import { CRITERIOS_DE_ORDEN, ordenarEventos, type CriterioDeOrden, type SentidoDeOrden } from "./ordenarEventos";
 import { DATE_RANGE_PRESETS, EMPTY_DASHBOARD_FILTERS, type DashboardFilters } from "./dashboardFilters";
+import { Cargando } from "@/shared/ui/Cargando";
 
 /**
  * Lo que de verdad esta pasando en entraditas.com, leido de su base de datos.
@@ -37,7 +40,7 @@ function DatosDeLaWeb({ filters }: { filters: DashboardFilters }) {
   });
 
   if (!hayApi) return null;
-  if (isLoading) return <p className="text-sm text-muted-foreground">Cargando los datos de entraditas.com…</p>;
+  if (isLoading) return <Cargando />;
   if (!data) return null;
   if (!data.disponible) {
     return (
@@ -142,23 +145,43 @@ export function DashboardPage() {
   const eventosOrdenados = useMemo(() => ordenarEventos(data?.eventMetrics ?? [], criterio, sentido), [data, criterio, sentido]);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
-  async function exportReport(format: string) {
-    setExportMessage(null); setExportError(null);
-    try {
-      const result = await apiClient.post<{ filename: string; mimeType: string; content: string }>("/reports/export", { report: "dashboard", format, ...filters }, { token: token! });
-      const blob = new Blob([result.content], { type: result.mimeType });
-      if (typeof URL.createObjectURL === "function") {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = result.filename;
-        link.click();
-        URL.revokeObjectURL(url);
-      }
-      setExportMessage(`Exportación ${format.toUpperCase()} descargada con datos de prueba.`);
-    } catch (cause) { if (cause instanceof AppError) setExportError(cause.message); }
+  const [exportando, setExportando] = useState<string | null>(null);
+
+  /** Lo que dicen los filtros, en palabras, para la cabecera del fichero. */
+  function filtrosEnTexto(): string {
+    const partes: string[] = [];
+    if (filters.organizationId) partes.push(`Organización: ${organizationsQuery.data?.find((o) => o.id === filters.organizationId)?.name ?? filters.organizationId}`);
+    partes.push(filters.eventId ? `Evento: ${eventsQuery.data?.find((e) => e.id === filters.eventId)?.title ?? filters.eventId}` : "Todos los eventos");
+    if (filters.from || filters.to) partes.push(`Fechas: ${filters.from || "…"} a ${filters.to || "…"}`);
+    return partes.join(" · ");
   }
-  if (isLoading) return <p className="text-muted-foreground">Cargando métricas...</p>;
+
+  /** Exportación general: lo que se ve, con los filtros puestos y en el orden de la tabla. */
+  function exportarTodo() {
+    if (!data) return;
+    setExportError(null);
+    descargar(nombreDeFichero("dashboard-entraditas"), csvGeneral(data, eventosOrdenados, filtrosEnTexto()));
+    setExportMessage("Dashboard exportado (CSV).");
+  }
+
+  /** Exportación de un evento: sus cifras y cada pedido. Los pedidos se piden en ese momento. */
+  async function exportarEvento(evento: (typeof eventosOrdenados)[number]) {
+    setExportMessage(null);
+    setExportError(null);
+    setExportando(evento.id);
+    try {
+      const pedidos: PedidoExportable[] = canReadFromApi()
+        ? (await fetchApiOrders({ eventId: evento.id })).map(pedidoDesdeLaApi)
+        : await apiClient.get<PedidoExportable[]>(`/orders?eventId=${encodeURIComponent(evento.id)}`, { token: token! });
+      descargar(nombreDeFichero(evento.title), csvDeEvento(evento, pedidos));
+      setExportMessage(`"${evento.title}" exportado (CSV).`);
+    } catch (cause) {
+      setExportError(cause instanceof AppError ? cause.message : "No se pudieron traer los pedidos de ese evento.");
+    } finally {
+      setExportando(null);
+    }
+  }
+  if (isLoading) return <Cargando />;
   if (isError || !data) return <p role="alert">No se pudieron cargar las métricas.</p>;
   const kpis = data.kpis;
   const refreshed = new Date(dataUpdatedAt || data.lastUpdated).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
@@ -171,7 +194,7 @@ export function DashboardPage() {
   const real = data.esReal;
   const sinVentas = real && kpis.grossRevenue.value === 0 && kpis.ticketsSold.value === 0;
   return <div className="flex flex-col gap-6">
-    <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Resumen operativo</p><h1 className="mt-1 font-display text-3xl font-semibold">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Actualizado a las {refreshed} · sincronización automática cada 15 s</p></div><div className="flex items-center gap-2"><label htmlFor="report-format" className="sr-only">Formato de informe</label><select id="report-format" className="h-10 rounded-md border-2 border-foreground bg-surface px-3 text-sm"><option value="csv">CSV</option><option value="xlsx">XLSX</option><option value="pdf">PDF</option></select><Button onClick={() => exportReport((document.getElementById("report-format") as HTMLSelectElement).value)}>Exportar informe</Button></div></header>
+    <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Resumen operativo</p><h1 className="mt-1 font-display text-3xl font-semibold">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Actualizado a las {refreshed} · sincronización automática cada 15 s</p></div><Button type="button" onClick={exportarTodo}>Exportar todo (CSV)</Button></header>
     {exportMessage && <p role="status" className="border-2 border-success bg-success-bg px-4 py-3 text-sm font-semibold">{exportMessage}</p>}{exportError && <p role="alert">{exportError}</p>}
     <DatosDeLaWeb filters={filters} />
     <FilterBar filters={filters} onChange={setFilters} isSuperadmin={user?.role === "superadmin"} organizations={organizationsQuery.data ?? []} events={eventsQuery.data ?? []} />
@@ -179,7 +202,7 @@ export function DashboardPage() {
     {!real && <p className="text-xs text-muted-foreground">Estas cifras salen de los datos de ejemplo del panel. Con sesión en entraditas.com se leen de su base de ventas.</p>}
     {sinVentas && <p role="status" className="border-2 border-foreground bg-surface px-4 py-3 text-sm">Todavía no hay ventas en entraditas.com con estos filtros. Las cifras están a cero porque no hay nada que contar, no porque falle nada.</p>}
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Kpi label="Ingresos brutos" metric={kpis.grossRevenue} format={euro.format} /><Kpi label="Ingresos netos" metric={kpis.netRevenue} format={euro.format} /><Kpi label="Entradas vendidas" metric={kpis.ticketsSold} /><Kpi label="Ticket medio" metric={kpis.averageTicket} format={euro.format} /><Kpi label="Aforo ocupado" metric={kpis.occupancy} format={(value) => `${value}%`} />{!real && <Kpi label="Conversión" metric={kpis.conversion} format={(value) => `${value}%`} sample />}<Kpi label="Asistencia" metric={kpis.attendance} format={(value) => `${value}%`} sample={!real} /><Kpi label="Reembolsos" metric={kpis.refunds} format={euro.format} /></div>
-    <Section title="Detalle por evento" note="Datos del periodo actual"><div className="mb-4 flex flex-nowrap items-center gap-2"><label htmlFor="orden-eventos" className="whitespace-nowrap text-xs font-bold uppercase tracking-wide text-muted-foreground">Ordenar por</label><select id="orden-eventos" className={filterControl} value={criterio} onChange={(event) => setCriterio(event.target.value as CriterioDeOrden)}>{CRITERIOS_DE_ORDEN.map((opcion) => <option key={opcion.id} value={opcion.id}>{opcion.etiqueta}</option>)}</select><Button type="button" variant="outline" className="h-9 shrink-0 whitespace-nowrap px-2.5 text-xs" aria-label={sentido === "desc" ? "Orden descendente, pulsa para ascendente" : "Orden ascendente, pulsa para descendente"} onClick={() => setSentido((actual) => (actual === "desc" ? "asc" : "desc"))}>{sentido === "desc" ? "Mayor a menor" : "Menor a mayor"}</Button></div><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead className="border-b-2 border-foreground"><tr><th className="px-3 py-3">Evento</th><th className="px-3 py-3">Fecha</th><th className="px-3 py-3">Ingresos brutos</th><th className="px-3 py-3">Ingresos netos</th><th className="px-3 py-3">Entradas vendidas</th><th className="px-3 py-3">Ticket medio</th><th className="px-3 py-3">Aforo</th><th className="px-3 py-3">Conversión</th><th className="px-3 py-3">Asistencia</th><th className="px-3 py-3">Reembolsos</th></tr></thead><tbody>{eventosOrdenados.map((event) => <tr key={event.id} className="border-b border-border last:border-0"><td className="px-3 py-3 font-semibold"><Link to={`/eventos/${event.id}`} className="hover:underline">{event.title}</Link><span className="mt-1 block text-xs font-normal text-muted-foreground">{event.status}</span></td><td className="whitespace-nowrap px-3 py-3">{eventDate(event.startsAt)}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.grossRevenue)}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.netRevenue)}</td><td className="px-3 py-3">{number.format(event.ticketsSold)}</td><td className="whitespace-nowrap px-3 py-3">{event.averageTicket === null ? "—" : euro.format(event.averageTicket)}</td><td className="px-3 py-3">{event.occupancy === null ? "—" : `${event.occupancy}%`}</td><td className="px-3 py-3">{event.conversion === null ? "—" : `${event.conversion}%`}</td><td className="px-3 py-3">{event.attendance === null ? "—" : `${event.attendance}%`}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.refunds)}</td></tr>)}</tbody></table></div></Section>
+    <Section title="Detalle por evento" note="Datos del periodo actual"><div className="mb-4 flex flex-nowrap items-center gap-2"><label htmlFor="orden-eventos" className="whitespace-nowrap text-xs font-bold uppercase tracking-wide text-muted-foreground">Ordenar por</label><select id="orden-eventos" className={filterControl} value={criterio} onChange={(event) => setCriterio(event.target.value as CriterioDeOrden)}>{CRITERIOS_DE_ORDEN.map((opcion) => <option key={opcion.id} value={opcion.id}>{opcion.etiqueta}</option>)}</select><Button type="button" variant="outline" className="h-9 shrink-0 whitespace-nowrap px-2.5 text-xs" aria-label={sentido === "desc" ? "Orden descendente, pulsa para ascendente" : "Orden ascendente, pulsa para descendente"} onClick={() => setSentido((actual) => (actual === "desc" ? "asc" : "desc"))}>{sentido === "desc" ? "Mayor a menor" : "Menor a mayor"}</Button></div><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead className="border-b-2 border-foreground"><tr><th className="px-3 py-3">Evento</th><th className="px-3 py-3">Fecha</th><th className="px-3 py-3">Ingresos brutos</th><th className="px-3 py-3">Ingresos netos</th><th className="px-3 py-3">Entradas vendidas</th><th className="px-3 py-3">Ticket medio</th><th className="px-3 py-3">Aforo</th><th className="px-3 py-3">Conversión</th><th className="px-3 py-3">Asistencia</th><th className="px-3 py-3">Reembolsos</th><th className="px-3 py-3"><span className="sr-only">Exportar</span></th></tr></thead><tbody>{eventosOrdenados.map((event) => <tr key={event.id} className="border-b border-border last:border-0"><td className="px-3 py-3 font-semibold"><Link to={`/eventos/${event.id}`} className="hover:underline">{event.title}</Link><span className="mt-1 block text-xs font-normal text-muted-foreground">{event.status}</span></td><td className="whitespace-nowrap px-3 py-3">{eventDate(event.startsAt)}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.grossRevenue)}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.netRevenue)}</td><td className="px-3 py-3">{number.format(event.ticketsSold)}</td><td className="whitespace-nowrap px-3 py-3">{event.averageTicket === null ? "—" : euro.format(event.averageTicket)}</td><td className="px-3 py-3">{event.occupancy === null ? "—" : `${event.occupancy}%`}</td><td className="px-3 py-3">{event.conversion === null ? "—" : `${event.conversion}%`}</td><td className="px-3 py-3">{event.attendance === null ? "—" : `${event.attendance}%`}</td><td className="whitespace-nowrap px-3 py-3">{euro.format(event.refunds)}</td><td className="px-3 py-3"><Button type="button" variant="outline" className="h-8 whitespace-nowrap px-2.5 text-xs" aria-label={`Exportar ${event.title}`} disabled={exportando !== null} onClick={() => void exportarEvento(event)}>{exportando === event.id ? "Exportando..." : "Exportar"}</Button></td></tr>)}</tbody></table></div></Section>
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]"><Section title="Ventas acumuladas" note="Incluye proyección"><LineChart points={data.salesTimeline} /></Section><Section title="Ventas por tipo" note="Mix de producto">{data.ticketMix.length === 0 ? <EmptyState /> : <HorizontalBars items={data.ticketMix} />}</Section></div>
     <div className={`grid gap-6 ${real ? "" : "lg:grid-cols-2"}`}><Section title="Aforo por evento" note="Vendidas / capacidad">{data.occupancy.length === 0 ? <EmptyState message={real ? "Ningún evento de estos filtros tiene aforo configurado todavía." : undefined} /> : <div className="flex flex-col gap-4">{data.occupancy.map((item) => <div key={item.label}><div className="mb-1 flex justify-between gap-3 text-xs"><span className="truncate">{item.label}</span><strong>{item.sold} / {item.capacity}</strong></div><div className="h-3 bg-muted"><div className="h-full bg-accent" style={{ width: `${Math.min((item.sold / item.capacity) * 100, 100)}%` }} /></div></div>)}</div>}</Section>{!real && <Section title="Curva de entrada" note="Personas acumuladas"><LineChart points={data.attendanceCurve.map((point) => ({ label: point.label, actual: point.value }))} /></Section>}</div>
     <div className={`grid gap-6 ${real ? "" : "lg:grid-cols-3"}`}><Section title="Canales de venta">{data.channels.length === 0 ? <EmptyState message={real ? "Todavía no hay ventas por las que repartir canales." : undefined} /> : <Donut channels={data.channels} />}</Section>{!real && <Section title="Origen de compradores" note="Índice relativo" sample><HorizontalBars items={data.geoHeat} /></Section>}{!real && <Section title="Embudo de conversión" sample><HorizontalBars items={data.funnel.map((item) => ({ label: item.label, value: Math.round((item.value / funnelBase) * 100) }))} /></Section>}</div>

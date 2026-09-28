@@ -14,7 +14,10 @@ import type { OrdersFilters } from "./list/useOrdersQuery";
 const ESTADOS: Order["status"][] = ["pending", "reserved", "paid", "cancelled", "expired", "refunded", "partially_refunded"];
 const CANALES: Order["channel"][] = ["web", "panel", "box_office", "courtesy"];
 
-export function pedidoDesdeLaApi(pedido: ApiPanelOrder): Order & { items: OrderItem[] } {
+/** El pedido como lo pinta el panel, con el nombre del evento que ya trae la API. */
+export type PedidoConEvento = Order & { items: OrderItem[]; eventTitle?: string };
+
+export function pedidoDesdeLaApi(pedido: ApiPanelOrder): PedidoConEvento {
   const creado = pedido.createdAt ?? new Date().toISOString();
   return {
     id: pedido.id,
@@ -34,7 +37,8 @@ export function pedidoDesdeLaApi(pedido: ApiPanelOrder): Order & { items: OrderI
     total: pedido.total,
     refundedAmount: pedido.refunded,
     currency: pedido.currency || "EUR",
-    paymentReference: null,
+    paymentReference: pedido.paymentReference ?? null,
+    eventTitle: pedido.eventTitle,
     paidAt: pedido.status === "paid" ? creado : null,
     expiresAt: null,
     createdAt: creado,

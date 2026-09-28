@@ -14,6 +14,7 @@ import { SeatingPlanSection } from "../wizard/steps/SeatingPlanSection";
 import { DiscountCodesSection } from "../wizard/steps/DiscountCodesSection";
 import { GatesSection } from "../wizard/steps/GatesSection";
 import { TicketDesignSection } from "@/features/ticketDesign/TicketDesignSection";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const ENABLED_TABS = [
   { key: "general", label: "Información general" },
@@ -54,7 +55,7 @@ export function EventDetailPage() {
     retry: false
   });
 
-  if (isLoading) return <p className="text-muted-foreground">Cargando…</p>;
+  if (isLoading) return <Cargando />;
   // Only a 404 gets a dedicated screen; other errors fall through to the "no event" null render below.
   if (error instanceof AppError && error.code === "NOT_FOUND") {
     return (

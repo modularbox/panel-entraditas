@@ -13,6 +13,7 @@ import { Button } from "@/shared/ui/button";
 import { useTeamQuery } from "../list/useTeamQuery";
 import { teamMemberSchema, type TeamMemberFormValues } from "./teamMemberSchema";
 import { LIMITES } from "@/shared/lib/formLimits";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const ROLE_LABELS: Record<RoleSlug, string> = { superadmin: "Superadmin", organizador: "Organizador", suborganizador: "Suborganizador" };
 const ALL_ROLES: RoleSlug[] = ["superadmin", "organizador", "suborganizador"];
@@ -59,7 +60,7 @@ export function TeamMemberFormPage() {
       if (cause instanceof AppError) setSubmitError(cause.message);
     }
   }
-  if (isEdit && !existingMember) return <p className="text-muted-foreground">Cargando…</p>;
+  if (isEdit && !existingMember) return <Cargando />;
   return <div className="flex flex-col gap-6">
     <div className="flex items-center gap-4">
       <BackButton fallback="/equipo" />

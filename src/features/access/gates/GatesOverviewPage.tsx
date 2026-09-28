@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import type { Gate } from "@entraditas/types";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { useGatesOverviewQuery, type GateOverviewItem } from "./useGatesOverviewQuery";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const DIRECTION_LABEL: Record<Gate["direction"], string> = { in: "Entrada", out: "Salida", both: "Ambas" };
 
@@ -61,7 +62,7 @@ export function GatesOverviewPage() {
         <p className="mt-1 text-sm text-muted-foreground">Puertas de todos los eventos a los que tienes acceso.</p>
       </header>
       {isLoading ? (
-        <p className="text-muted-foreground">Cargando…</p>
+        <Cargando />
       ) : gates.length === 0 ? (
         <p className="text-muted-foreground">No hay puertas creadas todavía.</p>
       ) : (

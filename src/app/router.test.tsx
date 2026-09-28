@@ -67,16 +67,17 @@ describe("AppRoutes", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "Reembolsos" })).toBeInTheDocument());
   });
 
-  it("shows the taquilla page under Ventas to an authenticated admin", async () => {
+  it("Taquilla ya no existe: un enlace guardado lleva a Pedidos", async () => {
     await sesionCon(["orders:read"]);
     renderApp(["/ventas/taquilla"]);
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Taquilla" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Pedidos" })).toBeInTheDocument());
+    expect(screen.queryByRole("link", { name: /taquilla/i })).not.toBeInTheDocument();
   });
 
-  it("shows the attendees list under Ventas to an authenticated admin", async () => {
+  it("Asistentes ya no existe: un enlace guardado lleva a Clientes", async () => {
     await sesionCon(["orders:read"]);
-    renderApp(["/ventas/asistentes"]);
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Asistentes" })).toBeInTheDocument());
+    renderApp(["/ventas/asistentes/alguien%40ejemplo.com"]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Clientes" })).toBeInTheDocument());
   });
 
   it("shows the customers list under /clientes to an authenticated admin", async () => {

@@ -9,6 +9,7 @@ import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { useTeamQuery } from "./useTeamQuery";
+import { Cargando } from "@/shared/ui/Cargando";
 
 const ROLE_LABELS: Record<RoleSlug, string> = { superadmin: "Superadmin", organizador: "Organizador", suborganizador: "Suborganizador" };
 const STATUS_LABELS: Record<User["status"], string> = { active: "Activo", invited: "Invitado", disabled: "Desactivado" };
@@ -89,7 +90,7 @@ export function TeamListPage() {
         <Link to="/equipo/invitar"><Button>Invitar persona</Button></Link>
       </header>
       {error && <p role="alert">{error}</p>}
-      {isLoading ? <p className="text-muted-foreground">Cargando…</p> : (
+      {isLoading ? <Cargando /> : (
         <div className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-alt">

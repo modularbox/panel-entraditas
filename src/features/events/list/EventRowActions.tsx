@@ -20,11 +20,11 @@ const REVIEWABLE: Event["status"][] = ["in_review"];
  * Estados que un superadmin puede poner a mano. "Finalizado" no esta: se deduce de la fecha, no se
  * guarda, asi que ponerlo seria inventar un estado que al repintar vuelve a cambiar solo.
  */
-const ESTADOS_A_MANO: Event["status"][] = ["draft", "in_review", "published", "rejected"];
+const ESTADOS_A_MANO: Event["status"][] = ["draft", "in_review", "published", "rejected", "cancelled"];
 
 /**
  * Acciones de un evento en el listado: revisarlo, retirarlo de revision o de la web, cambiarle el
- * estado y borrarlo.
+ * estado y cancelarlo.
  *
  * Cada accion que cambia lo que ve el comprador se sincroniza con entraditas.com en el mismo
  * gesto. Antes solo existia "aprobar", asi que un evento despublicado o borrado en el panel
@@ -39,7 +39,7 @@ export function EventRowActions({ event }: { event: Event }) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -122,23 +122,28 @@ export function EventRowActions({ event }: { event: Event }) {
     onError: (error) => reportError(error, "No se pudo cambiar el estado.")
   });
 
-  const remove = useMutation({
+  /**
+   * Cancelar en vez de borrar (tanda 17). Un evento con entradas vendidas no puede desaparecer:
+   * esas ventas, sus compradores y el dinero siguen existiendo. Cancelado, se queda en el panel
+   * con todo lo suyo y deja de anunciarse.
+   */
+  const cancel = useMutation({
     mutationFn: async () => {
-      // Primero se retira de la web y despues se borra del panel. En este orden porque, si
-      // fallara el segundo paso, lo peor que queda es un evento en el panel que ya no se
-      // anuncia; al reves quedaria anunciandose uno que ya no existe y nadie podria retirarlo.
+      // Primero se retira de la web y despues se marca en el panel. En este orden porque, si
+      // fallara el segundo paso, lo peor que queda es un evento que ya no se anuncia; al reves
+      // quedaria a la venta uno cancelado.
       const outcome = await removeFromPublicSite(event.id);
-      await apiClient.delete(`/events/${event.id}`, { token: token! });
+      await apiClient.post<Event>(`/events/${event.id}/cancel`, undefined, { token: token! });
       return outcome;
     },
     onSuccess: async (outcome) => {
-      report(outcome, "Evento eliminado.");
-      setConfirmingDelete(false);
+      report(outcome, "Evento cancelado.");
+      setConfirmingCancel(false);
       await refresh();
     },
     onError: (error) => {
-      setConfirmingDelete(false);
-      reportError(error, "No se pudo eliminar el evento.");
+      setConfirmingCancel(false);
+      reportError(error, "No se pudo cancelar el evento.");
     }
   });
 
@@ -154,7 +159,8 @@ export function EventRowActions({ event }: { event: Event }) {
     withdraw.isPending ||
     unpublish.isPending ||
     changeStatus.isPending ||
-    remove.isPending;
+    cancel.isPending;
+  const cancelado = event.status === "cancelled";
 
   const acciones: { label: string; onClick: () => void; variant?: "outline" | "destructive" }[] = [];
   if (canReview && reviewable) {
@@ -168,8 +174,8 @@ export function EventRowActions({ event }: { event: Event }) {
     acciones.push({ label: "Retirar de la web", onClick: () => unpublish.mutate(), variant: "outline" });
   }
 
-  // Quien no administra no ve ninguna accion. Quien si, ve al menos "Eliminar" aunque el estado
-  // del evento no ofrezca ninguna transicion.
+  // Quien no administra no ve ninguna accion. Quien si, ve al menos "Cancelar evento" aunque el
+  // estado del evento no ofrezca ninguna transicion.
   if (!canManage) return null;
 
   return (
@@ -188,25 +194,25 @@ export function EventRowActions({ event }: { event: Event }) {
           </Button>
         ))}
 
-        {confirmingDelete ? (
+        {cancelado ? null : confirmingCancel ? (
           <>
             <Button
               type="button"
               variant="destructive"
-              onClick={() => remove.mutate()}
+              onClick={() => cancel.mutate()}
               disabled={working}
               className="h-8 px-3 text-xs"
             >
-              {remove.isPending ? "Eliminando..." : "Confirmar borrado"}
+              {cancel.isPending ? "Cancelando..." : "Confirmar cancelación"}
             </Button>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setConfirmingDelete(false)}
+              onClick={() => setConfirmingCancel(false)}
               disabled={working}
               className="h-8 px-3 text-xs"
             >
-              Cancelar
+              Volver
             </Button>
           </>
         ) : (
@@ -215,12 +221,12 @@ export function EventRowActions({ event }: { event: Event }) {
             variant="outline"
             onClick={() => {
               setMessage(null);
-              setConfirmingDelete(true);
+              setConfirmingCancel(true);
             }}
             disabled={working}
             className="h-8 px-3 text-xs"
           >
-            Eliminar
+            Cancelar evento
           </Button>
         )}
 
@@ -241,10 +247,10 @@ export function EventRowActions({ event }: { event: Event }) {
         )}
       </div>
 
-      {confirmingDelete && (
+      {confirmingCancel && (
         <p className="max-w-xs text-xs font-medium text-muted-foreground">
-          Se borra el evento con sus sesiones, entradas, descuentos y puertas. No se
-          puede deshacer.
+          Deja de venderse y se retira de entraditas.com. El evento y lo vendido se quedan en el
+          panel como cancelados.
         </p>
       )}
 

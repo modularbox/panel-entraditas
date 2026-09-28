@@ -9,6 +9,7 @@ import {
   rejectApiOrganizerApplication,
   type ApiOrganizerApplication
 } from "@/shared/lib/entraditasApi";
+import { Cargando } from "@/shared/ui/Cargando";
 
 /**
  * Solicitudes de alta como organizador, enviadas desde el formulario de entraditas.com.
@@ -205,7 +206,7 @@ export function OrganizerApplicationsPage() {
           {error && <p role="alert">{error}</p>}
 
           {isLoading ? (
-            <p className="text-muted-foreground">Cargando…</p>
+            <Cargando />
           ) : solicitudes.length === 0 ? (
             <p className="text-muted-foreground">No hay solicitudes con ese estado.</p>
           ) : (
