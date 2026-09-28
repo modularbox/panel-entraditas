@@ -250,6 +250,7 @@ export const eventsHandlers = [
       notifyWhenDateConfirmed: body.notifyWhenDateConfirmed ?? !startsAt,
 serviceFeeType: body.serviceFeeType ?? "none",
       serviceFeeValue: body.serviceFeeValue ?? 0,
+      cashbackPercent: body.cashbackPercent ?? 0,
       maxTicketsPerOrder: body.maxTicketsPerOrder ?? null,
       maxTicketsPerCustomer: body.maxTicketsPerCustomer ?? null,
       allowSingleSeatGaps: body.allowSingleSeatGaps ?? true,

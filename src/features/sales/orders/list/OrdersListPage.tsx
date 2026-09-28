@@ -126,7 +126,7 @@ export function OrdersListPage() {
       ) : orders.length === 0 ? (
         <p className="text-muted-foreground">No hay pedidos que coincidan con los filtros.</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
+        <div className="overflow-x-auto rounded-lg border-2 border-foreground bg-surface shadow-flat">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-alt">
               {table.getHeaderGroups().map((headerGroup) => (
@@ -135,7 +135,7 @@ export function OrdersListPage() {
                     <th
                       key={header.id}
                       aria-sort={header.column.getIsSorted() !== false ? (header.column.getIsSorted() === "asc" ? "ascending" : "descending") : undefined}
-                      className="px-4 py-3 font-medium text-muted-foreground"
+                      className="whitespace-nowrap px-4 py-3 font-medium text-muted-foreground"
                     >
                       <SortableHeader header={header} />
                     </th>
@@ -147,7 +147,9 @@ export function OrdersListPage() {
               {table.getRowModel().rows.map((row) => (
                 <tr key={row.id} className="border-t border-border">
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                    // Una línea por dato: en el móvil la tabla se desplaza de lado dentro de su caja
+                    // en vez de partir "PED-2026-0006" en tres renglones.
+                    <td key={cell.id} className="whitespace-nowrap px-4 py-3">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                   ))}
                 </tr>
               ))}

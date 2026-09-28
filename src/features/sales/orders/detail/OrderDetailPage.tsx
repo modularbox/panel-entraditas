@@ -175,7 +175,7 @@ export function OrderDetailPage() {
         </section>
       </div>
 
-      <section className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
+      <section className="overflow-x-auto rounded-lg border-2 border-foreground bg-surface shadow-flat">
         <table className="w-full text-left text-sm">
           <thead className="bg-surface-alt">
             <tr>

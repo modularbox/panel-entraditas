@@ -190,7 +190,7 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
             : "No hay clientes que coincidan con los filtros."}
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
+        <div className="overflow-x-auto rounded-lg border-2 border-foreground bg-surface shadow-flat">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-alt">
               {table.getHeaderGroups().map((headerGroup) => (

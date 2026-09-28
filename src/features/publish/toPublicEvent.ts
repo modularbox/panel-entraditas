@@ -252,6 +252,7 @@ export function toPublicEvent(input: PublishInput): PublicEvent {
     tiers,
     priceFrom: prices.length > 0 ? Math.min(...prices) : null,
     serviceFee: { type: event.serviceFeeType ?? "none", value: event.serviceFeeValue ?? 0 },
+    cashback: (event.cashbackPercent ?? 0) > 0 ? { percent: Math.min(50, event.cashbackPercent!) } : null,
     seatMap: seatZones.length > 0 ? { zones: seatZones } : null,
     rules: toPublicRules(event),
     discountCodes: toDiscountCodes(discountCodes),

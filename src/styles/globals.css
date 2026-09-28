@@ -85,6 +85,21 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-sans);
+  /* Que la página no "baile" de lado en el móvil por algo un poco más ancho que la pantalla. Las
+     tablas anchas tienen su propio scroll dentro de su caja. `clip` y no `hidden`: no rompe los
+     elementos pegajosos. */
+  overflow-x: clip;
+}
+
+/* Quien pide al sistema menos movimiento, no tiene ninguno. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Baseline look for the wizard/detail screens' plain HTML form elements,

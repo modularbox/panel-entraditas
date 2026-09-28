@@ -107,6 +107,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
       description: "",
       serviceFeeType: "none",
       serviceFeeValue: 0,
+      cashbackPercent: 0,
       hasSubEvents: false,
       extraDates: []
     }
@@ -172,6 +173,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         description: existingEvent.description,
         serviceFeeType: existingEvent.serviceFeeType ?? "none",
         serviceFeeValue: existingEvent.serviceFeeValue ?? 0,
+        cashbackPercent: existingEvent.cashbackPercent ?? 0,
         hasSubEvents: existingEvent.hasSubEvents,
         extraDates: []
       });
@@ -200,6 +202,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         description: existingEvent.description,
         serviceFeeType: existingEvent.serviceFeeType ?? "none",
         serviceFeeValue: existingEvent.serviceFeeValue ?? 0,
+        cashbackPercent: existingEvent.cashbackPercent ?? 0,
         hasSubEvents: existingEvent.hasSubEvents,
         extraDates: []
       });
@@ -228,6 +231,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         notifyWhenDateConfirmed: formValues.datePending ? true : formValues.notifyWhenDateConfirmed,
         serviceFeeType: formValues.serviceFeeType,
         serviceFeeValue: formValues.serviceFeeType === "none" ? 0 : formValues.serviceFeeValue ?? 0,
+        cashbackPercent: formValues.cashbackPercent ?? 0,
         // Al crear, las respuestas del cuestionario previo viajan ya con el evento: nacen
         // contestadas. Dentro del asistente se ajustan en sus pasos (tipos y asientos).
         ...(eventId ? {} : draftRules ? { rules: draftRules } : {}),
@@ -386,7 +390,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
                   type="button"
                   aria-pressed={active}
                   onClick={() => setValue("category", category.id, { shouldDirty: true, shouldValidate: true })}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-md border-2 border-foreground px-4 py-2 text-sm font-extrabold shadow-flat transition-transform hover:-translate-y-px"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md border-2 border-foreground px-4 py-2 text-sm font-extrabold shadow-flat"
                   style={{ backgroundColor: active ? category.bg : "hsl(var(--surface))", color: active ? category.text : "hsl(var(--foreground))" }}
                 >
                   <Icon name={category.icon} size={17} />
@@ -462,6 +466,17 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
           </div>
           <label htmlFor="serviceFeeValue">Valor</label>
           <NumericInput id="serviceFeeValue" allowDecimal maxLength={7} step="0.01" min="0" {...register("serviceFeeValue")} />
+        </fieldset>
+
+        <fieldset>
+          <legend>Cashback al monedero</legend>
+          <p className="mt-1 mb-2 text-sm text-muted-foreground">
+            Porcentaje de lo que se paga por las entradas (sin gastos de gestión) que vuelve al monedero de quien
+            compra en entraditas.com. 0 = sin cashback. Máximo 50 %.
+          </p>
+          <label htmlFor="cashbackPercent">Cashback (%)</label>
+          <NumericInput id="cashbackPercent" maxLength={2} step="1" min="0" max="50" {...register("cashbackPercent")} />
+          {errors.cashbackPercent && <span role="alert">{errors.cashbackPercent.message}</span>}
         </fieldset>
 
         {/* Al final del paso: es lo que decide si el siguiente paso es "Sesiones". */}

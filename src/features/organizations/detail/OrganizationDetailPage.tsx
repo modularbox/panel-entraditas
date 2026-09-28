@@ -143,7 +143,7 @@ export function OrganizationDetailPage() {
         {organization.subOrganizers.length === 0 ? (
           <p className="text-muted-foreground">Esta organización no tiene miembros de equipo.</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
+          <div className="overflow-x-auto rounded-lg border-2 border-foreground bg-surface shadow-flat">
             <table className="w-full text-left text-sm">
               <thead className="bg-surface-alt">
                 <tr>
@@ -174,7 +174,7 @@ export function OrganizationDetailPage() {
         {organization.events.length === 0 ? (
           <p className="text-muted-foreground">Esta organización no tiene eventos.</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
+          <div className="overflow-x-auto rounded-lg border-2 border-foreground bg-surface shadow-flat">
             <table className="w-full text-left text-sm">
               <thead className="bg-surface-alt">
                 <tr>

@@ -313,6 +313,8 @@ export const EventSchema = z.object({
   rules: EventRulesSchema.optional(),
   serviceFeeType: z.enum(["none", "percent", "fixed"]).optional(),
   serviceFeeValue: z.number().nonnegative().optional(),
+  // Cashback al monedero del comprador, en porcentaje entero (0-50). 0 o ausente: nada.
+  cashbackPercent: z.number().int().min(0).max(50).optional(),
   // Límites de venta y política de asientos decididos antes de crear el evento.
   maxTicketsPerOrder: z.number().int().positive().nullable().optional(),
   maxTicketsPerCustomer: z.number().int().positive().nullable().optional(),

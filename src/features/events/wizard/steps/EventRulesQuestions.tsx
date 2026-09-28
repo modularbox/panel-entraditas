@@ -40,7 +40,7 @@ export function OptionButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "rounded-md border-2 px-4 py-2 text-sm font-bold transition-transform disabled:opacity-60",
+        "rounded-md border-2 px-4 py-2 text-sm font-bold disabled:opacity-60",
         selected ? "border-foreground bg-foreground text-background" : "border-foreground bg-surface-alt"
       )}
     >

@@ -337,6 +337,12 @@ describe("toPublicEvent", () => {
     expect(toPublicEvent({ event: EVENT }).serviceFee).toEqual({ type: "none", value: 0 });
   });
 
+  it("publica el cashback al monedero cuando el organizador lo pone, y nada si es 0", () => {
+    expect(toPublicEvent({ event: { ...EVENT, cashbackPercent: 10 } }).cashback).toEqual({ percent: 10 });
+    expect(toPublicEvent({ event: { ...EVENT, cashbackPercent: 0 } }).cashback).toBeNull();
+    expect(toPublicEvent({ event: EVENT }).cashback).toBeNull();
+  });
+
   it("publishes the venue address the buyer site needs", () => {
     const result = toPublicEvent({ event: EVENT, venue: VENUE });
     expect(result.venue).toMatchObject({ city: "Badajoz", province: "Badajoz", address: "Calle Mayor 1" });

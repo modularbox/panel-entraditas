@@ -14,6 +14,13 @@ export const step1Schema = z.object({
   description: z.string().min(1, "La descripción es obligatoria"),
   serviceFeeType: z.enum(["none", "fixed", "percent"]),
   serviceFeeValue: z.coerce.number().min(0).optional(),
+  // Cashback al monedero del comprador (tanda 17): porcentaje entero de lo pagado por las entradas.
+  cashbackPercent: z.coerce
+    .number()
+    .int("El cashback va en porcentaje entero (5 = 5 %).")
+    .min(0, "El cashback no puede ser negativo.")
+    .max(50, "El cashback no puede pasar del 50 %.")
+    .optional(),
   hasSubEvents: z.boolean(),
   // Dias extra (ademas de la fecha principal). Cada dia crea el mismo evento como un evento
   // separado, guardado con su nombre y la fecha: "Titulo fecha".

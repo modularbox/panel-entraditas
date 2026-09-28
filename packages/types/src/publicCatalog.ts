@@ -214,6 +214,11 @@ export const PublicEventSchema = z.object({
     type: z.enum(["none", "percent", "fixed"]),
     value: z.number().nonnegative()
   }),
+  /**
+   * Cashback al monedero del comprador: porcentaje entero de lo pagado por las entradas (sin
+   * gastos). null = el evento no ofrece cashback. La API lo vuelve a acotar al 50 %.
+   */
+  cashback: z.object({ percent: z.number().int().min(1).max(50) }).nullable().optional(),
   seatMap: PublicSeatMapSchema.nullable(),
   rules: PublicEventRulesSchema,
   discountCodes: z.array(PublicDiscountCodeSchema),

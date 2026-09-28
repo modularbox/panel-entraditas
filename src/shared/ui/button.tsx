@@ -3,16 +3,18 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/shared/lib/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all h-10 px-4 py-2 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0",
+  // Sin saltos al pasar el ratón ni al pulsar (tanda 17, "eliminar el baile"): al pulsar solo se
+  // va la sombra, que ya se lee como "hundido" sin mover el botón de su sitio.
+  "inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-bold uppercase tracking-wide transition-colors h-10 px-4 py-2 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none",
   {
     variants: {
       variant: {
         default:
-          "border-2 border-foreground bg-primary text-primary-foreground shadow-flat hover:-translate-y-px active:translate-x-[3px] active:translate-y-[3px] active:shadow-none",
+          "border-2 border-foreground bg-primary text-primary-foreground shadow-flat active:shadow-none",
         destructive:
-          "border-2 border-foreground bg-destructive text-destructive-foreground shadow-flat hover:-translate-y-px active:translate-x-[3px] active:translate-y-[3px] active:shadow-none",
+          "border-2 border-foreground bg-destructive text-destructive-foreground shadow-flat active:shadow-none",
         outline:
-          "border-2 border-foreground bg-surface text-foreground shadow-flat hover:-translate-y-px active:translate-x-[3px] active:translate-y-[3px] active:shadow-none",
+          "border-2 border-foreground bg-surface text-foreground shadow-flat hover:bg-muted active:shadow-none",
         ghost: "font-medium normal-case tracking-normal hover:bg-muted"
       }
     },

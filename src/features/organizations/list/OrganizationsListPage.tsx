@@ -118,7 +118,7 @@ export function OrganizationsListPage() {
       ) : organizations.length === 0 ? (
         <p className="text-muted-foreground">No hay organizaciones.</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border-2 border-foreground bg-surface shadow-flat">
+        <div className="overflow-x-auto rounded-lg border-2 border-foreground bg-surface shadow-flat">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-alt">
               {table.getHeaderGroups().map((headerGroup) => (
