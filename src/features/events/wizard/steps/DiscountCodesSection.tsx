@@ -133,8 +133,9 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
       {error && <p role="alert">{error}</p>}
       <ul aria-label="Códigos de descuento" className="flex flex-col gap-2">
         {codes.map((c) => (
-          <li key={c.id} className="flex items-center gap-3 rounded-md border-2 border-border bg-surface px-3 py-2 text-sm">
-            <span className="flex-1 font-semibold">
+          // flex-wrap: en el móvil el código y sus dos botones no caben en una fila (tanda 18).
+          <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border-2 border-border bg-surface px-3 py-2 text-sm">
+            <span className="min-w-0 flex-1 basis-40 font-semibold">
               <span>{c.code}</span> — {formatValue(c)}
             </span>
             <Button type="button" variant="outline" onClick={() => toggleStatus(c)} className="h-8 px-2 text-xs">
@@ -150,7 +151,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
       {/* En rejilla y con cada casilla del ancho de lo que cabe en ella: una fecha ocupa lo que
           ocupa una fecha y un tope de usos son tres cifras. En una sola columna a ancho completo
           sobraba media pantalla a la derecha y parecia que cabia algo mas. */}
-      <fieldset className="rounded-lg border-2 border-border bg-surface p-4">
+      <fieldset className="min-w-0 rounded-lg border-2 border-border bg-surface p-4">
         <legend className="px-2 font-display font-semibold">Nuevo código de descuento</legend>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

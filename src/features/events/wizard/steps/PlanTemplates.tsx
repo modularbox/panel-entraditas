@@ -70,14 +70,16 @@ export function PlanTemplates({ zones, mode, onApply }: PlanTemplatesProps) {
   }
 
   return (
-    <fieldset className="flex flex-col gap-3 rounded-md border-2 border-border bg-surface p-3">
+    // min-w-0: un fieldset no encoge por debajo de su contenido si no se le dice, y en el móvil la
+    // casilla de 18 rem lo sacaba de la pantalla (tanda 18).
+    <fieldset className="flex min-w-0 flex-col gap-3 rounded-md border-2 border-border bg-surface p-3">
       <legend className="text-sm font-semibold">
         {mode === "plan" ? "Plantillas de plano" : "Plantillas de zonas sin plano"}
       </legend>
       {error && <p role="alert">{error}</p>}
 
       <div className="flex flex-wrap items-end gap-2">
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 max-w-full flex-col gap-1">
           <label htmlFor="template-name" className="text-xs font-semibold">
             {mode === "plan" ? "Guardar el plano actual como plantilla" : "Guardar estas zonas como plantilla"}
           </label>
@@ -87,7 +89,7 @@ export function PlanTemplates({ zones, mode, onApply }: PlanTemplatesProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={mode === "plan" ? "Teatro Circo - patio y anfiteatro" : "Sala Apolo - pista y grada"}
-            className="h-10 w-72 rounded-md border-2 border-foreground bg-surface px-3 text-sm"
+            className="h-10 w-72 max-w-full rounded-md border-2 border-foreground bg-surface px-3 text-sm"
           />
         </div>
         <Button

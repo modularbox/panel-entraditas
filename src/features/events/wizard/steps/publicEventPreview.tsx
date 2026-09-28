@@ -320,7 +320,9 @@ function PublicEventCard({ event }: { event: PreviewEventData }) {
   const pending = isDatePending(event);
 
   return (
-    <article className="flex h-full max-w-[360px] flex-col overflow-hidden rounded-xl border-2 border-foreground bg-surface shadow-flat transition">
+    // Sin `h-full`: medía el alto entero de la columna, y como encima va el selector "Tarjeta web /
+    // Detalle web", el final de la tarjeta (precio y botón) quedaba cortado por debajo (tanda 18).
+    <article className="flex max-w-[360px] flex-col overflow-hidden rounded-xl border-2 border-foreground bg-surface shadow-flat transition">
       <div
         className="relative flex h-[190px] items-center justify-center overflow-hidden"
         style={{ background: event.coverImageUrl ? undefined : event.category.bg, color: event.category.text }}

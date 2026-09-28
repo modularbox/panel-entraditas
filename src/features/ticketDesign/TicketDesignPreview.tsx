@@ -150,9 +150,9 @@ export function TicketDesignPreview({
 
   return (
     <div ref={ref} className="w-full">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display text-lg font-semibold">Vista previa</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-sm border border-border bg-surface-alt px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
             Datos de ejemplo
           </span>

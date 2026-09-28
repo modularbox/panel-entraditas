@@ -103,11 +103,13 @@ export function EventWizardPage() {
         {eventId ?? "sin-id"}
       </p>
 
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+      {/* flex-wrap: en el móvil "Paso 3 de 7 - Asientos" y los dos botones no caben en una fila y
+          "Siguiente" se salía de la pantalla (tanda 18). */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="min-w-0 text-sm font-bold uppercase tracking-wide text-muted-foreground">
           Paso {activeIndex + 1} de {steps.length} - {activeStep.label}
         </p>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <Button
             type="button"
             variant="outline"
@@ -158,7 +160,7 @@ export function EventWizardPage() {
         })}
       </nav>
 
-      <section aria-label={activeStep.label} className="rounded-lg border-2 border-foreground bg-surface p-6 shadow-flat">
+      <section aria-label={activeStep.label} className="min-w-0 rounded-lg border-2 border-foreground bg-surface p-4 shadow-flat sm:p-6">
         {activeStep.key === "info" && <Step1BasicInfo eventId={eventId} onSaved={setEventId} goNext={goNext} />}
         {activeStep.key === "subeventos" && <Step2Schedule eventId={eventId} onSaved={setEventId} goNext={goNext} />}
         {/* Los limites de compra y los asientos sueltos no se preguntan aqui: los pregunta el

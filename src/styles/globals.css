@@ -91,6 +91,25 @@ body {
   overflow-x: clip;
 }
 
+/* Pantallas táctiles y móviles (tanda 18):
+   - El iPhone amplía la página al tocar una casilla con letra de menos de 16 px (casi todas las
+     del panel tenían 14) y no la devuelve a su tamaño.
+   - Lo que se toca con el dedo, con un mínimo de alto: los encabezados que ordenan las tablas, las
+     casillas y opciones con su texto, y los enlaces "Volver" medían 20 px. */
+@media (max-width: 767px), (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+
+  th button,
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) {
+    min-height: 36px;
+  }
+}
+
 /* Quien pide al sistema menos movimiento, no tiene ninguno. */
 @media (prefers-reduced-motion: reduce) {
   *,

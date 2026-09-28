@@ -74,8 +74,10 @@ export function OrganizationDetailPage() {
       <section aria-labelledby="admin-heading">
         <h2 id="admin-heading" className="mb-3 font-display text-lg font-semibold uppercase tracking-wide">Organizador</h2>
         <div className="rounded-lg border-2 border-foreground bg-surface shadow-flat">
-          <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3">
-            <div className="flex items-baseline gap-2">
+          {/* flex-wrap: en el móvil el nombre y "Conectar" no caben en una fila y el botón se salía
+              de la pantalla (tanda 18). */}
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-4 py-3">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
               <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Nombre del organizador</span>
               <span className="font-display text-lg font-semibold">
                 {organizer ? organizer.fullName : <span className="text-muted-foreground">—</span>}

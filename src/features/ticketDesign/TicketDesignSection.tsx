@@ -126,7 +126,9 @@ export function TicketDesignSection({ eventId, onValidationChange }: TicketDesig
   if (!draft) return null;
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
+    // `grid-cols-[minmax(0,1fr)]` en móvil: sin columna declarada, la rejilla tomaba el ancho de la
+    // hoja A4 de la vista previa (794 px) y todo el paso se salía de la pantalla (tanda 18).
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
       <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
         <p className="rounded-sm border border-border bg-surface-alt p-3 text-xs text-muted-foreground">
           Aquí solo se configura el <strong>diseño</strong> de la plantilla. Los datos del asistente,

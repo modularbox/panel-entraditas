@@ -24,7 +24,8 @@ export function BackButton({ fallback }: BackButtonProps) {
     navigate(-1);
   };
   return (
-    <button type="button" className="shrink-0 text-sm font-semibold text-primary hover:underline" onClick={handleClick}>
+    // min-h-9: 36 px de alto para acertar con el dedo; el texto se ve igual (tanda 18).
+    <button type="button" className="min-h-9 shrink-0 text-sm font-semibold text-primary hover:underline" onClick={handleClick}>
       ← Volver
     </button>
   );
