@@ -20,26 +20,26 @@ describe("public/.htaccess", () => {
   });
 
   it("deja pasar los ficheros y carpetas que existen", () => {
-    // Sin estas dos condiciones, el propio JS del panel y el mockServiceWorker.js acabarian
-    // sirviendo el index.html, y el panel no arrancaria en absoluto.
+    // Sin estas dos condiciones, el propio JS del panel acabaria sirviendo el index.html, y el
+    // panel no arrancaria en absoluto.
     expect(htaccess).toMatch(/RewriteCond\s+%\{REQUEST_FILENAME\}\s+-f\s+\[OR\]/);
     expect(htaccess).toMatch(/RewriteCond\s+%\{REQUEST_FILENAME\}\s+-d/);
   });
 
-  it("no cachea el index.html ni el simulador", () => {
-    const bloque = htaccess.match(/<FilesMatch "\^\(index\\\.html\|mockServiceWorker\\\.js\)\$">([\s\S]*?)<\/FilesMatch>/);
-    expect(bloque, "falta el bloque que evita cachear index.html y mockServiceWorker.js").not.toBeNull();
+  it("no cachea el index.html", () => {
+    const bloque = htaccess.match(/<FilesMatch "\^index\\\.html\$">([\s\S]*?)<\/FilesMatch>/);
+    expect(bloque, "falta el bloque que evita cachear index.html").not.toBeNull();
     expect(bloque![1]).toMatch(/no-store/);
   });
 
   /**
    * El orden importa y es facil de romper: `Header set` pisa al anterior, asi que la regla de
-   * caché larga de los `.js` tiene que ir ANTES que la excepcion. Al reves, mockServiceWorker.js
-   * quedaria cacheado un año por terminar en .js, que es justo lo contrario de lo que hace falta.
+   * caché larga de los `.js` tiene que ir ANTES que la excepcion. Al reves, el index quedaria
+   * cacheado un año por terminar en .js, que es justo lo contrario de lo que hace falta.
    */
   it("la excepcion va despues de la regla general, o no serviria de nada", () => {
     const general = htaccess.indexOf('<FilesMatch "\\.(js|css');
-    const excepcion = htaccess.indexOf('<FilesMatch "^(index\\.html');
+    const excepcion = htaccess.indexOf('<FilesMatch "^index\\.html');
     expect(general).toBeGreaterThan(-1);
     expect(excepcion).toBeGreaterThan(general);
   });

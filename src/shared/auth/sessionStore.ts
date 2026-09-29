@@ -1,6 +1,9 @@
 import { create } from "zustand";
-import { alPerderLaSesion, apiClient, AppError, SIMULADOR_PARADO } from "@/shared/lib/apiClient";
-import { estadoSesionApi, iniciarSesionEnLaApi, logoutFromApi } from "@/shared/lib/entraditasApi";
+import { alPerderLaSesion } from "@/shared/lib/apiClient";
+import {
+  estadoSesionApi, getApiToken, iniciarSesionEnLaApi, isApiConfigured, logoutFromApi, quienSoyEnLaApi, type ApiStaff
+} from "@/shared/lib/entraditasApi";
+import { resolveEffectivePermissions } from "./permissions";
 import { guardarCierre, olvidarCierre, type MotivoDeCierre } from "./sessionExpiry";
 import type { RoleSlug } from "@entraditas/types";
 
@@ -17,6 +20,8 @@ export interface SessionUser {
 
 export interface SessionResponse {
   accessToken?: string;
+  /** El connect de organizacion responde `token` en vez de `accessToken`; se acepta aqui, igual que el de entrar. */
+  token?: string;
   user: SessionUser;
   effectivePermissions: string[];
   eventScopes: string[];
@@ -41,6 +46,28 @@ interface SessionState {
   returnToSuperadmin: () => Promise<void>;
 }
 
+/**
+ * La sesion del panel es la de api.entraditas.com: mismo token, misma cuenta.
+ *
+ * La respuesta de la API trae a `ApiStaff`, no todos los campos del panel. El rol basta para
+ * calcular los permisos base igual que hacian los mocks; los alcances por evento los decide el
+ * servidor a base de 401/403 sobre cada recurso, no el cliente.
+ */
+function sesionDesde(staff: ApiStaff, token: string): SessionResponse {
+  return {
+    accessToken: token,
+    user: {
+      id: staff.id,
+      email: staff.email,
+      fullName: staff.fullName,
+      role: staff.role,
+      organizationId: staff.organizationId
+    },
+    effectivePermissions: [...resolveEffectivePermissions(staff.role, [])],
+    eventScopes: []
+  };
+}
+
 export const useSessionStore = create<SessionState>((set, get) => ({
   token: null,
   user: null,
@@ -50,13 +77,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   impersonatorToken: null,
 
   setSession(session) {
-    localStorage.setItem(TOKEN_STORAGE_KEY, session.accessToken!);
+    const accessToken = session.accessToken ?? session.token;
+    if (!accessToken) throw new Error("La API no devolvió un token de sesión.");
+    localStorage.setItem(TOKEN_STORAGE_KEY, accessToken);
     // Ya ha vuelto a entrar: el aviso de por que se cerro la anterior ha cumplido.
     olvidarCierre();
     // Every fresh session (login, restore-like, or returning to the superadmin) starts clean —
     // any leftover impersonator token from a previous, unrelated session no longer applies.
     localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
-    set({ token: session.accessToken!, user: session.user, effectivePermissions: new Set(session.effectivePermissions), eventScopes: session.eventScopes, status: "authenticated", impersonatorToken: null });
+    set({ token: accessToken, user: session.user, effectivePermissions: new Set(session.effectivePermissions), eventScopes: session.eventScopes, status: "authenticated", impersonatorToken: null });
   },
 
   connectAs(session) {
@@ -74,12 +103,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const token = get().impersonatorToken;
     if (!token) return;
     try {
-      const result = await apiClient.get<SessionResponse>("/auth/me", { token });
-      get().setSession({ accessToken: token, ...result });
+      const result = await quienSoyEnLaApi();
+      if (!result) throw new Error("Sesion no valida");
+      get().setSession(sesionDesde(result, token));
     } catch {
-      // The superadmin's token is no longer valid (e.g. the demo data was reset in between) —
-      // there's nothing to return to, so drop back to a clean logged-out state instead of leaving
-      // a dead-end button around.
+      // The superadmin's token is no longer valid — there's nothing to return to, so drop back to
+      // a clean logged-out state instead of leaving a dead-end button around.
       localStorage.removeItem(TOKEN_STORAGE_KEY);
       localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
       set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
@@ -87,41 +116,28 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   /**
-   * Entrar al panel. Una sola contrasena, la de api.entraditas.com.
+   * Entrar al panel usando la sesion de api.entraditas.com.
    *
-   * Antes habia dos: la del panel, que se validaba contra los mocks del navegador (contrasenas de
-   * demostracion escritas en el repositorio, que no protegen nada), y la de la API, que decide lo
-   * que sale publicado. Como no coincidian, entrar dejaba el panel "sin conexion con
-   * entraditas.com" y habia que escribir la segunda a mano en otro formulario. Ahora manda la
-   * API: si dice que si, la sesion local se abre sola detras.
-   *
-   * Si la API no contesta (caida, sin red, o compilacion sin API configurada) se usa el camino de
-   * siempre contra los mocks. Una caida de la API no puede dejar a nadie fuera de su panel; lo
-   * unico que se pierde entretanto es poder publicar hacia fuera.
+   * Antes habia dos sesiones: la del panel, validada contra los mocks del navegador (contrasenas
+   * de demostracion escritas en el repositorio, que no protegen nada), y la de la API, que decide
+   * lo que sale publicado. Desde que los mocks desaparecieron solo existe la de la API: si no
+   * contesta, no hay limbo en el que quedarse, se dice que no se pudo entrar.
    */
   async login(email, password) {
     const enLaApi = await iniciarSesionEnLaApi(email, password);
 
     if (enLaApi.estado === "rechazado") {
-      // Se dice de donde viene la negativa. La contrasena del panel paso a ser la de
-      // entraditas.com, y sin decirlo alguien puede reintentar la de siempre indefinidamente.
-      throw new Error(`${enLaApi.mensaje} La contraseña del panel es ahora la de entraditas.com.`);
+      // Se dice de donde viene la negativa, para que a nadie le parezca que su credencial falla
+      // sin saber por que.
+      throw new Error(`${enLaApi.mensaje} La contraseña del panel es la de entraditas.com.`);
     }
-    if (enLaApi.estado === "ok") {
-      const session = await apiClient.post<SessionResponse>("/auth/session-from-api", { email });
-      get().setSession(session);
-      return;
+    if (enLaApi.estado === "sin-respuesta") {
+      throw new Error("No se pudo contactar con entraditas.com. Revisa tu conexión e inténtalo de nuevo.");
     }
-
-    const result = await apiClient.post<SessionResponse>("/auth/login", { email, password });
-    get().setSession(result);
+    get().setSession(sesionDesde(enLaApi.staff, getApiToken()!));
   },
 
   async logout() {
-    const token = get().token;
-    if (token) {
-      await apiClient.post("/auth/logout", undefined, { token }).catch(() => undefined);
-    }
     await logoutFromApi().catch(() => undefined);
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
@@ -148,20 +164,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   async restore() {
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
-    if (!token) {
+    if (!isApiConfigured()) {
       set({ status: "unauthenticated" });
       return;
     }
 
-    // Una sesion del panel sin sesion en la API esta a medias: se entra, pero lo que se publique
-    // no sale a entraditas.com. Pasa con las sesiones abiertas antes de que la API mandara, y
-    // desde dentro se veia como un aviso de "sin conexion" que habia que resolver a mano. Se
-    // prefiere pedir la contrasena una vez: al volver a entrar, las dos sesiones quedan abiertas.
-    //
-    // Pero SOLO si la API ha dicho que no. Si no contesta, se sigue dentro: antes, cualquier
-    // caida de la API sacaba del panel a todo el mundo al recargar la pagina.
-    if ((await estadoSesionApi()) === "invalida") {
+    const token = getApiToken();
+    if (!token) {
+      // El token viejo del panel no sirve para la API: quien lo tenga guardado tendra que entrar.
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
+      return;
+    }
+
+    const estado = await estadoSesionApi();
+    if (estado === "invalida") {
       // Se deja dicho POR QUE. Sin esto el login aparecia sin explicacion: para quien lo vive, el
       // panel simplemente le echa, y lo que ve es "entra" sin saber que se le habia caducado.
       guardarCierre({ motivo: "sesion-no-valida" });
@@ -170,39 +187,36 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({ status: "unauthenticated", token: null, user: null, effectivePermissions: new Set(), eventScopes: [], impersonatorToken: null });
       return;
     }
-
-    try {
-      const result = await apiClient.get<SessionResponse>("/auth/me", { token });
-      set({
-        token,
-        user: result.user,
-        effectivePermissions: new Set(result.effectivePermissions),
-        eventScopes: result.eventScopes,
-        status: "authenticated",
-        impersonatorToken: localStorage.getItem(IMPERSONATOR_STORAGE_KEY)
-      });
-    } catch (fallo) {
-      // Que el simulador no atienda NO significa que la sesion no valga: el token puede estar
-      // perfectamente vivo. Se conserva y no se escribe ningun motivo, porque decir "tu sesion ya
-      // no vale" seria otra mentira. Al recargar, la sesion vuelve como estaba.
-      if (fallo instanceof AppError && fallo.code === SIMULADOR_PARADO) {
-        set({ status: "unauthenticated" });
-        return;
-      }
-      // Habia un token guardado y ya no sirve: para quien lo vive, la sesion se ha cerrado sola.
-      guardarCierre({ motivo: "sesion-no-valida" });
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    if (estado === "sin-respuesta") {
+      // No se puede confirmar la sesion: el panel depende de la API, asi que se queda fuera sin
+      // acusar de nada a quien entra.
       set({ status: "unauthenticated" });
+      return;
     }
+
+    const staff = await quienSoyEnLaApi();
+    if (!staff) {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
+      return;
+    }
+    const session = sesionDesde(staff, token);
+    set({
+      token,
+      user: session.user,
+      effectivePermissions: new Set(session.effectivePermissions),
+      eventScopes: session.eventScopes,
+      status: "authenticated",
+      impersonatorToken: localStorage.getItem(IMPERSONATOR_STORAGE_KEY)
+    });
   }
 }));
 
 /**
  * Un 401 en cualquier peticion es la sesion diciendo que ya no vale.
  *
- * Antes se quedaba en el mensaje de error de la pantalla donde saltara ("No se pudo guardar el
- * evento") y el panel seguia navegando con una sesion muerta: cada pantalla fallaba a su manera
- * hasta que alguien recargaba. Ahora se cierra y se manda al login, contando por que.
+ * Se cierra y se manda al login contando por que, en vez de dejar cada pantalla ensenando su
+ * propio error en rojo sin que nadie diga que lo que hacia falta era volver a entrar.
  */
 alPerderLaSesion(() => {
   useSessionStore.getState().expire("sesion-no-valida");

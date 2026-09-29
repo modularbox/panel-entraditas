@@ -348,6 +348,19 @@ describe("toPublicEvent", () => {
     expect(result.venue).toMatchObject({ city: "Badajoz", province: "Badajoz", address: "Calle Mayor 1" });
   });
 
+  it("publishes the written place as the venue when the event has no recinto", () => {
+    const result = toPublicEvent({
+      event: { ...EVENT, venueId: null, location: "Isla Azul", locality: "Madrid" }
+    });
+    expect(result.venue).toMatchObject({ id: EVENT.id, name: "Isla Azul", city: "Madrid" });
+    expect(() => PublicEventSchema.parse(result)).not.toThrow();
+  });
+
+  it("keeps the venue null when the event has neither recinto nor written place", () => {
+    const result = toPublicEvent({ event: { ...EVENT, venueId: null } });
+    expect(result.venue).toBeNull();
+  });
+
   it("has no seat map when the organiser drew no plan", () => {
     expect(toPublicEvent({ event: EVENT }).seatMap).toBeNull();
   });

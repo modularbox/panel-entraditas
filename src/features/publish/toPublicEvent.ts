@@ -11,6 +11,7 @@ import type {
   PublicSeatZone,
   PublicSession,
   PublicTicketTier,
+  PublicVenue,
   SubEvent,
   TicketType,
   Venue,
@@ -216,6 +217,29 @@ export function toPublicEvent(input: PublishInput): PublicEvent {
   // salir con su tipo, y es la web la que la deja fuera de la venta al no encontrarlo en `tiers`.
   const seatZones = toSeatZones(zones, pools, input.ticketTypes ?? []);
   const prices = tiers.map((tier) => tier.price);
+  // Un evento de recinto fijo viaja con su venue; sin recinto (el organizador dijo "no quiero
+  // mapa") la web necesita igualmente un nombre y una ciudad: se los da el lugar escrito.
+  const publicVenue: PublicVenue | null = venue
+    ? {
+        id: venue.id,
+        name: venue.name,
+        city: venue.city,
+        province: venue.province ?? null,
+        address: venue.address ?? null,
+        latitude: venue.latitude ?? null,
+        longitude: venue.longitude ?? null
+      }
+    : (event.location ?? "").trim() !== "" || (event.locality ?? "").trim() !== ""
+      ? {
+          id: event.id,
+          name: (event.location ?? "").trim(),
+          city: (event.locality ?? "").trim(),
+          province: null,
+          address: null,
+          latitude: null,
+          longitude: null
+        }
+      : null;
 
   return {
     id: event.id,
@@ -229,17 +253,7 @@ export function toPublicEvent(input: PublishInput): PublicEvent {
     gallery: event.gallery ?? [],
     tags: event.tags ?? [],
     featured: event.featured ?? false,
-    venue: venue
-      ? {
-          id: venue.id,
-          name: venue.name,
-          city: venue.city,
-          province: venue.province ?? null,
-          address: venue.address ?? null,
-          latitude: venue.latitude ?? null,
-          longitude: venue.longitude ?? null
-        }
-      : null,
+    venue: publicVenue,
     // A pending date is the buyer site's cue to show "Fecha por confirmar" + the alert bell
     // and block general sale, so it wins over whatever startsAt happens to hold.
     dateStatus: event.datePending ? "to_be_announced" : "confirmed",

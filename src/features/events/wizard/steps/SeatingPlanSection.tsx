@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CapacityPool, Event, SubEvent, TemplateZone, TicketType, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
+import { Button } from "@/shared/ui/button";
 import { zoneTicketTypeGroupId } from "@/shared/lib/zoneTicketType";
 import { useWizardStore } from "../wizardStore";
 import { useSubEventsQuery } from "./useSubEventsQuery";
@@ -78,13 +79,20 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   const { data: event } = useEventQuery(eventId);
   const venueId = event?.venueId ?? null;
   const { data: zones = [] } = useZonesQuery(venueId);
-  const { data: subEvents = [] } = useSubEventsQuery(eventId);
+  const { data: subEvents = [], isSuccess: subEventsLoaded } = useSubEventsQuery(eventId);
   const firstSubEvent = subEvents[0];
-  const { data: pools = [] } = useCapacityPoolsQuery(firstSubEvent?.id);
+  const { data: pools = [], isFetching: poolsFetching } = useCapacityPoolsQuery(firstSubEvent?.id);
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
   const syncEventChanges = useSyncEventChangesToWeb(eventId);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Un evento creado sin mapa no tiene recinto: para dibujar el plano hace falta uno, y aqui se
+  // crea y se vincula al evento antes de entrar al editor.
+  const [recintoNombre, setRecintoNombre] = useState("");
+  const [recintoCiudad, setRecintoCiudad] = useState("");
+  const [recintoAforo, setRecintoAforo] = useState(100);
+  const [creandoRecinto, setCreandoRecinto] = useState(false);
+  const [recintoError, setRecintoError] = useState<string | null>(null);
   // Drawing surface size. A working preference, kept in the wizard's store (and in localStorage)
   // rather than in this component: as component state it was lost every time the step unmounted,
   // so going to the next step and back reset the canvas.
@@ -92,6 +100,100 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   const canvasWidth = useWizardStore((s) => s.canvasWidth);
   const setCanvasSize = useWizardStore((s) => s.setCanvasSize);
   const creatingSessionRef = useRef(false);
+  const creandoPoolsRef = useRef(false);
+
+  /**
+   * Las filas y el reparto de asientos se editan a toquecitos (una fila, una butaca), y guardar
+   * cada toque como una peticion propia hacia que el editor esperase a la red en cada click:
+   * vuelta al servidor por butaca mas el refetch de despues, asi que escribir el nombre de una
+   * fila o pulsar botones en un patio de cincuenta filas iba a rastras.
+   *
+   * Los cambios de filas/asientos, por tanto, se aplican primero a la caché de react-query (el
+   * editor reacciona en el siguiente render) y dejan la escritura en la API para cuando el editor
+   * se tranquiliza: un unico timer agrupa todo lo tocado en la ventana, con un PATCH por zona
+   * tocada, uno por pool tocado y un solo refetch final. Al desmontar el paso (salir de el o
+   * publicar) cualquier cambio pendiente se fuerza antes de que se deshagan las consultas.
+   */
+  type ZonaPendiente = {
+    id: string;
+    patch: Partial<Pick<Zone, "name" | "capacity" | "rows" | "rowSeats" | "seatRows" | "rowNaming" | "seatNaming">>;
+  };
+  const GUARDADO_EN_COLA_MS = 350;
+  const zonaPendienteRef = useRef<Record<string, ZonaPendiente>>({});
+  const poolPendienteRef = useRef<Record<string, Record<string, unknown>>>({});
+  const timerGuardadoRef = useRef<number | null>(null);
+  const flushRef = useRef<() => void>(() => {});
+
+  function actualizarZonaEnCache(id: string, patch: ZonaPendiente["patch"]) {
+    queryClient.setQueryData<Zone[]>(["zones", venueId], (prev) =>
+      prev ? prev.map((z) => (z.id === id ? { ...z, ...patch } : z)) : prev
+    );
+  }
+
+  function encolarPool(poolId: string, patch: Record<string, unknown>) {
+    poolPendienteRef.current[poolId] = { ...poolPendienteRef.current[poolId], ...patch };
+    queryClient.setQueryData<CapacityPool[]>(["capacity-pools", firstSubEvent?.id], (prev) =>
+      prev ? prev.map((p) => (p.id === poolId ? { ...p, ...patch } : p)) : prev
+    );
+  }
+
+  function programarGuardado() {
+    if (timerGuardadoRef.current !== null) window.clearTimeout(timerGuardadoRef.current);
+    timerGuardadoRef.current = window.setTimeout(() => {
+      timerGuardadoRef.current = null;
+      void flushRef.current();
+    }, GUARDADO_EN_COLA_MS);
+  }
+
+  async function flushPendientes() {
+    const zonas = zonaPendienteRef.current;
+    const pools = poolPendienteRef.current;
+    zonaPendienteRef.current = {};
+    poolPendienteRef.current = {};
+    if (Object.keys(zonas).length === 0 && Object.keys(pools).length === 0) return;
+    if (!token) return;
+    setError(null);
+    try {
+      for (const zona of Object.values(zonas)) {
+        await apiClient.patch(`/zones/${zona.id}`, zona.patch, { token });
+        // La capacidad del pool se sincroniza al editar; si el pool no estaba todavia en la
+        // cache en ese momento (el efecto automatico lo acaba de crear), se corrige aqui
+        // comparando con lo que se acaba de guardar en la zona.
+        if (zona.patch.capacity !== undefined) {
+          const pool = (
+            queryClient.getQueryData<CapacityPool[]>(["capacity-pools", firstSubEvent?.id]) ?? []
+          ).find((p) => p.zoneId === zona.id);
+          if (pool && pool.totalCapacity !== zona.patch.capacity) {
+            await apiClient.patch(`/capacity-pools/${pool.id}`, { totalCapacity: zona.patch.capacity }, { token });
+          }
+        }
+      }
+      for (const [poolId, patch] of Object.entries(pools)) {
+        await apiClient.patch(`/capacity-pools/${poolId}`, patch, { token });
+      }
+    } catch (e) {
+      if (e instanceof AppError) setError(e.message);
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
+      await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent?.id] });
+      void syncEventChanges();
+    }
+  }
+  flushRef.current = flushPendientes;
+
+  // Al salir del paso, cualquier cambio que el rebote no haya escrito todavia se fuerza antes de
+  // que el editor se desmonte, para no perder la ultima fila por navegar deprisa.
+  useEffect(() => {
+    return () => {
+      if (timerGuardadoRef.current !== null) {
+        window.clearTimeout(timerGuardadoRef.current);
+        timerGuardadoRef.current = null;
+      }
+      if (Object.keys(zonaPendienteRef.current).length > 0 || Object.keys(poolPendienteRef.current).length > 0) {
+        void flushRef.current();
+      }
+    };
+  }, []);
 
   /**
    * An event with no session gets one, silently.
@@ -103,7 +205,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
    * session *is* a session of one, so it is created here from the event's own date.
    */
   useEffect(() => {
-    if (!eventId || !token || !event || subEvents.length > 0 || creatingSessionRef.current) return;
+    if (!eventId || !token || !event || !subEventsLoaded || subEvents.length > 0 || creatingSessionRef.current) return;
     creatingSessionRef.current = true;
     (async () => {
       try {
@@ -126,27 +228,79 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         if (e instanceof AppError) setError(e.message);
       }
     })();
-  }, [eventId, token, event, subEvents.length, queryClient, syncEventChanges]);
+  }, [eventId, token, event, subEventsLoaded, subEvents.length, queryClient, syncEventChanges]);
 
   // The drawn plan is the source of truth: any sellable zone without a
   // matching capacity pool for this event's first function gets one
   // created automatically, with no manual "activate" step.
+  //
+  // It only runs once the pools query has actually settled (isFetching
+  // false): zones re-render optimistically on every edit and the pool list
+  // is briefly stale while a refetch is in flight, so without this gate a
+  // burst of edits could each decide "this zone has no pool" and create a
+  // stack of duplicate pools. creandoPoolsRef stops the same batch from
+  // firing twice while its own creations are still loading.
   useEffect(() => {
     if (!firstSubEvent) return;
+    if (poolsFetching || creandoPoolsRef.current) return;
     const missing = zones.filter((z) => SELLABLE_KINDS.includes(z.kind) && !pools.some((p) => p.zoneId === z.id));
     if (missing.length === 0) return;
+    creandoPoolsRef.current = true;
     (async () => {
-      for (const zone of missing) {
-        await apiClient.post(
-          `/sub-events/${firstSubEvent.id}/capacity-pools`,
-          { name: zone.name, zoneId: zone.id, totalCapacity: zone.capacity },
-          { token: token! }
-        );
+      try {
+        for (const zone of missing) {
+          await apiClient.post(
+            `/sub-events/${firstSubEvent.id}/capacity-pools`,
+            { name: zone.name, zoneId: zone.id, totalCapacity: zone.capacity },
+            { token: token! }
+          );
+        }
+      } finally {
+        creandoPoolsRef.current = false;
       }
       await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent.id] });
       void syncEventChanges();
     })();
-  }, [zones, pools, firstSubEvent, token, queryClient, syncEventChanges]);
+  }, [zones, pools, poolsFetching, firstSubEvent, token, queryClient, syncEventChanges]);
+
+  // Prellena el formulario de creacion de recinto con lo que ya dice el evento; solo la primera
+  // vez, para no pisar lo que la persona vaya corrigiendo.
+  useEffect(() => {
+    if (!event) return;
+    setRecintoNombre((valor) => valor || (event.location ?? ""));
+    setRecintoCiudad((valor) => valor || (event.locality ?? ""));
+  }, [event]);
+
+  /**
+   * Crea el recinto del evento y lo vincula a el.
+   *
+   * Un evento puede haberse creado "sin mapa": el paso de asientos exige un recinto porque las
+   * zonas cuelgan de el, y sin recinto el plano no tenia salida. La API ya sabe crear recintos
+   * (POST /venues) y colgarlos del evento (PATCH events con venueId), asi que aqui se juntan las
+   * dos cosas y se vuelve al editor con el recinto asignado.
+   */
+  async function crearRecinto() {
+    if (!event || !token) return;
+    setCreandoRecinto(true);
+    setRecintoError(null);
+    const nombre = recintoNombre.trim() || event.location?.trim() || "Recinto";
+    const ciudad = recintoCiudad.trim() || event.locality?.trim() || "";
+    const aforo = Math.max(1, Math.floor(Number(recintoAforo) || 1));
+    try {
+      const recinto = await apiClient.post<{ id: string }>(
+        "/venues",
+        { organizationId: event.organizationId ?? undefined, name: nombre, city: ciudad, totalCapacity: aforo },
+        { token }
+      );
+      await apiClient.patch(`/events/${eventId}`, { venueId: recinto.id }, { token });
+      await queryClient.invalidateQueries({ queryKey: ["event", eventId] });
+      void syncEventChanges();
+    } catch (e) {
+      if (e instanceof AppError) setRecintoError(e.message);
+    } finally {
+      setCreandoRecinto(false);
+    }
+  }
 
   async function addZone(kind: Zone["kind"]) {
     if (!venueId) return;
@@ -217,16 +371,24 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
 
     // Las filas mandan sobre lo que hubiera antes: la capacidad sale de ellas, y los dos formatos
     // viejos se retiran para que no queden dos descripciones de la misma sala.
-    await updateZone(zone.id, {
-      ...patch,
-      capacity: despues.length,
-      ...(patch.seatRows ? { rowSeats: null, rows: null } : {})
-    });
+    await updateZone(
+      zone.id,
+      {
+        ...patch,
+        capacity: despues.length,
+        ...(patch.seatRows ? { rowSeats: null, rows: null } : {})
+      },
+      { defer: true }
+    );
     if (pool) {
-      await patchPool(zone.id, {
-        seatAssignments: toSeatAssignmentList(movidas),
-        accessibleSeatIds: accesibles
-      });
+      await patchPool(
+        zone.id,
+        {
+          seatAssignments: toSeatAssignmentList(movidas),
+          accessibleSeatIds: accesibles
+        },
+        { defer: true }
+      );
     }
   }
 
@@ -247,9 +409,26 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         | "width"
         | "height"
       >
-    >
+    >,
+    opts?: { defer?: boolean }
   ) {
     setError(null);
+    // Los cambios frecuentes (filas, asientos) no esperan a la red: se reflejan en la caché al
+    // momento y la escritura se agrupa. Lo puntual (un nombre al salir de la casilla, un arrastre
+    // terminado) sigue guardandose al momento, como siempre.
+    if (opts?.defer) {
+      actualizarZonaEnCache(id, patch);
+      zonaPendienteRef.current[id] = {
+        id,
+        patch: { ...zonaPendienteRef.current[id]?.patch, ...patch }
+      };
+      if (patch.capacity !== undefined) {
+        const pool = pools.find((p) => p.zoneId === id);
+        if (pool) encolarPool(pool.id, { totalCapacity: patch.capacity });
+      }
+      programarGuardado();
+      return;
+    }
     try {
       await apiClient.patch(`/zones/${id}`, patch, { token: token! });
       // Zone capacity and its capacity pool's totalCapacity are two separate records
@@ -299,7 +478,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
   }
 
-  async function patchPool(zoneId: string, patch: Record<string, unknown>) {
+  async function patchPool(zoneId: string, patch: Record<string, unknown>, opts?: { defer?: boolean }) {
     setError(null);
     const pool = pools.find((p) => p.zoneId === zoneId);
     // Capacity pools hang off the event's first session. Without one there is nothing to write
@@ -312,6 +491,11 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
       );
       return;
     }
+    if (opts?.defer) {
+      encolarPool(pool.id, patch);
+      programarGuardado();
+      return;
+    }
     try {
       await apiClient.patch(`/capacity-pools/${pool.id}`, patch, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["capacity-pools", firstSubEvent?.id] });
@@ -322,11 +506,11 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   }
 
   async function saveSeatAssignments(zoneId: string, next: SeatAssignments) {
-    await patchPool(zoneId, { seatAssignments: toSeatAssignmentList(next) });
+    await patchPool(zoneId, { seatAssignments: toSeatAssignmentList(next) }, { defer: true });
   }
 
   async function saveAccessibleSeats(zoneId: string, next: string[]) {
-    await patchPool(zoneId, { accessibleSeatIds: next });
+    await patchPool(zoneId, { accessibleSeatIds: next }, { defer: true });
   }
 
   async function setSeatingMode(mode: Event["seatingMode"]) {
@@ -466,7 +650,55 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   }
   if (!event) return null;
   if (!venueId) {
-    return <p role="alert">Este evento no tiene un recinto asociado todavia.</p>;
+    return (
+      <div className="flex flex-col gap-4">
+        <fieldset>
+          <legend>Recinto</legend>
+          <p className="mt-1 mb-3 max-w-3xl text-sm text-muted-foreground">
+            Para que los compradores elijan su butaca, este evento necesita un recinto donde dibujar
+            el plano. Se crea aqui y se le asigna: luego podras elegir &quot;Con plano&quot; y dibujar
+            las zonas y las filas de asientos.
+          </p>
+          {recintoError && <p role="alert">{recintoError}</p>}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <label htmlFor="recinto-nombre">Nombre</label>
+              <input
+                id="recinto-nombre"
+                value={recintoNombre}
+                onChange={(e) => setRecintoNombre(e.target.value)}
+                placeholder={event.location ?? "Ej: Palacio de Congresos"}
+              />
+            </div>
+            <div>
+              <label htmlFor="recinto-ciudad">Ciudad</label>
+              <input
+                id="recinto-ciudad"
+                value={recintoCiudad}
+                onChange={(e) => setRecintoCiudad(e.target.value)}
+                placeholder={event.locality ?? "Ej: Madrid"}
+              />
+            </div>
+            <div className="lg:col-span-3 lg:max-w-48">
+              <label htmlFor="recinto-aforo">Aforo</label>
+              <input
+                id="recinto-aforo"
+                type="number"
+                min={1}
+                value={recintoAforo}
+                onChange={(e) => setRecintoAforo(Number(e.target.value))}
+              />
+              <span className="text-xs text-muted-foreground">
+                El aforo se ajusta despues al dibujar las filas.
+              </span>
+            </div>
+          </div>
+          <Button type="button" disabled={creandoRecinto} onClick={() => void crearRecinto()} className="mt-1">
+            {creandoRecinto ? "Creando recinto…" : "Crear recinto y dibujar el plano"}
+          </Button>
+        </fieldset>
+      </div>
+    );
   }
 
   // An event drawn before this choice existed already has zones on a plan, so it keeps the plan

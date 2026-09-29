@@ -10,34 +10,56 @@ export class AppError extends Error {
   }
 }
 
-const API_BASE_URL = "http://localhost:4000/api/v1";
+/**
+ * Base de la API, tolerante a como se escriba `VITE_API_URL`.
+ *
+ * Sin protocolo (`api.entraditas.com`) el navegador la tomaria como una ruta RELATIVA al propio
+ * panel. Si `VITE_API_URL` no viene o viene vacia (pasa en los tests), la base queda "": el cliente
+ * se queda sin destino y cada peticion falla como falta de respuesta, que es lo que se quiere.
+ */
+function normalizeApiBase(value: string | undefined): string {
+  const trimmed = String(value || "").trim().replace(/\/+$/, "");
+  if (trimmed === "") return "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
+
+/**
+ * Los recursos del panel viven bajo `/v1/panel/...` en api.entraditas.com. El panel pide con el
+ * nombre de siempre (`/customers`, `/events/:id`...); aqui se traduce al espacio real.
+ */
+const PANEL_PREFIX = "/v1/panel";
+
+/**
+ * Rutas cuyo nombre en el panel no coincide con el de la API. El resto se traduce tal cual:
+ * `path` bajo `PANEL_PREFIX`.
+ */
+function rutaReal(path: string): string {
+  if (path === "/auth/me") return "/me";
+  if (path === "/dashboard/overview") return "/metrics";
+  return path;
+}
+
+export function apiUrlFor(path: string): string {
+  return `${API_BASE}${PANEL_PREFIX}${rutaReal(path)}`;
+}
+
+/** El codigo de dominio que se asocia a un estado HTTP cuando la API no da ninguno propio. */
+function codigoDeEstado(status: number): string {
+  if (status === 401) return "UNAUTHENTICATED";
+  if (status === 403) return "FORBIDDEN";
+  if (status === 404) return "NOT_FOUND";
+  if (status === 422) return "VALIDATION_ERROR";
+  return `HTTP_${status}`;
+}
 
 /** Codigos propios, para los fallos que no vienen del servidor con un cuerpo que leer. */
 export const SIN_RESPUESTA = "SIN_RESPUESTA";
 export const RESPUESTA_ILEGIBLE = "RESPUESTA_ILEGIBLE";
-/** El simulador que hace de servidor del panel no esta atendiendo esta pestana. */
-export const SIMULADOR_PARADO = "SIMULADOR_PARADO";
-
-/**
- * Como volver a levantar el simulador cuando deja de atender.
- *
- * El panel publicado NO tiene servidor: su backend es el simulador (MSW), que corre como service
- * worker dentro del propio navegador y atiende `http://localhost:4000`. Si deja de controlar la
- * pestana (una recarga con Ctrl+Shift+R, un despliegue nuevo, o el navegador descartandolo), esa
- * direccion se intenta de verdad, no hay nada escuchando en el puerto 4000 del ordenador de quien
- * mira, y `fetch` falla. Antes eso se contaba como "no hay conexion", que culpa a su internet.
- *
- * Lo registra `main.tsx`, que es quien tiene el simulador a mano.
- */
-type Reanimar = () => Promise<void>;
-let reanimarSimulador: Reanimar | null = null;
-
-export function alFallarElSimulador(callback: Reanimar): void {
-  reanimarSimulador = callback;
-}
 
 interface RequestOptions {
-  /** Bearer token to attach; the session store (Task 13) passes the current one in explicitly — apiClient holds no auth state itself. */
+  /** Bearer token to attach; the session store passes the current one in explicitly — apiClient holds no auth state itself. */
   token?: string;
 }
 
@@ -73,40 +95,28 @@ export function avisarDeSesionPerdida(path: string): void {
  * que aun no ha entrado. Si contara, el primer intento fallido mandaria al login "por inactividad".
  */
 function esIntentoDeEntrar(path: string): boolean {
-  return path.startsWith("/auth/login") || path.startsWith("/auth/session-from-api");
+  return path.startsWith("/auth/login");
 }
 
 async function request<T>(method: string, path: string, body?: unknown, opts?: RequestOptions): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (opts?.token) headers.Authorization = `Bearer ${opts.token}`;
 
-  const enviar = () => fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined
-  });
-
   let response: Response;
   try {
-    response = await enviar();
+    response = await fetch(apiUrlFor(path), {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined
+    });
   } catch {
-    // No se pudo ni preguntar. Como `API_BASE_URL` es una direccion que solo existe dentro del
-    // simulador, esto casi siempre significa que el simulador ha dejado de atender, no que se
-    // haya caido internet. Se intenta levantarlo y se reintenta UNA vez: para quien mira, el
-    // panel se arregla solo en vez de mandarle a recargar.
-    try {
-      if (!reanimarSimulador) throw new Error("sin simulador que levantar");
-      await reanimarSimulador();
-      response = await enviar();
-    } catch {
-      throw new AppError(
-        SIMULADOR_PARADO,
-        "El panel no se cargó del todo en esta pestaña. Recarga la página y vuelve a intentarlo."
-      );
-    }
+    throw new AppError(
+      SIN_RESPUESTA,
+      "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo."
+    );
   }
 
-  let json: { data?: unknown; error?: { code: string; message: string; details?: Record<string, unknown>[] } };
+  let json: unknown;
   try {
     json = await response.json();
   } catch {
@@ -117,11 +127,22 @@ async function request<T>(method: string, path: string, body?: unknown, opts?: R
   }
 
   if (!response.ok) {
-    const { code, message, details } = json.error ?? { code: "ERROR", message: `Error ${response.status}` };
+    const mensaje =
+      json && typeof json === "object" && "error" in json && typeof (json as { error: unknown }).error === "string"
+        ? (json as { error: string }).error
+        : `Error ${response.status}`;
     if (response.status === 401 && !esIntentoDeEntrar(path)) avisarSinSesion?.(path);
-    throw new AppError(code, message, details);
+    throw new AppError(codigoDeEstado(response.status), mensaje);
   }
-  return json.data as T;
+
+  // La API envuelve los listados en `{ items }`; los demas cuerpos se devuelven tal cual. El
+  // cliente mantiene `data` por compatibilidad con los cuerpos que antano envolvia el simulador.
+  if (json && typeof json === "object") {
+    const envelope = json as { data?: unknown; items?: unknown };
+    if ("data" in envelope) return envelope.data as T;
+    if ("items" in envelope) return envelope.items as T;
+  }
+  return json as T;
 }
 
 export const apiClient = {
