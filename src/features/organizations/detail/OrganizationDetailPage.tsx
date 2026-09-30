@@ -11,7 +11,8 @@ import { EventStatusBadge } from "@/shared/ui/EventStatusBadge";
 import { OrganizationCustomers } from "./OrganizationCustomers";
 import { Cargando } from "@/shared/ui/Cargando";
 
-const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
+// En UTC, como la lista de eventos: la hora guardada es la que tecleo el organizador.
+const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
 
 export function OrganizationDetailPage() {
   const { id } = useParams<{ id: string }>();

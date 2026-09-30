@@ -73,7 +73,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
   const eventAllowsPendingDates = Boolean(event?.datePending || !event?.startsAt);
   const [mode, setMode] = useState<"single" | "recurring">("single");
   const [single, setSingle] = useState({
-    name: "Sesion unica",
+    name: "Sesión única",
     datePending: eventAllowsPendingDates,
     date: "",
     time: "21:00",
@@ -85,7 +85,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
     durationMinutes: 120,
     occurrences: 2,
     intervalDays: 7,
-    namePrefix: "Sesion"
+    namePrefix: "Sesión"
   });
   const [editing, setEditing] = useState<EditableSubEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,11 +121,11 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
   async function createSingleSession() {
     setError(null);
     if (!single.name.trim()) {
-      setError("Escribe el nombre de la sesion.");
+      setError("Escribe el nombre de la sesión.");
       return;
     }
     if (!single.datePending && (!single.date || !single.time)) {
-      setError("Elige fecha y hora para crear la sesion.");
+      setError("Elige fecha y hora para crear la sesión.");
       return;
     }
     if (!single.datePending && isPast(single.date, single.time)) {
@@ -148,7 +148,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
       await queryClient.invalidateQueries({ queryKey: ["sub-events", eventId] });
       void syncEventChanges();
     } catch (err) {
-      setError(err instanceof AppError ? err.message : "No se pudo crear la sesion");
+      setError(err instanceof AppError ? err.message : "No se pudo crear la sesión");
     }
   }
 
@@ -156,11 +156,11 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
     if (!editing) return;
     setError(null);
     if (!editing.name.trim()) {
-      setError("Escribe el nombre de la sesion.");
+      setError("Escribe el nombre de la sesión.");
       return;
     }
     if (!editing.datePending && (!editing.date || !editing.time)) {
-      setError("Elige fecha y hora para guardar la sesion.");
+      setError("Elige fecha y hora para guardar la sesión.");
       return;
     }
     if (!editing.datePending && isPast(editing.date, editing.time)) {
@@ -173,7 +173,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
       await queryClient.invalidateQueries({ queryKey: ["sub-events", eventId] });
       void syncEventChanges();
     } catch (err) {
-      setError(err instanceof AppError ? err.message : "No se pudo guardar la sesion");
+      setError(err instanceof AppError ? err.message : "No se pudo guardar la sesión");
     }
   }
 
@@ -217,7 +217,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
     <div className="flex flex-col gap-5">
       {hasPendingSubEvents && (
         <div className="rounded-lg border-2 border-dashed border-foreground bg-background p-4 text-sm font-bold text-muted-foreground">
-          Hay sesiones con fecha por confirmar. En la web no se venderan entradas para esas sesiones: solo aparecera la opcion de aviso.
+          Hay sesiones con fecha por confirmar. En la web no se venderán entradas para esas sesiones: solo aparecerá la opción de aviso.
         </div>
       )}
 
@@ -279,7 +279,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
                       />
                     </div>
                     <div>
-                      <label htmlFor={`subevent-duration-${s.id}`}>Duracion minutos</label>
+                      <label htmlFor={`subevent-duration-${s.id}`}>Duración minutos</label>
                       <NumericInput
                         id={`subevent-duration-${s.id}`}
                         min={15}
@@ -303,7 +303,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button type="button" onClick={saveEditing}>
-                      Guardar sesion
+                      Guardar sesión
                     </Button>
                     <Button type="button" variant="outline" onClick={() => setEditing(null)}>
                       Cerrar
@@ -327,7 +327,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
           onClick={() => setMode("single")}
           className={`rounded-sm px-3 py-2 text-xs font-extrabold uppercase ${mode === "single" ? "bg-primary text-primary-foreground" : ""}`}
         >
-          Evento unico
+          Evento único
         </button>
         <button
           type="button"
@@ -347,7 +347,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
 
       {mode === "single" ? (
         <fieldset>
-          <legend>Anadir sesion</legend>
+          <legend>Añadir sesión</legend>
           <div className="grid gap-3 md:grid-cols-4">
             <div className="md:col-span-2">
               <label htmlFor="session-name">Nombre</label>
@@ -370,7 +370,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
               <input id="session-time" type="time" disabled={single.datePending} value={single.time} onChange={(e) => setSingle({ ...single, time: e.target.value })} />
             </div>
             <div>
-              <label htmlFor="session-duration">Duracion minutos</label>
+              <label htmlFor="session-duration">Duración minutos</label>
               <NumericInput
                 id="session-duration"
                 min={15}
@@ -383,7 +383,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
             </div>
           </div>
           <Button type="button" onClick={createSingleSession} className="mt-4">
-            Anadir sesion
+            Añadir sesión
           </Button>
         </fieldset>
       ) : (

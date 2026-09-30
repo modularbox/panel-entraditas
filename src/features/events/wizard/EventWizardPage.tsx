@@ -50,11 +50,11 @@ interface WizardStep {
  * EventRulesQuestions).
  */
 const ALL_STEPS: WizardStep[] = [
-  { key: "info", label: "Informacion del evento", needsEventId: false },
+  { key: "info", label: "Información del evento", needsEventId: false },
   { key: "subeventos", label: "Sesiones", needsEventId: true },
   { key: "tipos", label: "Tipos de entrada", needsEventId: true },
   { key: "plano", label: "Asientos", needsEventId: true },
-  { key: "descuentos", label: "Codigos de descuento", needsEventId: true },
+  { key: "descuentos", label: "Códigos de descuento", needsEventId: true },
   { key: "puertas", label: "Puertas", needsEventId: true },
   { key: "diseno", label: "Diseño de la entrada", needsEventId: true },
   { key: "publicar", label: "Publicar evento", needsEventId: true }

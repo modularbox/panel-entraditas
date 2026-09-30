@@ -28,7 +28,7 @@ const CHANNEL_LABELS: Record<Order["channel"], string> = {
 };
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
-type Fila = Order & { eventTitle?: string };
+type Fila = Order & { eventTitle?: string; sessionLabel?: string };
 const columnHelper = createColumnHelper<Fila>();
 
 /** Las columnas dependen de los eventos: un pedido de ejemplo solo trae el id del suyo. */
@@ -42,7 +42,19 @@ function columnasDePedidos(tituloDe: (fila: Fila) => string) {
         </Link>
       )
     }),
-    columnHelper.accessor((fila) => tituloDe(fila), { id: "evento", header: "Evento" }),
+    columnHelper.accessor((fila) => tituloDe(fila), {
+      id: "evento",
+      header: "Evento",
+      // Con varias funciones, cual: "Romeo y Julieta" no dice si es el jueves o el sabado.
+      cell: (info) => (
+        <span>
+          {info.getValue()}
+          {info.row.original.sessionLabel && (
+            <span className="block whitespace-nowrap text-xs text-muted-foreground">{info.row.original.sessionLabel}</span>
+          )}
+        </span>
+      )
+    }),
     columnHelper.accessor("customerName", { header: "Comprador" }),
     columnHelper.accessor("customerEmail", { header: "Correo" }),
     columnHelper.accessor((fila) => textoDeMetodoDePago(fila.paymentReference), { id: "pago", header: "Pago" }),

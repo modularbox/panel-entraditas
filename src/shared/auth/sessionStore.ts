@@ -104,7 +104,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (!token) return;
     try {
       const result = await quienSoyEnLaApi();
-      if (!result) throw new Error("Sesion no valida");
+      if (!result) throw new Error("Sesión no válida");
       get().setSession(sesionDesde(result, token));
     } catch {
       // The superadmin's token is no longer valid — there's nothing to return to, so drop back to

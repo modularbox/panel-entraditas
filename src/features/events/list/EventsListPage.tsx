@@ -22,7 +22,9 @@ const STATUS_FILTERS: Array<{ value: "" | Event["status"]; label: string }> = [
   { value: "rejected", label: "Rechazado" },
   { value: "finished", label: "Finalizado" }
 ];
-const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
+// En UTC: el asistente guarda la hora tecleada con una "Z" detras, asi que la hora del evento son
+// las cifras UTC. En la hora del navegador, un concierto de las 21:00 salia a las 23:00 (tanda 19).
+const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
 
 /**
  * Editar, en todos los eventos.
@@ -82,6 +84,9 @@ const columns = [
     cell: (info) => (
       <span className="whitespace-nowrap">
         {info.getValue() ? dateFormatter.format(new Date(info.getValue()!)) : "Fecha por confirmar"}
+        {info.row.original.hasSubEvents && info.getValue() && (
+          <span className="block text-xs text-muted-foreground">Primera de varias sesiones</span>
+        )}
       </span>
     )
   }),

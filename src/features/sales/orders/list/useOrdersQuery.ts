@@ -34,7 +34,7 @@ export function useOrdersQuery(filters: OrdersFilters) {
 
   return useQuery({
     queryKey: ["orders", filters, desdeApi],
-    queryFn: async (): Promise<{ items: (Order & { eventTitle?: string })[]; esReal: boolean }> => {
+    queryFn: async (): Promise<{ items: (Order & { eventTitle?: string; sessionLabel?: string })[]; esReal: boolean }> => {
       if (desdeApi) {
         const pedidos = await fetchApiOrders({ eventId: filters.eventId });
         return { items: filtrarPedidos(pedidos.map(pedidoDesdeLaApi), filters), esReal: true };

@@ -37,16 +37,20 @@ function centsToEuros(cents: number): number {
   return Math.round(cents) / 100;
 }
 
-/** Parte un ISO en fecha y hora locales, que es como las valida y guarda la API. */
+/**
+ * Parte un ISO en la fecha y la hora que tecleo el organizador.
+ *
+ * El asistente guarda lo tecleado tal cual con una "Z" detras ("21:00" -> "...T21:00:00.000Z",
+ * ver Step1BasicInfo y Step2Schedule), asi que la hora del evento son las cifras UTC del ISO. Antes
+ * se leia en la hora del navegador y un concierto de las 21:00 se publicaba a las 23:00 en verano
+ * (tanda 19).
+ */
 export function splitStartsAt(startsAt: string | null): { date: string | null; time: string | null } {
   if (!startsAt) return { date: null, time: null };
   const parsed = new Date(startsAt);
   if (Number.isNaN(parsed.getTime())) return { date: null, time: null };
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return {
-    date: `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`,
-    time: `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
-  };
+  const iso = parsed.toISOString();
+  return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
 }
 
 export function toApiEventPayload(
@@ -78,8 +82,8 @@ export function toApiEventPayload(
 export function missingForApi(payload: ApiEventPayload): string[] {
   const missing: string[] = [];
   if (!payload.slug) missing.push("identificador (slug)");
-  if (!payload.title) missing.push("titulo");
-  if (!payload.category) missing.push("categoria");
+  if (!payload.title) missing.push("título");
+  if (!payload.category) missing.push("categoría");
   if (!payload.venue?.name) missing.push("nombre del recinto");
   if (!payload.venue?.city) missing.push("ciudad del recinto");
   if (payload.ticketTiers.length === 0) missing.push("al menos un tipo de entrada");

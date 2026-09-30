@@ -343,7 +343,7 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
                     variant="outline"
                     className="h-8 w-7 shrink-0 p-0 shadow-none"
                     aria-label={`Añadir una butaca a la fila ${name}`}
-                    {...tip(`Una butaca mas en la fila ${name}`)}
+                    {...tip(`Una butaca más en la fila ${name}`)}
                     disabled={row.slots >= 120}
                     onClick={() => patchRow(index, { slots: row.slots + 1 })}
                   >

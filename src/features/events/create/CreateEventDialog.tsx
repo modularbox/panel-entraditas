@@ -56,21 +56,21 @@ export const RULE_GROUPS: QuestionGroup[] = [
       {
         kind: "number",
         key: "minPerOrder",
-        label: "Minimo de entradas por pedido",
-        help: "Cuantas entradas tiene que llevarse como minimo quien compre.",
+        label: "Mínimo de entradas por pedido",
+        help: "Cuántas entradas tiene que llevarse como mínimo quien compre.",
         min: 1
       },
       {
         kind: "number",
         key: "maxPerOrder",
-        label: "Maximo de entradas por pedido",
+        label: "Máximo de entradas por pedido",
         help: "Tope de entradas en una misma compra.",
         min: 1
       },
       {
         kind: "number",
         key: "maxPerCustomer",
-        label: "Maximo de entradas por comprador",
+        label: "Máximo de entradas por comprador",
         help: "Tope sumando todas sus compras a este evento.",
         min: 0,
         zeroMeans: "sin tope"
@@ -100,14 +100,14 @@ export const RULE_GROUPS: QuestionGroup[] = [
         kind: "boolean",
         key: "allowSeatSelection",
         label: "Elegir butaca concreta",
-        help: "Si se desactiva, el sistema asigna automaticamente las mejores butacas libres.",
+        help: "Si se desactiva, el sistema asigna automáticamente las mejores butacas libres.",
         yes: "El comprador elige su butaca",
         no: "El sistema asigna la butaca"
       },
       {
         kind: "number",
         key: "maxContiguousSeats",
-        label: "Maximo de asientos seguidos por pedido",
+        label: "Máximo de asientos seguidos por pedido",
         help: "Evita que una sola compra se lleve una fila entera.",
         min: 0,
         zeroMeans: "sin tope"
@@ -158,7 +158,7 @@ export const RULE_GROUPS: QuestionGroup[] = [
         kind: "number",
         key: "maxScansPerTicket",
         label: "Escaneos permitidos por entrada",
-        help: "Cuantas veces vale el mismo QR en la puerta.",
+        help: "Cuántas veces vale el mismo QR en la puerta.",
         min: 1
       }
     ]
@@ -177,10 +177,10 @@ export const RULE_GROUPS: QuestionGroup[] = [
       {
         kind: "number",
         key: "refundDeadlineDays",
-        label: "Dias antes del evento hasta los que se devuelve",
-        help: "Pasado ese margen ya no se admite la devolucion.",
+        label: "Días antes del evento hasta los que se devuelve",
+        help: "Pasado ese margen ya no se admite la devolución.",
         min: 0,
-        zeroMeans: "hasta el mismo dia"
+        zeroMeans: "hasta el mismo día"
       }
     ]
   },
@@ -190,24 +190,24 @@ export const RULE_GROUPS: QuestionGroup[] = [
       {
         kind: "number",
         key: "minimumAge",
-        label: "Edad minima",
+        label: "Edad mínima",
         help: "Se avisa en la ficha del evento y se comprueba en la puerta.",
         min: 0,
-        zeroMeans: "sin edad minima"
+        zeroMeans: "sin edad mínima"
       },
       {
         kind: "boolean",
         key: "showRemainingTickets",
         label: "Mostrar entradas restantes",
-        help: "Ensenar cuantas entradas quedan en la ficha del evento.",
+        help: "Enseñar cuántas entradas quedan en la ficha del evento.",
         yes: "Se muestran las entradas que quedan",
-        no: "No se muestra el numero"
+        no: "No se muestra el número"
       },
       {
         kind: "number",
         key: "lowStockThreshold",
-        label: "Avisar de ultimas entradas cuando queden",
-        help: "A partir de esa cantidad, la web marca el evento como ultimas entradas.",
+        label: "Avisar de últimas entradas cuando queden",
+        help: "A partir de esa cantidad, la web marca el evento como últimas entradas.",
         min: 0,
         zeroMeans: "no avisar"
       },

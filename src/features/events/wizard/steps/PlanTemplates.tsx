@@ -104,8 +104,8 @@ export function PlanTemplates({ zones, mode, onApply }: PlanTemplatesProps) {
       {templates.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {mode === "plan"
-            ? "Todavia no hay plantillas de plano. Dibuja uno y guardalo para reutilizarlo en otros eventos del mismo recinto."
-            : "Todavia no hay plantillas de zonas. Crea las zonas y guardalas para reutilizarlas en otros eventos."}
+            ? "Todavía no hay plantillas de plano. Dibuja uno y guárdalo para reutilizarlo en otros eventos del mismo recinto."
+            : "Todavía no hay plantillas de zonas. Crea las zonas y guárdalas para reutilizarlas en otros eventos."}
         </p>
       ) : (
         <ul aria-label="Plantillas guardadas" className="flex flex-col gap-2">

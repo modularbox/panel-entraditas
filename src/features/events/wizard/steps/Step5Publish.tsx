@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import type { CapacityPool, Event, TicketType, VenuePlanElement, Zone } from "@entraditas/types";
@@ -127,10 +127,10 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
   const hasTicketTypes = (summary?.ticketTypesCount ?? 0) > 0;
   const sellableZones = zones.filter((zone) => zone.kind === "numbered" || zone.kind === "standing");
   const missingBasicFields = [
-    !event?.title?.trim() ? "titulo" : null,
-    !event?.category?.trim() ? "categoria" : null,
-    !plainText(event?.description) ? "descripcion" : null,
-    !event?.location?.trim() ? "ubicacion" : null,
+    !event?.title?.trim() ? "título" : null,
+    !event?.category?.trim() ? "categoría" : null,
+    !plainText(event?.description) ? "descripción" : null,
+    !event?.location?.trim() ? "ubicación" : null,
     !event?.locality?.trim() ? "localidad" : null
   ].filter(Boolean);
   const dateReady = Boolean(event?.datePending || event?.startsAt);
@@ -177,7 +177,7 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
     {
       label: "Datos principales de la plantilla",
       ok: missingBasicFields.length === 0,
-      detail: missingBasicFields.length ? `Falta: ${missingBasicFields.join(", ")}` : "Titulo, categoria, descripcion y lugar listos"
+      detail: missingBasicFields.length ? `Falta: ${missingBasicFields.join(", ")}` : "Título, categoría, descripción y lugar listos"
     },
     {
       label: "Fecha o aviso",
@@ -209,7 +209,7 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
                   .map((status) => `${status.unassigned} en "${status.zone.name}"`)
                   .join(", ")}. Sin tipo no se pueden vender.`
               : overCapacityGroups.length > 0
-                ? "Una asignacion supera el limite de entradas disponibles"
+                ? "Una asignación supera el límite de entradas disponibles"
                 : "Zonas asignadas correctamente"
     }
   ];
@@ -250,7 +250,7 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(340px,0.72fr)_minmax(520px,1.28fr)]">
       <section className="flex min-w-0 flex-col gap-4">
-        <h2>Checklist de revision</h2>
+        <h2>Checklist de revisión</h2>
         <ul className="flex flex-col gap-2">
           {checklist.map((item) => (
             <li
@@ -266,18 +266,18 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
         </ul>
 
         <p className="max-w-2xl text-sm font-medium text-muted-foreground">
-          El evento quedara como en revision hasta que la plataforma lo apruebe o lo rechace.
+          El evento quedará como en revisión hasta que la plataforma lo apruebe o lo rechace.
         </p>
 
         {publishError && <p role="alert">{publishError}</p>}
 
         <Button type="button" onClick={requestReview} disabled={!canRequestReview} className="self-start">
-          Enviar a revision
+          Enviar a revisión
         </Button>
       </section>
 
       <section className="min-w-0">
-        <h2 className="mb-3">Previsualizacion publica</h2>
+        <h2 className="mb-3">Previsualización pública</h2>
         <PublicEventPreview event={previewEvent} defaultMode="detail" />
       </section>
     </div>

@@ -70,7 +70,7 @@ export function storeApiToken(token: string | null): void {
  * resto del panel, en vez de dejar un error en rojo en la pantalla de turno.
  */
 async function request<T>(path: string, init: RequestInit = {}, avisaSiCaduca = true): Promise<T> {
-  if (!isApiConfigured()) throw new ApiUnavailableError("La API no esta configurada.");
+  if (!isApiConfigured()) throw new ApiUnavailableError("La API no está configurada.");
   const token = getApiToken();
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -155,7 +155,7 @@ export async function loginToApi(email: string, password: string): Promise<ApiSt
  * a mano en el formulario de conexion necesita saber por que han fallado, no un silencio.
  */
 export async function conectarConLaApi(email: string, password: string): Promise<ApiStaff> {
-  if (!isApiConfigured()) throw new ApiUnavailableError("La API publica no esta configurada en esta compilacion.");
+  if (!isApiConfigured()) throw new ApiUnavailableError("La API pública no está configurada en esta compilación.");
   try {
     // Sin aviso: un 401 aqui es una contraseña mal escrita, no una sesion que se ha caido.
     const result = await request<{ token: string; staff: ApiStaff }>("/v1/panel/auth/login", {
@@ -436,6 +436,9 @@ export interface ApiPanelOrder {
   organizationId: string | null;
   eventTitle: string;
   eventStartsAt: string | null;
+  /** La función comprada (tanda 19). null en las compras de antes y en eventos de una fecha sin sesion guardada. */
+  sessionName?: string | null;
+  sessionStartsAt?: string | null;
   status: string;
   channel: string;
   customerName: string;

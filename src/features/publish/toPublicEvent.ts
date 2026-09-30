@@ -10,6 +10,7 @@ import type {
   PublicEvent,
   PublicSeatZone,
   PublicSession,
+  PublicSessionTier,
   PublicTicketTier,
   PublicVenue,
   SubEvent,
@@ -196,7 +197,31 @@ export function toPublicRules(event: Event): PublicEventRules {
   };
 }
 
-export function toSessions(subEvents: SubEvent[]): PublicSession[] {
+/**
+ * Lo que queda de cada tipo de entrada en una sesion.
+ *
+ * Un tipo de entrada se guarda como una fila por sesion (mismo `groupId`), y una fila sin sesion
+ * vale para todas. `toTiers` las suma, que es lo que cuenta para el evento entero; aqui se miran
+ * solo las de esta sesion, que es lo que el comprador puede coger en la fecha que elige.
+ */
+export function toSessionTiers(subEventId: string, ticketTypes: TicketType[]): PublicSessionTier[] {
+  const byGroup = new Map<string, TicketType[]>();
+  for (const ticketType of ticketTypes) {
+    if (ticketType.subEventId !== null && ticketType.subEventId !== subEventId) continue;
+    byGroup.set(ticketType.groupId, [...(byGroup.get(ticketType.groupId) ?? []), ticketType]);
+  }
+  return [...byGroup.entries()].map(([groupId, rows]) => {
+    const unlimited = rows.some((row) => row.quantityTotal === null);
+    return {
+      id: groupId,
+      available: unlimited
+        ? null
+        : rows.reduce((sum, row) => sum + Math.max(0, (row.quantityTotal ?? 0) - row.quantitySold), 0)
+    };
+  });
+}
+
+export function toSessions(subEvents: SubEvent[], ticketTypes: TicketType[] = []): PublicSession[] {
   return [...subEvents]
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((subEvent) => ({
@@ -205,7 +230,8 @@ export function toSessions(subEvents: SubEvent[]): PublicSession[] {
       startsAt: subEvent.startsAt,
       endsAt: subEvent.endsAt,
       doorsOpenAt: subEvent.doorsOpenAt,
-      status: subEvent.status
+      status: subEvent.status,
+      tiers: toSessionTiers(subEvent.id, ticketTypes)
     }));
 }
 
@@ -262,7 +288,7 @@ export function toPublicEvent(input: PublishInput): PublicEvent {
     durationMinutes: event.durationMinutes ?? null,
     salesStartAt: event.salesStartAt,
     salesEndAt: event.salesEndAt,
-    sessions: toSessions(subEvents),
+    sessions: toSessions(subEvents, ticketTypes),
     tiers,
     priceFrom: prices.length > 0 ? Math.min(...prices) : null,
     serviceFee: { type: event.serviceFeeType ?? "none", value: event.serviceFeeValue ?? 0 },

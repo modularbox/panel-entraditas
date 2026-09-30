@@ -24,7 +24,7 @@ describe("CreateEventDialog", () => {
     for (const group of ["Venta", "Asientos", "Titular de la entrada", "Acceso en puerta", "Reembolsos", "Lo que ve el comprador"]) {
       expect(screen.getByText(group)).toBeInTheDocument();
     }
-    expect(screen.getByLabelText(/Minimo de entradas por pedido/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Mínimo de entradas por pedido/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continuar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Empezar sin responder" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
@@ -42,8 +42,8 @@ describe("CreateEventDialog", () => {
 
   it("las cantidades se responden con su input numerico", () => {
     const { onContinue } = renderDialog();
-    fireEvent.change(screen.getByLabelText(/Maximo de entradas por pedido/), { target: { value: "8" } });
-    expect(screen.getByLabelText(/Maximo de entradas por pedido/)).toHaveValue(8);
+    fireEvent.change(screen.getByLabelText(/Máximo de entradas por pedido/), { target: { value: "8" } });
+    expect(screen.getByLabelText(/Máximo de entradas por pedido/)).toHaveValue(8);
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ maxPerOrder: 8 }));
   });
@@ -79,14 +79,14 @@ describe("CreateEventDialog", () => {
 
   it("los campos de cantidad arrancan con su valor por defecto", () => {
     renderDialog();
-    expect(screen.getByLabelText(/Minimo de entradas por pedido/)).toHaveValue(EVENT_RULE_DEFAULTS.minPerOrder);
-    expect(screen.getByLabelText(/Maximo de entradas por pedido/)).toHaveValue(EVENT_RULE_DEFAULTS.maxPerOrder);
-    expect(screen.getByLabelText(/Maximo de entradas por comprador/)).toHaveValue(EVENT_RULE_DEFAULTS.maxPerCustomer);
-    expect(screen.getByLabelText(/Maximo de asientos seguidos por pedido/)).toHaveValue(EVENT_RULE_DEFAULTS.maxContiguousSeats);
+    expect(screen.getByLabelText(/Mínimo de entradas por pedido/)).toHaveValue(EVENT_RULE_DEFAULTS.minPerOrder);
+    expect(screen.getByLabelText(/Máximo de entradas por pedido/)).toHaveValue(EVENT_RULE_DEFAULTS.maxPerOrder);
+    expect(screen.getByLabelText(/Máximo de entradas por comprador/)).toHaveValue(EVENT_RULE_DEFAULTS.maxPerCustomer);
+    expect(screen.getByLabelText(/Máximo de asientos seguidos por pedido/)).toHaveValue(EVENT_RULE_DEFAULTS.maxContiguousSeats);
     expect(screen.getByLabelText(/Escaneos permitidos por entrada/)).toHaveValue(EVENT_RULE_DEFAULTS.maxScansPerTicket);
-    expect(screen.getByLabelText(/Dias antes del evento hasta los que se devuelve/)).toHaveValue(EVENT_RULE_DEFAULTS.refundDeadlineDays);
-    expect(screen.getByLabelText(/Edad minima/)).toHaveValue(EVENT_RULE_DEFAULTS.minimumAge);
-    expect(screen.getByLabelText(/Avisar de ultimas entradas cuando queden/)).toHaveValue(EVENT_RULE_DEFAULTS.lowStockThreshold);
+    expect(screen.getByLabelText(/Días antes del evento hasta los que se devuelve/)).toHaveValue(EVENT_RULE_DEFAULTS.refundDeadlineDays);
+    expect(screen.getByLabelText(/Edad mínima/)).toHaveValue(EVENT_RULE_DEFAULTS.minimumAge);
+    expect(screen.getByLabelText(/Avisar de últimas entradas cuando queden/)).toHaveValue(EVENT_RULE_DEFAULTS.lowStockThreshold);
   });
 
   it("los botones de si/no arrancan con el estado por defecto de cada regla", () => {
@@ -101,7 +101,7 @@ describe("CreateEventDialog", () => {
       ["La entrada no se puede ceder", "Se puede ceder", "yes"],
       ["Una vez dentro, no se puede reentrar", "Se permite salir y volver a entrar", "no"],
       ["No se admiten devoluciones", "Se admiten devoluciones", "yes"],
-      ["No se muestra el numero", "Se muestran las entradas que quedan", "yes"],
+      ["No se muestra el número", "Se muestran las entradas que quedan", "yes"],
       ["El recinto no es accesible", "El recinto es accesible", "no"]
     ];
     for (const [no, yes, pressed] of cases) {
@@ -112,24 +112,24 @@ describe("CreateEventDialog", () => {
 
   it("una cantidad por debajo del minimo se aferra al minimo", () => {
     const { onContinue } = renderDialog();
-    fireEvent.change(screen.getByLabelText(/Minimo de entradas por pedido/), { target: { value: "0" } });
-    expect(screen.getByLabelText(/Minimo de entradas por pedido/)).toHaveValue(1);
+    fireEvent.change(screen.getByLabelText(/Mínimo de entradas por pedido/), { target: { value: "0" } });
+    expect(screen.getByLabelText(/Mínimo de entradas por pedido/)).toHaveValue(1);
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ minPerOrder: 1 }));
   });
 
   it("una cantidad por encima de 100 se recorta a 100", () => {
     const { onContinue } = renderDialog();
-    fireEvent.change(screen.getByLabelText(/Maximo de entradas por pedido/), { target: { value: "250" } });
-    expect(screen.getByLabelText(/Maximo de entradas por pedido/)).toHaveValue(100);
+    fireEvent.change(screen.getByLabelText(/Máximo de entradas por pedido/), { target: { value: "250" } });
+    expect(screen.getByLabelText(/Máximo de entradas por pedido/)).toHaveValue(100);
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ maxPerOrder: 100 }));
   });
 
   it("vaciar un campo numerico recupera su caso base: 0 si es 'sin tope', el minimo si no", () => {
     const { onContinue } = renderDialog();
-    fireEvent.change(screen.getByLabelText(/Maximo de entradas por comprador/), { target: { value: "" } });
-    expect(screen.getByLabelText(/Maximo de entradas por comprador/)).toHaveValue(0);
+    fireEvent.change(screen.getByLabelText(/Máximo de entradas por comprador/), { target: { value: "" } });
+    expect(screen.getByLabelText(/Máximo de entradas por comprador/)).toHaveValue(0);
     fireEvent.change(screen.getByLabelText(/Escaneos permitidos por entrada/), { target: { value: "" } });
     expect(screen.getByLabelText(/Escaneos permitidos por entrada/)).toHaveValue(1);
     // maxPerCustomer (0 = sin tope) es un valor valido y ademas esta en el esquema.
