@@ -152,10 +152,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const token = get().impersonatorToken;
     if (!token) return;
     try {
-      // Con el token del superadmin guardado, no con el del miembro que ahora es la sesion actual:
-      // preguntar con el equivocado devuelve el perfil del miembro y el "volver" no vuelve.
+      // El token activo sigue siendo el del organizador conectado; el perfil debe validarse con el
+      // token del superadmin que se guardó al hacer la conexión.
       const result = await quienSoyEnLaApiConToken(token);
-      if (!result) throw new Error("Sesion no valida");
+      if (!result) throw new Error("Sesión no válida");
       get().setSession(sesionDesde(result, token));
     } catch {
       // The superadmin's token is no longer valid — there's nothing to return to, so drop back to

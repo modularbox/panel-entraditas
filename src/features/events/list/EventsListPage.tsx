@@ -104,9 +104,6 @@ function columnasDeEventos(nombreDeOrganizacion: ((evento: Event) => string) | n
       cell: (info) => (
         <span className="whitespace-nowrap">
           {info.getValue() ? dateFormatter.format(new Date(info.getValue()!)) : "Fecha por confirmar"}
-          {info.row.original.hasSubEvents && info.getValue() && (
-            <span className="block text-xs text-muted-foreground">Primera de varias sesiones</span>
-          )}
         </span>
       )
     }),

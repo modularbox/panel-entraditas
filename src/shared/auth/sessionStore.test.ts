@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as entraditasApi from "@/shared/lib/entraditasApi";
-import { getSessionEffectivePermissions, hydrateConnectedSession } from "./sessionStore";
+import { getSessionEffectivePermissions, hydrateConnectedSession, useSessionStore } from "./sessionStore";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -51,5 +51,31 @@ describe("getSessionEffectivePermissions", () => {
 
     expect(getSessionEffectivePermissions(session)).toEqual(["orders:read"]);
     expect(session.eventScopes).toEqual(["event-1"]);
+  });
+
+  it("returns to the superadmin profile using the saved superadmin token", async () => {
+    const quienSoy = vi.spyOn(entraditasApi, "quienSoyEnLaApiConToken").mockResolvedValue({
+      id: "admin-1",
+      email: "admin@example.com",
+      fullName: "Admin",
+      role: "superadmin",
+      organizationId: null,
+      status: "active",
+      effectivePermissions: ["organizations:manage"]
+    });
+    useSessionStore.setState({
+      token: "organizer-token",
+      user: { id: "org-1", email: "org@example.com", fullName: "Organizador", role: "organizador", organizationId: "org-1" },
+      effectivePermissions: new Set(["events:read"]),
+      eventScopes: [],
+      status: "authenticated",
+      impersonatorToken: "superadmin-token"
+    });
+
+    await useSessionStore.getState().returnToSuperadmin();
+
+    expect(quienSoy).toHaveBeenCalledWith("superadmin-token");
+    expect(useSessionStore.getState().token).toBe("superadmin-token");
+    expect(useSessionStore.getState().user?.role).toBe("superadmin");
   });
 });
