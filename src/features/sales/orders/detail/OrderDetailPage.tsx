@@ -15,7 +15,7 @@ import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { LIMITES } from "@/shared/lib/formLimits";
 import { Cargando } from "@/shared/ui/Cargando";
 
-type OrderDetail = Order & { items: OrderItem[]; refunds: Refund[]; esReal?: boolean; eventTitle?: string };
+type OrderDetail = Order & { items: OrderItem[]; refunds: Refund[]; esReal?: boolean; eventTitle?: string; sessionLabel?: string };
 
 const STATUS_LABELS: Record<Order["status"], string> = {
   pending: "Pendiente",
@@ -172,6 +172,7 @@ export function OrderDetailPage() {
         <section className="min-w-0 rounded-lg border-2 border-foreground bg-surface p-5 shadow-flat">
           <h2 className="font-display text-lg font-semibold">Evento</h2>
           <p className="mt-2 break-words text-sm">{order.eventTitle || eventoDeEjemplo?.title || "—"}</p>
+          {order.sessionLabel && <p className="break-words text-sm text-muted-foreground">{order.sessionLabel}</p>}
         </section>
         <section className="min-w-0 rounded-lg border-2 border-foreground bg-surface p-5 shadow-flat">
           <h2 className="font-display text-lg font-semibold">Pago</h2>

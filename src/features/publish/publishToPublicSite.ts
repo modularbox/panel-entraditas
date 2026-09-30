@@ -28,10 +28,14 @@ export type PublishOutcome =
  *
  * El auto-sincronizado necesita saber si un evento ya publicado tiene algo nuevo que mandar:
  * revisa la lista entera al entrar y despues de cada cambio, y sin esta firma volveria a hacer un
- * PUT de todo cada vez, aunque no hubiera movido nada. Se guarda por evento el cuerpo exacto del
- * ultimo envio que la API acepto; si el cuerpo de ahora es identico, no hay nada que hacer.
+ * PUT de todo cada vez, aunque no hubiera movido nada. Se guarda por evento una huella del
+ * ultimo envio que la API acepto; si la del cuerpo de ahora es la misma, no hay nada que hacer.
+ *
+ * Una huella y no el cuerpo entero (tanda 20): con las portadas dentro (una imagen en base64
+ * pesa cientos de KB) el navegador se quedaba sin sitio y saltaba "exceeded the quota". Y como
+ * eso pasaba DESPUES de publicar, un evento que ya estaba en la web se contaba como fallido.
  */
-const FIRMAS_KEY = "entraditas.panel.ultimasFirmas";
+const FIRMAS_KEY = "entraditas.panel.firmas.v2";
 
 function leerFirmas(): Record<string, string> {
   try {
@@ -41,26 +45,43 @@ function leerFirmas(): Record<string, string> {
   }
 }
 
-/** El cuerpo admite JSON.stringify como firma: se arma con claves en orden fijo desde los datos. */
-function firmar(payload: ApiEventPayload): string {
-  return JSON.stringify(payload);
+/** Huella de 53 bits (cyrb53) del cuerpo, mas su longitud: dos cuerpos distintos no coinciden. */
+export function firmar(payload: ApiEventPayload): string {
+  const texto = JSON.stringify(payload);
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return `${(4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36)}.${texto.length}`;
 }
 
 function firmaRecordada(eventId: string): string | null {
   return leerFirmas()[eventId] ?? null;
 }
 
+/** Sin sitio para apuntarla, el evento se volvera a mandar la proxima vez; nada peor. */
+function guardarFirmas(firmas: Record<string, string>): void {
+  try {
+    localStorage.setItem(FIRMAS_KEY, JSON.stringify(firmas));
+  } catch {
+    // Publicar ya ha ido bien: esto solo ahorra envios repetidos.
+  }
+}
+
 function recordarFirma(eventId: string, firma: string): void {
-  const firmas = leerFirmas();
-  firmas[eventId] = firma;
-  localStorage.setItem(FIRMAS_KEY, JSON.stringify(firmas));
+  guardarFirmas({ ...leerFirmas(), [eventId]: firma });
 }
 
 function olvidarFirma(eventId: string): void {
   const firmas = leerFirmas();
   if (!(eventId in firmas)) return;
   delete firmas[eventId];
-  localStorage.setItem(FIRMAS_KEY, JSON.stringify(firmas));
+  guardarFirmas(firmas);
 }
 
 interface EventoReunido {
@@ -144,12 +165,12 @@ async function enviarPayload(eventId: string, payload: ApiEventPayload): Promise
  */
 export async function publishToPublicSite(eventId: string, token: string): Promise<PublishOutcome> {
   if (!isApiConfigured()) {
-    return { status: "skipped", reason: "La API publica no esta configurada en este entorno." };
+    return { status: "skipped", reason: "La API pública no está configurada en este entorno." };
   }
   if (!canPublishToApi()) {
     return {
       status: "skipped",
-      reason: "No hay sesion abierta en la API publica. Vuelve a iniciar sesion para publicar hacia la web."
+      reason: "No hay sesión abierta en la API pública. Vuelve a iniciar sesión para publicar hacia la web."
     };
   }
 
@@ -168,12 +189,12 @@ export async function publishToPublicSite(eventId: string, token: string): Promi
  */
 export async function removeFromPublicSite(eventId: string): Promise<PublishOutcome> {
   if (!isApiConfigured()) {
-    return { status: "skipped", reason: "La API publica no esta configurada en este entorno." };
+    return { status: "skipped", reason: "La API pública no está configurada en este entorno." };
   }
   if (!canPublishToApi()) {
     return {
       status: "skipped",
-      reason: "No hay sesion abierta en la API publica. Vuelve a iniciar sesion para retirarlo de la web."
+      reason: "No hay sesión abierta en la API pública. Vuelve a iniciar sesión para retirarlo de la web."
     };
   }
   try {

@@ -222,7 +222,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
         await apiClient.post<SubEvent>(
           `/events/${eventId}/sub-events`,
           {
-            name: event.hasSubEvents ? "Primera sesion" : "Sesion unica",
+            name: event.hasSubEvents ? "Primera sesión" : "Sesión única",
             startsAt: event.startsAt,
             endsAt: event.endsAt,
             doorsOpenAt: null,
@@ -523,8 +523,8 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     if (!pool) {
       setError(
         firstSubEvent
-          ? "Todavia se esta preparando el aforo de esta zona. Vuelve a intentarlo en un momento."
-          : "Este evento no tiene ninguna fecha o sesion todavia, y el aforo cuelga de ella. Vuelve al paso de fechas, confirma una sesion y luego reparte los asientos."
+          ? "Todavía se está preparando el aforo de esta zona. Vuelve a intentarlo en un momento."
+          : "Este evento no tiene ninguna fecha o sesión todavía, y el aforo cuelga de ella. Vuelve al paso de fechas, confirma una sesión y luego reparte los asientos."
       );
       return;
     }
@@ -681,7 +681,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   if (!eventId) {
     return (
       <p className="text-sm text-muted-foreground">
-        Guarda la informacion del evento para poder dibujar el plano de asientos.
+        Guarda la información del evento para poder dibujar el plano de asientos.
       </p>
     );
   }
@@ -726,7 +726,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
                 onChange={(e) => setRecintoAforo(Number(e.target.value))}
               />
               <span className="text-xs text-muted-foreground">
-                El aforo se ajusta despues al dibujar las filas.
+                El aforo se ajusta después al dibujar las filas.
               </span>
             </div>
           </div>
@@ -759,8 +759,8 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
 
       {!firstSubEvent && (
         <p role="alert" className="rounded-md border-2 border-destructive px-3 py-2 text-sm font-semibold">
-          Este evento no tiene ninguna fecha o sesion todavia. El aforo cuelga de la sesion, asi
-          que puedes dibujar las zonas pero el reparto de asientos no se guardara hasta que
+          Este evento no tiene ninguna fecha o sesión todavía. El aforo cuelga de la sesión, así
+          que puedes dibujar las zonas pero el reparto de asientos no se guardará hasta que
           confirmes una fecha en el paso anterior.
         </p>
       )}
@@ -768,7 +768,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
       {mode === "plan" ? (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-semibold">Tamano del plano</span>
+            <span className="text-xs font-semibold">Tamaño del plano</span>
             <label htmlFor="canvas-height" className="text-xs text-muted-foreground">
               Alto
             </label>
@@ -886,7 +886,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
               <span className="font-semibold">{zone.name}:</span>{" "}
               {seatCount === 0 ? (
                 <span role="alert" className="font-semibold text-destructive">
-                  indica cuantas plazas tiene esta zona.
+                  indica cuántas plazas tiene esta zona.
                 </span>
               ) : assigned === 0 ? (
                 <span role="alert" className="font-semibold text-destructive">

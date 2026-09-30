@@ -46,7 +46,7 @@ export function ZoneListEditor({
 
       {sellable.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Anade una zona para repartir el aforo de este evento.
+          Añade una zona para repartir el aforo de este evento.
         </p>
       ) : (
         <ul aria-label="Zonas sin plano" className="flex flex-col gap-2">
@@ -106,7 +106,7 @@ export function ZoneListEditor({
                         min="1"
                         max={Math.max(1, zone.capacity)}
                         maxLength={3}
-                        placeholder="Automatico"
+                        placeholder="Automático"
                         defaultValue={zone.rows ?? ""}
                         onBlur={(e) => {
                           const value = e.target.value.trim();
@@ -125,7 +125,7 @@ export function ZoneListEditor({
                     {zone.kind === "numbered"
                       ? zone.capacity > 0
                         ? `${computeRowCount(zone.capacity, zone.width, zone.height, zone.rows)} filas`
-                        : "Indica cuantos asientos tiene"
+                        : "Indica cuántos asientos tiene"
                       : "Aforo libre, sin asiento asignado"}
                   </span>
 

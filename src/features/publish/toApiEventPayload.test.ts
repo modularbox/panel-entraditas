@@ -55,14 +55,11 @@ const publicEvent = (event: Event = EVENT, ticketTypes: TicketType[] = [ticketTy
   toPublicEvent({ event, venue: VENUE, ticketTypes });
 
 describe("splitStartsAt", () => {
-  it("splits an ISO timestamp into the date and time the API stores", () => {
-    // Local time: the API compares against what the organizer typed, not UTC.
-    const parsed = new Date("2026-10-10T21:00:00.000Z");
-    const pad = (n: number) => String(n).padStart(2, "0");
-    expect(splitStartsAt("2026-10-10T21:00:00.000Z")).toEqual({
-      date: `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`,
-      time: `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
-    });
+  it("gives back exactly what the organizer typed, whatever the browser's time zone", () => {
+    // El asistente guarda "21:00" como "...T21:00:00.000Z": leerlo en la hora local lo publicaba
+    // a las 23:00 en verano (tanda 19).
+    expect(splitStartsAt("2026-10-10T21:00:00.000Z")).toEqual({ date: "2026-10-10", time: "21:00" });
+    expect(splitStartsAt("2026-12-31T23:30:00.000Z")).toEqual({ date: "2026-12-31", time: "23:30" });
   });
 
   it("has no date or time for an event still to be announced", () => {

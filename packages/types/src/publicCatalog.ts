@@ -129,6 +129,18 @@ export const PublicDiscountCodeSchema = z.object({
 });
 export type PublicDiscountCode = z.infer<typeof PublicDiscountCodeSchema>;
 
+/**
+ * Lo que queda de un tipo de entrada en UNA sesion. `available` null = sin limite.
+ *
+ * El `available` de `tiers` es la suma de todas las sesiones: con eso, en un festival de tres dias
+ * la web no podia saber que el sabado estaba agotado y el viernes no (tanda 19).
+ */
+export const PublicSessionTierSchema = z.object({
+  id: z.string(),
+  available: z.number().int().nonnegative().nullable()
+});
+export type PublicSessionTier = z.infer<typeof PublicSessionTierSchema>;
+
 /** One date/function of an event. Single-date events publish exactly one. */
 export const PublicSessionSchema = z.object({
   id: z.string(),
@@ -136,7 +148,12 @@ export const PublicSessionSchema = z.object({
   startsAt: z.string().nullable(),
   endsAt: z.string().nullable(),
   doorsOpenAt: z.string().nullable(),
-  status: z.enum(["scheduled", "on_sale", "sold_out", "cancelled", "finished"])
+  status: z.enum(["scheduled", "on_sale", "sold_out", "cancelled", "finished"]),
+  /**
+   * Tipos de entrada que se venden en esta sesion y lo que queda de cada uno. Opcional: los
+   * eventos publicados antes de la tanda 19 no lo llevan, y entonces vale lo del evento entero.
+   */
+  tiers: z.array(PublicSessionTierSchema).optional()
 });
 export type PublicSession = z.infer<typeof PublicSessionSchema>;
 

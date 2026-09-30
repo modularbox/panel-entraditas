@@ -51,7 +51,7 @@ export async function recortarAImagen(origen: string, area: AreaRecortada): Prom
   lienzo.height = Math.round(area.height * escala);
 
   const contexto = lienzo.getContext("2d");
-  if (!contexto) throw new Error("Este navegador no puede recortar imagenes.");
+  if (!contexto) throw new Error("Este navegador no puede recortar imágenes.");
   contexto.drawImage(imagen, area.x, area.y, area.width, area.height, 0, 0, lienzo.width, lienzo.height);
 
   return lienzo.toDataURL("image/jpeg", 0.85);

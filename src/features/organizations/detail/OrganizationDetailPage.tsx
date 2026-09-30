@@ -11,7 +11,8 @@ import { OrganizationCustomers } from "./OrganizationCustomers";
 import { Cargando } from "@/shared/ui/Cargando";
 import { getDefaultSectionPath } from "@/app/navItems";
 
-const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
+// En UTC, como la lista de eventos: la hora guardada es la que tecleo el organizador.
+const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
 
 /** Etiquetas de los estados reales del evento. El badge compartido solo conoce los de los mocks;
  *  aqui los estados que salen de la base van con etiqueta propia y segura. */

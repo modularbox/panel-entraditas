@@ -68,7 +68,7 @@ function htmlFromPlainText(text: string): string {
 
 function descriptionHtml(value?: string): string {
   const text = value?.trim();
-  if (!text) return "<p>La descripcion aparecera aqui.</p>";
+  if (!text) return "<p>La descripción aparecerá aquí.</p>";
   return hasHtml(text) ? text : htmlFromPlainText(text);
 }
 
@@ -104,11 +104,11 @@ function priceLabel(event: PreviewEventData, prefix = "Desde"): string {
 }
 
 function previewTitle(event: PreviewEventData): string {
-  return event.title?.trim() || "Titulo del evento";
+  return event.title?.trim() || "Título del evento";
 }
 
 function venueName(event: PreviewEventData): string {
-  return event.location?.trim() || "Ubicacion";
+  return event.location?.trim() || "Ubicación";
 }
 
 function venueCity(event: PreviewEventData): string {
@@ -541,7 +541,7 @@ function PublicEventDetail({ event }: { event: PreviewEventData }) {
               </span>
               <p className="m-0 font-display text-2xl font-extrabold">Fecha por confirmar</p>
               <p className="m-0 text-sm text-muted-foreground">
-                La venta se abrira cuando el organizador confirme la sesion. Activa el aviso y lo dejaremos preparado.
+                La venta se abrirá cuando el organizador confirme la sesión. Activa el aviso y lo dejaremos preparado.
               </p>
               <Button type="button" className="mt-2 w-full">
                 <Icon name="bell" size={18} /> Avisar
@@ -585,14 +585,14 @@ function PublicEventDetail({ event }: { event: PreviewEventData }) {
                   </button>
                 </div>
               </div>
-              <p className="mt-2 text-xs font-semibold text-muted-foreground">Maximo 8 entradas por compra.</p>
+              <p className="mt-2 text-xs font-semibold text-muted-foreground">Máximo 8 entradas por compra.</p>
 
               <div className="mt-5 flex items-center justify-between border-t-2 border-dashed border-border pt-4 font-bold">
                 <span>Entradas</span>
                 <span>{subtotalCents === 0 ? "Gratis" : `${(subtotalCents / 100).toFixed(2).replace(".", ",")} EUR`}</span>
               </div>
               <div className="mt-2 flex items-center justify-between text-sm font-bold text-muted-foreground">
-                <span>Gastos de gestion</span>
+                <span>Gastos de gestión</span>
                 <span>{serviceFeeCopy(event, feeCents)}</span>
               </div>
               <div className="mt-3 flex items-center justify-between border-t-2 border-dashed border-border pt-4 font-bold">

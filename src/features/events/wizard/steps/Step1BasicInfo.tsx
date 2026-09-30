@@ -16,6 +16,7 @@ import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./public
 import { useWizardStore } from "../wizardStore";
 import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 import { LIMITES } from "@/shared/lib/formLimits";
+import { useOrganizationsQuery } from "@/features/organizations/list/useOrganizationsQuery";
 
 /**
  * Que ha pasado, en cristiano.
@@ -78,6 +79,12 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
   const syncEventChanges = useSyncEventChangesToWeb(eventId);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [coverMode, setCoverMode] = useState<"upload" | "url">("upload");
+  // El superadmin no pertenece a ninguna organizacion: al crear un evento tiene que decir de cual
+  // es. Sin esto el servidor contestaba "falta organizador" y no habia donde elegirlo (tanda 20).
+  const esSuperadmin = useSessionStore((s) => s.user?.role === "superadmin");
+  const eligeOrganizador = esSuperadmin && !eventId;
+  const { data: organizaciones = [] } = useOrganizationsQuery();
+  const [organizadorId, setOrganizadorId] = useState("");
   const { data: existingEvent, isError: hasLoadError } = useQuery({
     queryKey: ["event", eventId],
     queryFn: () => apiClient.get<Event>(`/events/${eventId}`, { token: token! }),
@@ -211,6 +218,10 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
 
   async function onSubmit(formValues: Step1FormValues) {
     setSaveError(null);
+    if (eligeOrganizador && !organizadorId) {
+      setSaveError("Elige para qué organizador es el evento.");
+      return;
+    }
     try {
       const startsAt = formValues.datePending ? null : toIsoDate(formValues.startDate, formValues.startTime);
       const endsAt = startsAt ? new Date(new Date(startsAt).getTime() + 2 * 60 * 60 * 1000).toISOString() : null;
@@ -235,6 +246,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         // Al crear, las respuestas del cuestionario previo viajan ya con el evento: nacen
         // contestadas. Dentro del asistente se ajustan en sus pasos (tipos y asientos).
         ...(eventId ? {} : draftRules ? { rules: draftRules } : {}),
+        ...(eligeOrganizador ? { organizationId: organizadorId } : {}),
         hasSubEvents: formValues.hasSubEvents
       };
 
@@ -326,7 +338,24 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
           </p>
         )}
 
-        <fieldset className="!mt-0">
+        {eligeOrganizador && (
+          <div className="!mt-0">
+            <label htmlFor="organizador">Organizador</label>
+            <select id="organizador" value={organizadorId} onChange={(e) => setOrganizadorId(e.target.value)} required>
+              <option value="">Elige la organización del evento</option>
+              {organizaciones.map((organizacion) => (
+                <option key={organizacion.id} value={organizacion.id}>
+                  {organizacion.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Como superadmin no perteneces a ninguna: el evento, sus ventas y sus clientes serán de la que elijas.
+            </p>
+          </div>
+        )}
+
+        <fieldset className={eligeOrganizador ? undefined : "!mt-0"}>
           <legend>Imagen de portada</legend>
           <input type="hidden" {...register("coverImageUrl")} />
           <div className="mb-3 inline-flex rounded-md border-2 border-foreground bg-surface p-1">

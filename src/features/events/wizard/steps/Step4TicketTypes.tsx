@@ -103,7 +103,7 @@ function SortableRow({
         </span>
         <span className="h-5 w-5 shrink-0 rounded-sm border-2 border-foreground" style={{ backgroundColor: group.color }} />
         <span className="min-w-48 flex-1 text-sm font-semibold">
-          {group.name} - {(group.basePrice / 100).toFixed(2)} EUR - {group.quantityTotal ?? "Sin limite"} entradas
+          {group.name} - {(group.basePrice / 100).toFixed(2)} EUR - {group.quantityTotal ?? "Sin límite"} entradas
         </span>
         <Button type="button" variant="outline" onClick={() => onMove(-1)} disabled={!canMoveUp} className="h-8 px-2 text-xs">
           Subir
@@ -205,12 +205,12 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
       return;
     }
     if (scopeMode === "subevents" && selectedSubEventIds.length === 0) {
-      setError("Selecciona al menos una sesion o cambia el alcance a todo el evento.");
+      setError("Selecciona al menos una sesión o cambia el alcance a todo el evento.");
       return;
     }
     const parsedQuantity = Number(quantityTotal);
     if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
-      setError("Indica cuantas entradas se pueden vender para este tipo.");
+      setError("Indica cuántas entradas se pueden vender para este tipo.");
       return;
     }
     try {
@@ -288,7 +288,7 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
       const rows = ticketTypes.filter((item) => item.groupId === groupId);
       const parsedQuantity = Number(editQuantityTotal);
       if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
-        setError("Indica una cantidad valida para el tipo de entrada.");
+        setError("Indica una cantidad válida para el tipo de entrada.");
         return;
       }
       const soldCount = rows.reduce((sum, row) => sum + row.quantitySold, 0);

@@ -16,7 +16,19 @@ const CANALES: Order["channel"][] = ["web", "panel", "box_office", "courtesy"];
 const ESTADOS_DE_REEMBOLSO: Refund["status"][] = ["requested", "processed", "rejected"];
 
 /** El pedido como lo pinta el panel, con el nombre del evento que ya trae la API. */
-export type PedidoConEvento = Order & { items: OrderItem[]; eventTitle?: string };
+export type PedidoConEvento = Order & {
+  items: OrderItem[];
+  eventTitle?: string;
+  /** "Función de noche · 14/11 21:00": que se sepa de que fecha es cada venta. */
+  sessionLabel?: string;
+};
+
+/** La función de un pedido para las tablas: su nombre y su fecha, tal y como se tecleo. */
+export function etiquetaDeSesion(nombre: string | null | undefined, inicio: string | null | undefined): string | undefined {
+  if (!nombre && !inicio) return undefined;
+  const fecha = inicio && inicio.length >= 16 ? `${inicio.slice(8, 10)}/${inicio.slice(5, 7)} ${inicio.slice(11, 16)}` : "";
+  return [nombre, fecha].filter(Boolean).join(" · ");
+}
 
 export function pedidoDesdeLaApi(pedido: ApiPanelOrder): PedidoConEvento {
   const creado = pedido.createdAt ?? new Date().toISOString();
@@ -40,6 +52,9 @@ export function pedidoDesdeLaApi(pedido: ApiPanelOrder): PedidoConEvento {
     currency: pedido.currency || "EUR",
     paymentReference: pedido.paymentReference ?? null,
     eventTitle: pedido.eventTitle,
+    ...(etiquetaDeSesion(pedido.sessionName, pedido.sessionStartsAt)
+      ? { sessionLabel: etiquetaDeSesion(pedido.sessionName, pedido.sessionStartsAt) }
+      : {}),
     paidAt: pedido.status === "paid" ? creado : null,
     expiresAt: null,
     createdAt: creado,

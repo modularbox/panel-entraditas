@@ -131,7 +131,7 @@ export function ZoneEditorPanel({
           {/*
             Una zona numerada no tiene una capacidad que se escriba: la tiene la sala. Sale de sus
             filas, que se dibujan abajo en "Filas y butacas". Tenerla tambien aqui como casilla
-            dejaba dos numeros distintos diciendo cuantas plazas hay, y el que mandaba no era el
+            dejaba dos números distintos diciendo cuántas plazas hay, y el que mandaba no era el
             que se veia.
           */}
           {selectedZone.kind === "numbered" && (

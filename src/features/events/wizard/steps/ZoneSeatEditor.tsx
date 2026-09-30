@@ -141,8 +141,8 @@ export function ZoneSeatEditor({
 
       {groups.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Los asientos ya estan numerados. Para repartirlos por tipo de entrada crea antes los
-          tipos en el paso siguiente y vuelve aqui: no hace falta hacerlo ahora.
+          Los asientos ya están numerados. Para repartirlos por tipo de entrada crea antes los
+          tipos en el paso siguiente y vuelve aquí: no hace falta hacerlo ahora.
         </p>
       ) : (
         <fieldset className="flex flex-col gap-2">
@@ -334,7 +334,7 @@ export function ZoneSeatEditor({
             className="h-8 px-2 text-xs"
             onClick={() => setSelection([])}
           >
-            Limpiar seleccion
+            Limpiar selección
           </Button>
         </div>
       )}
