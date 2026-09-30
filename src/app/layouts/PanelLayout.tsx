@@ -5,12 +5,11 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Menu } from "@/components/Menu";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useInactivityLogout } from "@/shared/auth/useInactivityLogout";
-import { usePermissions } from "@/shared/auth/usePermissions";
 import { recordPanelVisit, resetPanelHistory } from "@/shared/ui/panelHistory";
-import { NAV_ITEMS } from "../navItems";
+import { getAccessibleNavItems } from "../navItems";
 
 export function PanelLayout() {
-  const { has } = usePermissions();
+  const effectivePermissions = useSessionStore((s) => s.effectivePermissions);
   const user = useSessionStore((s) => s.user);
   const logout = useSessionStore((s) => s.logout);
   const impersonatorToken = useSessionStore((s) => s.impersonatorToken);
@@ -18,7 +17,7 @@ export function PanelLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const mounted = useRef(false);
-  const visibleItems = NAV_ITEMS.filter((item) => has(item.permission));
+  const visibleItems = getAccessibleNavItems(effectivePermissions);
 
   // Aqui dentro, y no en el enrutador: vive mientras hay sesion abierta y se va con ella. Al
   // cerrarse, el enrutador manda solo al login, que es donde se cuenta lo que ha pasado.

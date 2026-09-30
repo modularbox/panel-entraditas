@@ -1,4 +1,5 @@
 import type { PublicEvent } from "@entraditas/types";
+import type { PermissionOverride } from "@entraditas/types";
 import { avisarDeSesionPerdida } from "@/shared/lib/apiClient";
 
 /**
@@ -36,6 +37,9 @@ export interface ApiStaff {
   role: "superadmin" | "organizador" | "suborganizador";
   organizationId: string | null;
   status: string;
+  effectivePermissions?: string[];
+  permissionOverrides?: PermissionOverride[];
+  eventScopes?: string[];
 }
 
 export class ApiUnavailableError extends Error {}
@@ -126,10 +130,23 @@ export async function iniciarSesionEnLaApi(email: string, password: string): Pro
     return { estado: "sin-respuesta" };
   }
 
-  const payload = (await response.json().catch(() => ({}))) as { token?: string; staff?: ApiStaff; error?: string };
+  const payload = (await response.json().catch(() => ({}))) as {
+    token?: string;
+    staff?: ApiStaff;
+    effectivePermissions?: string[];
+    eventScopes?: string[];
+    error?: string;
+  };
   if (response.ok && payload.token && payload.staff) {
     storeApiToken(payload.token);
-    return { estado: "ok", staff: payload.staff };
+    return {
+      estado: "ok",
+      staff: {
+        ...payload.staff,
+        effectivePermissions: payload.effectivePermissions ?? payload.staff.effectivePermissions,
+        eventScopes: payload.eventScopes ?? payload.staff.eventScopes
+      }
+    };
   }
 
   storeApiToken(null);
@@ -208,11 +225,44 @@ export async function quienSoyEnLaApi(): Promise<ApiStaff | null> {
   try {
     // Sin aviso: esta llamada es justo la que PREGUNTA si la sesion sigue viva, y ya limpia el
     // token ella misma. Avisar aqui cerraria el panel al arrancar antes de haberlo abierto.
-    const result = await request<{ staff: ApiStaff }>("/v1/panel/me", {}, false);
-    return result.staff;
+    const result = await request<{ staff: ApiStaff; effectivePermissions?: string[]; eventScopes?: string[] }>("/v1/panel/me", {}, false);
+    return {
+      ...result.staff,
+      effectivePermissions: result.effectivePermissions ?? result.staff.effectivePermissions,
+      eventScopes: result.eventScopes ?? result.staff.eventScopes
+    };
   } catch {
     // El token caduco o se revoco: se limpia para que la interfaz no diga "conectado" sin serlo.
     storeApiToken(null);
+    return null;
+  }
+}
+
+/**
+ * Igual, pero con un token concreto.
+ *
+ * Lo necesita "Volver a superadmin": cuando el superadmin ha entrado en una organizacion, el token
+ * guardado pasa a ser el del miembro y el del superadmin solo sobrevive en `impersonatorToken`.
+ * Sin este variante, el volver preguntaba por el token equivocado y la sesion volvia siendo la del
+ * miembro ("sin acceso" a lo que el superadmin ve).
+ */
+export async function quienSoyEnLaApiConToken(token: string): Promise<ApiStaff | null> {
+  if (!isApiConfigured()) return null;
+  try {
+    const respuesta = await fetch(`${API_BASE}/v1/panel/me`, { headers: { authorization: `Bearer ${token}` } });
+    if (!respuesta.ok) return null;
+    const payload = (await respuesta.json().catch(() => ({}))) as {
+      staff?: ApiStaff;
+      effectivePermissions?: string[];
+      eventScopes?: string[];
+    };
+    if (!payload.staff) return null;
+    return {
+      ...payload.staff,
+      effectivePermissions: payload.effectivePermissions ?? payload.staff.effectivePermissions,
+      eventScopes: payload.eventScopes ?? payload.staff.eventScopes
+    };
+  } catch {
     return null;
   }
 }
@@ -318,6 +368,45 @@ export interface ApiOrganization {
   status: string;
   createdAt: string | null;
   organizer: { id: string; fullName: string; email: string } | null;
+}
+
+/** Un miembro del equipo de una organizacion (un suborganizador). */
+export interface ApiOrganizationTeamMember {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  role: string;
+  status: string;
+  /** Los eventos que tiene asignados en el alcance; vacio si ve todos los de la organizacion. */
+  accessibleEvents: { id: string; title: string }[];
+}
+
+/** Un evento de una organizacion con lo vendido, para la ficha de "Organizadores". */
+export interface ApiOrganizationEventSummary {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  startsAt: string | null;
+  ticketsCount: number;
+  usedCount: number;
+}
+
+/** La ficha de una organizacion: quien la administra, su equipo y sus eventos. */
+export interface ApiOrganizationDetail {
+  id: string;
+  name: string;
+  slug: string;
+  taxId: string | null;
+  commissionRate: number;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  status: string;
+  createdAt: string | null;
+  organizer: { id: string; fullName: string; email: string; phone: string | null } | null;
+  team: ApiOrganizationTeamMember[];
+  events: ApiOrganizationEventSummary[];
 }
 
 /** Una solicitud de alta enviada desde el formulario de organizadores de la web. */
@@ -428,6 +517,21 @@ export interface ApiOrderTicket {
   scanCount?: number;
 }
 
+/** Un reembolso anotado en un pedido (simulado: no hay pasarela por la que mover el dinero). */
+export interface ApiRefund {
+  id: string;
+  orderId: string;
+  /** Nº y comprador ya resueltos sobre el pedido (los trae la API). */
+  orderNumber?: string;
+  customerName?: string;
+  amount: number;
+  reason: string;
+  status: "requested" | "processed" | "rejected";
+  /** Quién del panel lo pidió. null si no se sabe (p. ej. una devolución pedida desde la web). */
+  refundedBy?: string | null;
+  createdAt: string | null;
+}
+
 /** Un pedido de verdad, de la base de ventas de entraditas.com. Importes en centimos. */
 export interface ApiPanelOrder {
   id: string;
@@ -452,6 +556,7 @@ export interface ApiPanelOrder {
   createdAt: string | null;
   items: ApiOrderLine[];
   tickets: ApiOrderTicket[];
+  refunds?: ApiRefund[];
 }
 
 export interface FiltrosDePedidos {

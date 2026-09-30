@@ -492,7 +492,11 @@ export const OrderItemSchema = z.object({
 export type OrderItem = z.infer<typeof OrderItemSchema>;
 
 export const RefundSchema = z.object({
-  id: z.string(), orderId: z.string(), orderNumber: z.string(), customerName: z.string(), amount: z.number().int().nonnegative(), reason: z.string(), status: z.enum(["requested", "processed", "rejected"]), createdAt: z.string()
+  id: z.string(), orderId: z.string(), orderNumber: z.string(), customerName: z.string(), amount: z.number().int().nonnegative(), reason: z.string(), status: z.enum(["requested", "processed", "rejected"]),
+  // Quién del panel pulsó el reembolso. null cuando lo pidió el comprador desde la web y no llegó
+  // a anotarse quién, o cuando la fila es anterior a que se guardara.
+  refundedBy: z.string().nullable().optional(),
+  createdAt: z.string()
 });
 export type Refund = z.infer<typeof RefundSchema>;
 

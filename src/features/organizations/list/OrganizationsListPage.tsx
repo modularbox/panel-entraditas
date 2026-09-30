@@ -5,12 +5,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
 import type { SortingState } from "@tanstack/react-table";
 import type { OrganizationListItem } from "@entraditas/types";
-import { SessionResponse, useSessionStore } from "@/shared/auth/sessionStore";
+import { getSessionEffectivePermissions, hydrateConnectedSession, SessionResponse, useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { useOrganizationsQuery } from "./useOrganizationsQuery";
 import { Cargando } from "@/shared/ui/Cargando";
+import { getDefaultSectionPath } from "@/app/navItems";
 
 export function OrganizationsListPage() {
   const token = useSessionStore((state) => state.token);
@@ -25,11 +26,11 @@ export function OrganizationsListPage() {
     setConnectError(null);
     setConnectingId(organization.id);
     try {
-      const session = await apiClient.post<SessionResponse>(`/organizations/${organization.id}/connect`, undefined, { token: token! });
-      // Navigate to a section everyone has access to and let React commit that (flushSync) BEFORE
-      // swapping the session: without it, RequirePermission on a page the superadmin can't see
-      // would react to the permission loss and redirect to /sin-acceso, racing this navigation.
-      flushSync(() => navigate("/eventos"));
+      const response = await apiClient.post<SessionResponse>(`/organizations/${organization.id}/connect`, undefined, { token: token! });
+      const session = await hydrateConnectedSession(response);
+      // Navigate to a section the connected organizer can access and commit it before swapping
+      // sessions, so RequirePermission cannot race the permission change.
+      flushSync(() => navigate(getDefaultSectionPath(new Set(getSessionEffectivePermissions(session))) ?? "/sin-acceso"));
       useSessionStore.getState().connectAs(session);
       queryClient.clear();
     } catch (cause) {

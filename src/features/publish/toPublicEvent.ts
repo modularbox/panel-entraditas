@@ -15,7 +15,8 @@ import type {
   SubEvent,
   TicketType,
   Venue,
-  Zone
+  Zone,
+  Gate
 } from "@entraditas/types";
 import {
   buildSeatGrid,
@@ -41,6 +42,7 @@ export interface PublishInput {
   ticketTypes?: TicketType[];
   pools?: CapacityPool[];
   discountCodes?: DiscountCode[];
+  gates?: Gate[];
 }
 
 /** The states in which an event is visible to buyers at all: published is the only one. */
@@ -99,7 +101,12 @@ const ZONE_KIND_TO_PUBLIC: Partial<Record<Zone["kind"], PublicSeatZone["kind"]>>
  * label the organiser sees and the tier each one sells, so the buyer site never has to re-derive
  * the numbering and can never disagree with the panel about which chair is A7.
  */
-export function toSeatZones(zones: Zone[], pools: CapacityPool[], ticketTypes: TicketType[] = []): PublicSeatZone[] {
+export function toSeatZones(
+  zones: Zone[],
+  pools: CapacityPool[],
+  ticketTypes: TicketType[] = [],
+  gates: Gate[] = []
+): PublicSeatZone[] {
   const stage = zones.find((zone) => zone.kind === "stage") ?? null;
   const result: PublicSeatZone[] = [];
   for (const zone of zones) {
@@ -109,6 +116,10 @@ export function toSeatZones(zones: Zone[], pools: CapacityPool[], ticketTypes: T
     // Same resolution the seating editor shows: the new link on the pool, or the older one on the
     // ticket type. Reading only the pool published every older zone without a ticket type.
     const zoneGroupId = zoneTicketTypeGroupId(pool, ticketTypes);
+    // A zone is entered through the gate the organiser assigned to it. The name travels with the
+    // zone so the API can print "Puerta ..." on the ticket; the buyer site does not need it while
+    // picking seats. One gate per zone: the editor reassigns a gate when it moves zone.
+    const gate = gates.find((candidate) => candidate.zoneId === zone.id);
     const base = {
       id: zone.id,
       name: zone.name,
@@ -116,7 +127,8 @@ export function toSeatZones(zones: Zone[], pools: CapacityPool[], ticketTypes: T
       x: zone.x,
       y: zone.y,
       width: zone.width,
-      height: zone.height
+      height: zone.height,
+      ...(gate?.name ? { gateName: gate.name } : {})
     };
 
     if (kind === "seats") {
@@ -210,12 +222,12 @@ export function toSessions(subEvents: SubEvent[]): PublicSession[] {
 }
 
 export function toPublicEvent(input: PublishInput): PublicEvent {
-  const { event, organization, venue, zones = [], subEvents = [], pools = [], discountCodes = [] } = input;
+  const { event, organization, venue, zones = [], subEvents = [], pools = [], discountCodes = [], gates = [] } = input;
   const ticketTypes = sellableTicketTypes(input.ticketTypes ?? []);
   const tiers = toTiers(ticketTypes);
   // Con TODOS los tipos de entrada, no solo los publicos: una zona asignada a uno oculto tiene que
   // salir con su tipo, y es la web la que la deja fuera de la venta al no encontrarlo en `tiers`.
-  const seatZones = toSeatZones(zones, pools, input.ticketTypes ?? []);
+  const seatZones = toSeatZones(zones, pools, input.ticketTypes ?? [], gates);
   const prices = tiers.map((tier) => tier.price);
   // Un evento de recinto fijo viaja con su venue; sin recinto (el organizador dijo "no quiero
   // mapa") la web necesita igualmente un nombre y una ciudad: se los da el lugar escrito.

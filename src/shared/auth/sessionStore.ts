@@ -1,13 +1,19 @@
 import { create } from "zustand";
 import { alPerderLaSesion } from "@/shared/lib/apiClient";
 import {
-  estadoSesionApi, getApiToken, iniciarSesionEnLaApi, isApiConfigured, logoutFromApi, quienSoyEnLaApi, type ApiStaff
+  estadoSesionApi, getApiToken, iniciarSesionEnLaApi, isApiConfigured, logoutFromApi, quienSoyEnLaApi,
+  quienSoyEnLaApiConToken, type ApiStaff
 } from "@/shared/lib/entraditasApi";
 import { resolveEffectivePermissions } from "./permissions";
 import { guardarCierre, olvidarCierre, type MotivoDeCierre } from "./sessionExpiry";
-import type { RoleSlug } from "@entraditas/types";
+import type { PermissionOverride, RoleSlug } from "@entraditas/types";
 
-const TOKEN_STORAGE_KEY = "entraditas.panel.devToken";
+// Misma clave con la que `entraditasApi` recuerda el token (`getApiToken`/`storeApiToken`): son la
+// misma sesion, la del panel sobre api.entraditas.com. Hasta ahora la store guardaba su token en
+// una clave propia y la API en otra, asi que al recargar la pagina `restore()` recuperaba el token
+// con el que se habia quedado (el del superadmin antes de un "Conectar") y la sesion saltaba a la
+// del superadmin aunque se estuviera dentro de una organizacion.
+const TOKEN_STORAGE_KEY = "entraditas.panel.apiToken";
 const IMPERSONATOR_STORAGE_KEY = "entraditas.panel.impersonatorToken";
 
 export interface SessionUser {
@@ -16,6 +22,9 @@ export interface SessionUser {
   fullName: string;
   role: RoleSlug;
   organizationId: string | null;
+  effectivePermissions?: string[];
+  permissionOverrides?: PermissionOverride[];
+  eventScopes?: string[];
 }
 
 export interface SessionResponse {
@@ -23,8 +32,49 @@ export interface SessionResponse {
   /** El connect de organizacion responde `token` en vez de `accessToken`; se acepta aqui, igual que el de entrar. */
   token?: string;
   user: SessionUser;
-  effectivePermissions: string[];
-  eventScopes: string[];
+  effectivePermissions?: string[];
+  permissionOverrides?: PermissionOverride[];
+  eventScopes?: string[];
+}
+
+export function getSessionEffectivePermissions(session: SessionResponse): string[] {
+  const permissions = session.effectivePermissions ?? session.user.effectivePermissions;
+  if (permissions) return permissions;
+  return [...resolveEffectivePermissions(session.user.role, session.permissionOverrides ?? session.user.permissionOverrides ?? [])];
+}
+
+export async function hydrateConnectedSession(session: SessionResponse): Promise<SessionResponse> {
+  if (session.user.role !== "suborganizador") return session;
+  const token = session.accessToken ?? session.token;
+  if (!token) return session;
+
+  const staff = await quienSoyEnLaApiConToken(token);
+  if (!staff) return session;
+
+  const permissionOverrides = staff.permissionOverrides ?? session.permissionOverrides ?? session.user.permissionOverrides;
+  const effectivePermissions = staff.effectivePermissions ?? (permissionOverrides
+    ? [...resolveEffectivePermissions(staff.role, permissionOverrides)]
+    : getSessionEffectivePermissions(session));
+
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      id: staff.id,
+      email: staff.email,
+      fullName: staff.fullName,
+      role: staff.role,
+      organizationId: staff.organizationId,
+      permissionOverrides,
+      eventScopes: staff.eventScopes ?? session.eventScopes ?? session.user.eventScopes
+    },
+    effectivePermissions,
+    eventScopes: staff.eventScopes ?? session.eventScopes ?? session.user.eventScopes ?? []
+  };
+}
+
+function getSessionEventScopes(session: SessionResponse): string[] {
+  return session.eventScopes ?? session.user.eventScopes ?? [];
 }
 
 interface SessionState {
@@ -49,9 +99,8 @@ interface SessionState {
 /**
  * La sesion del panel es la de api.entraditas.com: mismo token, misma cuenta.
  *
- * La respuesta de la API trae a `ApiStaff`, no todos los campos del panel. El rol basta para
- * calcular los permisos base igual que hacian los mocks; los alcances por evento los decide el
- * servidor a base de 401/403 sobre cada recurso, no el cliente.
+ * La API puede devolver permisos efectivos y alcances junto al perfil. Si no incluye los permisos
+ * efectivos, los overrides del usuario permiten reconstruirlos con las mismas reglas del panel.
  */
 function sesionDesde(staff: ApiStaff, token: string): SessionResponse {
   return {
@@ -63,8 +112,8 @@ function sesionDesde(staff: ApiStaff, token: string): SessionResponse {
       role: staff.role,
       organizationId: staff.organizationId
     },
-    effectivePermissions: [...resolveEffectivePermissions(staff.role, [])],
-    eventScopes: []
+    effectivePermissions: staff.effectivePermissions ?? [...resolveEffectivePermissions(staff.role, staff.permissionOverrides ?? [])],
+    eventScopes: staff.eventScopes ?? []
   };
 }
 
@@ -85,7 +134,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     // Every fresh session (login, restore-like, or returning to the superadmin) starts clean —
     // any leftover impersonator token from a previous, unrelated session no longer applies.
     localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
-    set({ token: accessToken, user: session.user, effectivePermissions: new Set(session.effectivePermissions), eventScopes: session.eventScopes, status: "authenticated", impersonatorToken: null });
+    set({ token: accessToken, user: session.user, effectivePermissions: new Set(getSessionEffectivePermissions(session)), eventScopes: getSessionEventScopes(session), status: "authenticated", impersonatorToken: null });
   },
 
   connectAs(session) {
@@ -103,7 +152,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const token = get().impersonatorToken;
     if (!token) return;
     try {
-      const result = await quienSoyEnLaApi();
+      // Con el token del superadmin guardado, no con el del miembro que ahora es la sesion actual:
+      // preguntar con el equivocado devuelve el perfil del miembro y el "volver" no vuelve.
+      const result = await quienSoyEnLaApiConToken(token);
       if (!result) throw new Error("Sesion no valida");
       get().setSession(sesionDesde(result, token));
     } catch {

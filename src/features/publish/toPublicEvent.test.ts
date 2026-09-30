@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PublicEventSchema, type CapacityPool, type DiscountCode, type Event, type SubEvent, type TicketType, type Venue, type Zone } from "@entraditas/types";
+import { PublicEventSchema, type CapacityPool, type DiscountCode, type Event, type Gate, type SubEvent, type TicketType, type Venue, type Zone } from "@entraditas/types";
 import { isPubliclyVisible, toDiscountCodes, toPublicEvent, toSeatZones, toTiers } from "./toPublicEvent";
 
 const EVENT: Event = {
@@ -182,6 +182,48 @@ describe("toSeatZones", () => {
   it("leaves gates out of the buyer's plan", () => {
     const gate: Zone = { ...numbered, id: "gate-1", name: "Puerta Norte", kind: "gate", capacity: 0 };
     expect(toSeatZones([gate], [])).toEqual([]);
+  });
+
+  it("carries the gate assigned to the zone so the ticket can print it", () => {
+    const puerta: Gate = {
+      id: "gate-1",
+      eventId: "event-1",
+      subEventId: null,
+      name: "Puerta 5",
+      code: "P5",
+      zoneId: "zone-1",
+      direction: "in",
+      allowReentry: false,
+      maxScansPerTicket: 1,
+      allowedTicketTypeGroupIds: null,
+      opensAt: null,
+      closesAt: null,
+      operatorUserIds: [],
+      isActive: true
+    };
+    const [zone] = toSeatZones([numbered], [pool({})], [], [puerta]);
+    expect(zone!.gateName).toBe("Puerta 5");
+  });
+
+  it("does not leak a gate assigned to another zone", () => {
+    const puerta: Gate = {
+      id: "gate-1",
+      eventId: "event-1",
+      subEventId: null,
+      name: "Puerta 5",
+      code: "P5",
+      zoneId: "zone-otra",
+      direction: "in",
+      allowReentry: false,
+      maxScansPerTicket: 1,
+      allowedTicketTypeGroupIds: null,
+      opensAt: null,
+      closesAt: null,
+      operatorUserIds: [],
+      isActive: true
+    };
+    const [zone] = toSeatZones([numbered], [pool({})], [], [puerta]);
+    expect(zone!.gateName).toBeUndefined();
   });
 
   // Sin la posicion dibujada, la web solo puede rehacer un rectangulo: dibujaria una sala

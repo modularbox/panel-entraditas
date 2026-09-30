@@ -1,5 +1,5 @@
-import type { Order, OrderItem } from "@entraditas/types";
-import type { ApiPanelOrder } from "@/shared/lib/entraditasApi";
+import type { Order, OrderItem, Refund } from "@entraditas/types";
+import type { ApiPanelOrder, ApiRefund } from "@/shared/lib/entraditasApi";
 import type { OrdersFilters } from "./list/useOrdersQuery";
 
 /**
@@ -13,6 +13,7 @@ import type { OrdersFilters } from "./list/useOrdersQuery";
 
 const ESTADOS: Order["status"][] = ["pending", "reserved", "paid", "cancelled", "expired", "refunded", "partially_refunded"];
 const CANALES: Order["channel"][] = ["web", "panel", "box_office", "courtesy"];
+const ESTADOS_DE_REEMBOLSO: Refund["status"][] = ["requested", "processed", "rejected"];
 
 /** El pedido como lo pinta el panel, con el nombre del evento que ya trae la API. */
 export type PedidoConEvento = Order & { items: OrderItem[]; eventTitle?: string };
@@ -54,6 +55,24 @@ export function pedidoDesdeLaApi(pedido: ApiPanelOrder): PedidoConEvento {
       unitPrice: linea.unitPrice,
       subtotal: linea.subtotal
     }))
+  };
+}
+
+/**
+ * Un reembolso de la base de ventas a la forma que pinta el panel. Importes en centimos, igual
+ * que el pedido.
+ */
+export function refundDesdeLaApi(reembolso: ApiRefund): Refund {
+  return {
+    id: reembolso.id,
+    orderId: reembolso.orderId,
+    orderNumber: reembolso.orderNumber ?? reembolso.orderId,
+    customerName: reembolso.customerName ?? "",
+    amount: reembolso.amount,
+    reason: reembolso.reason ?? "",
+    status: ESTADOS_DE_REEMBOLSO.includes(reembolso.status) ? reembolso.status : "processed",
+    refundedBy: reembolso.refundedBy ?? null,
+    createdAt: reembolso.createdAt ?? new Date().toISOString()
   };
 }
 

@@ -9,7 +9,7 @@ import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { canReadFromApi, fetchApiOrders } from "@/shared/lib/entraditasApi";
-import { pedidoDesdeLaApi } from "../desdeLaApi";
+import { pedidoDesdeLaApi, refundDesdeLaApi } from "../desdeLaApi";
 import { metodoDePago } from "../metodoDePago";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { LIMITES } from "@/shared/lib/formLimits";
@@ -111,14 +111,21 @@ export function OrderDetailPage() {
   const queryClient = useQueryClient();
 
   // Con sesión en la API la ficha sale de la base de ventas; sin ella, de los datos de ejemplo.
-  // Un pedido de verdad no trae reembolsos porque todavía no hay por dónde hacerlos: se dice.
+  // La API trae los reembolsos con el pedido: los anota el propio panel al devolver, de momento
+  // de forma simulada (no hay pasarela por la que mover el dinero).
   const desdeApi = canReadFromApi();
   const { data: order, isLoading, error } = useQuery({
     queryKey: ["order", orderId, desdeApi],
     queryFn: async (): Promise<OrderDetail | null> => {
       if (desdeApi) {
         const [pedido] = await fetchApiOrders({ id: orderId });
-        return pedido ? { ...pedidoDesdeLaApi(pedido), refunds: [], esReal: true } : null;
+        return pedido
+          ? {
+              ...pedidoDesdeLaApi(pedido),
+              refunds: (pedido.refunds ?? []).map(refundDesdeLaApi),
+              esReal: true
+            }
+          : null;
       }
       return apiClient.get<OrderDetail>(`/orders/${orderId}`, { token: token! });
     },
@@ -212,9 +219,18 @@ export function OrderDetailPage() {
                 <td className="px-4 py-3">{euro.format(order.serviceFee / 100)}</td>
               </tr>
             )}
+            {order.refunds.map((refund) => (
+              <tr key={refund.id} className="border-t border-border bg-refund-bg">
+                <td colSpan={3} className="px-4 py-3 text-right text-muted-foreground">
+                  Reembolso{refund.reason ? ` · ${refund.reason}` : ""}
+                </td>
+                <td className="px-4 py-3 text-refund">−{euro.format(refund.amount / 100)}</td>
+              </tr>
+            ))}
             <tr className="border-t-2 border-foreground">
               <td colSpan={3} className="px-4 py-3 text-right font-semibold">Total</td>
-              <td className="px-4 py-3 font-semibold">{euro.format(order.total / 100)}</td>
+              {/* Cada reembolso resta del total: lo que queda es lo que falta por devolver. */}
+              <td className="px-4 py-3 font-semibold">{euro.format(remaining / 100)}</td>
             </tr>
           </tfoot>
         </table>
@@ -222,25 +238,26 @@ export function OrderDetailPage() {
 
       <section className="rounded-lg border-2 border-foreground bg-surface p-5 shadow-flat">
         <h2 className="font-display text-lg font-semibold">Reembolsos</h2>
-        {order.esReal ? (
+        {order.esReal && (
           <p className="mt-2 text-sm text-muted-foreground">
-            Todavía no se puede reembolsar desde aquí: el cobro no pasa por una pasarela, así que no hay nada
-            que devolver. Llegará con el pago real.
+            Reembolso simulado: todavía no hay pasarela, así que el dinero no se mueve. Lo que
+            reembolsas queda anotado y cambia el estado del pedido, igual que hará el pago real.
           </p>
-        ) : order.refunds.length === 0 ? (
+        )}
+        {order.refunds.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">Este pedido no tiene reembolsos.</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2 text-sm">
             {order.refunds.map((refund) => (
               <li key={refund.id} className="border-t border-border pt-2 first:border-t-0 first:pt-0">
-                <span className="font-semibold">{euro.format(refund.amount / 100)}</span> · <span>{refund.reason}</span>
+                <span className="font-semibold">{euro.format(refund.amount / 100)}</span> · <span>{refund.reason || "Sin motivo"}</span>
                 <span className="block text-xs text-muted-foreground">{new Date(refund.createdAt).toLocaleDateString("es-ES")}</span>
               </li>
             ))}
           </ul>
         )}
 
-        {!order.esReal && remaining > 0 && (order.status === "paid" || order.status === "partially_refunded") && (
+        {remaining > 0 && (order.status === "paid" || order.status === "partially_refunded") && (
           <Can do="orders:refund">
             <RefundForm
               orderId={order.id}

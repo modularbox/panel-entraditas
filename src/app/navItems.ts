@@ -13,3 +13,11 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Clientes", path: "/clientes", permission: "orders:read" },
   { label: "Organizaciones", path: "/organizaciones", permission: "organizations:manage" }
 ];
+
+export function getAccessibleNavItems(permissions: ReadonlySet<string>): NavItem[] {
+  return NAV_ITEMS.filter((item) => permissions.has(item.permission));
+}
+
+export function getDefaultSectionPath(permissions: ReadonlySet<string>): string | null {
+  return getAccessibleNavItems(permissions)[0]?.path ?? null;
+}

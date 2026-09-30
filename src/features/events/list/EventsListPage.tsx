@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
 import type { SortingState } from "@tanstack/react-table";
 import { Link, useNavigate } from "react-router-dom";
 import type { Event, EventRules } from "@entraditas/types";
 import { Can } from "@/shared/auth/Can";
+import { useSessionStore } from "@/shared/auth/sessionStore";
 import { Button } from "@/shared/ui/button";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { EventStatusBadge, EVENT_STATUS_LABEL } from "@/shared/ui/EventStatusBadge";
 import { AutoSincronizacionConLaWeb } from "@/features/publish/AutoSincronizacionConLaWeb";
+import { useOrganizationsQuery } from "@/features/organizations/list/useOrganizationsQuery";
 import { useWizardStore } from "../wizard/wizardStore";
 import { CreateEventDialog } from "../create/CreateEventDialog";
 import { EventRowActions } from "./EventRowActions";
@@ -56,46 +58,65 @@ function EditarEvento({ event }: { event: Event }) {
 }
 
 const columnHelper = createColumnHelper<Event>();
-const columns = [
-  columnHelper.accessor("title", {
-    header: "Título",
-    cell: (info) => (
-      // Una linea, con el titulo entero al pasar el raton: con titulos largos, la fila crecia al
-      // doble de alto y la tabla quedaba con escalones.
-      <Link
-        to={`/eventos/${info.row.original.id}`}
-        title={info.getValue()}
-        className="block max-w-[22rem] truncate font-semibold text-primary hover:underline"
-      >
-        {info.getValue()}
-      </Link>
-    )
-  }),
-  columnHelper.accessor("status", {
-    header: "Estado",
-    // Se le pasa el evento entero para que pueda marcar como TERMINADO lo que ya se celebro,
-    // aunque su estado guardado siga siendo "publicado".
-    cell: (info) => <EventStatusBadge status={info.getValue()} event={info.row.original} />
-  }),
-  columnHelper.accessor("startsAt", {
-    header: "Fecha",
-    cell: (info) => (
-      <span className="whitespace-nowrap">
-        {info.getValue() ? dateFormatter.format(new Date(info.getValue()!)) : "Fecha por confirmar"}
-      </span>
-    )
-  }),
-  columnHelper.display({
-    id: "acciones",
-    header: "Acciones",
-    cell: (info) => (
-      <div className="flex flex-nowrap items-center gap-2">
-        <EditarEvento event={info.row.original} />
-        <EventRowActions event={info.row.original} />
-      </div>
-    )
-  })
-];
+
+/**
+ * Las columnas del listado.
+ *
+ * La organización se cuela entre el título y el estado solo si se le pasa quien la resuelve, y eso
+ * solo lo hace el superadmin: es el único que ve eventos de más de una organización. Para un
+ * organizador la columna repetiría el nombre de su propia empresa en cada fila.
+ */
+function columnasDeEventos(nombreDeOrganizacion: ((evento: Event) => string) | null) {
+  return [
+    columnHelper.accessor("title", {
+      header: "Título",
+      cell: (info) => (
+        // Una linea, con el titulo entero al pasar el raton: con titulos largos, la fila crecia al
+        // doble de alto y la tabla quedaba con escalones.
+        <Link
+          to={`/eventos/${info.row.original.id}`}
+          title={info.getValue()}
+          className="block max-w-[22rem] truncate font-semibold text-primary hover:underline"
+        >
+          {info.getValue()}
+        </Link>
+      )
+    }),
+    ...(nombreDeOrganizacion
+      ? [
+          columnHelper.accessor((evento) => nombreDeOrganizacion(evento), {
+            id: "organizacion",
+            header: "Organización",
+            cell: (info) => <span className="block max-w-[16rem] truncate">{info.getValue()}</span>
+          })
+        ]
+      : []),
+    columnHelper.accessor("status", {
+      header: "Estado",
+      // Se le pasa el evento entero para que pueda marcar como TERMINADO lo que ya se celebro,
+      // aunque su estado guardado siga siendo "publicado".
+      cell: (info) => <EventStatusBadge status={info.getValue()} event={info.row.original} />
+    }),
+    columnHelper.accessor("startsAt", {
+      header: "Fecha",
+      cell: (info) => (
+        <span className="whitespace-nowrap">
+          {info.getValue() ? dateFormatter.format(new Date(info.getValue()!)) : "Fecha por confirmar"}
+        </span>
+      )
+    }),
+    columnHelper.display({
+      id: "acciones",
+      header: "Acciones",
+      cell: (info) => (
+        <div className="flex flex-nowrap items-center gap-2">
+          <EditarEvento event={info.row.original} />
+          <EventRowActions event={info.row.original} />
+        </div>
+      )
+    })
+  ];
+}
 
 export function EventsListPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -103,8 +124,16 @@ export function EventsListPage() {
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
   const setDraftRules = useWizardStore((s) => s.setDraftRules);
+  // El evento solo trae el id de su organización, así que el nombre se resuelve con el listado.
+  const esSuperadmin = useSessionStore((s) => s.user?.role === "superadmin");
+  const { data: organizaciones } = useOrganizationsQuery(esSuperadmin);
   // "" means "Todos" - coerce to undefined so the query hook omits the status filter entirely.
   const { data: events = [], isLoading } = useEventsQuery(status || undefined);
+  const columns = useMemo(() => {
+    if (!esSuperadmin) return columnasDeEventos(null);
+    const nombres = new Map((organizaciones ?? []).map((organizacion) => [organizacion.id, organizacion.name]));
+    return columnasDeEventos((evento) => nombres.get(evento.organizationId) ?? "—");
+  }, [esSuperadmin, organizaciones]);
   const table = useReactTable({
     data: events,
     columns,

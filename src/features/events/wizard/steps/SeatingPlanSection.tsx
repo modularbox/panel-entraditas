@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CapacityPool, Event, SubEvent, TemplateZone, TicketType, Zone } from "@entraditas/types";
+import type { CapacityPool, Event, Gate, SubEvent, TemplateZone, TicketType, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
@@ -73,6 +73,15 @@ function useTicketTypesQuery(eventId: string | null) {
   });
 }
 
+function useGatesQuery(eventId: string | null) {
+  const token = useSessionStore((s) => s.token);
+  return useQuery({
+    queryKey: ["gates", eventId],
+    queryFn: () => apiClient.get<Gate[]>(`/events/${eventId}/gates`, { token: token! }),
+    enabled: Boolean(eventId && token)
+  });
+}
+
 export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanSectionProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
@@ -83,6 +92,7 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   const firstSubEvent = subEvents[0];
   const { data: pools = [], isFetching: poolsFetching } = useCapacityPoolsQuery(firstSubEvent?.id);
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
+  const { data: gates = [] } = useGatesQuery(eventId);
   const syncEventChanges = useSyncEventChangesToWeb(eventId);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -459,6 +469,33 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
   }
 
+  /** Asigna la puerta del evento a una zona (una puerta solo puede servir a una zona). */
+  async function assignGate(zoneId: string, gateId: string | null) {
+    setError(null);
+    try {
+      const actuales = gates.filter((gate) => gate.zoneId === zoneId);
+      if (gateId === null) {
+        for (const gate of actuales) {
+          await apiClient.patch(`/gates/${gate.id}`, { zoneId: null }, { token: token! });
+        }
+      } else {
+        const elegida = gates.find((gate) => gate.id === gateId);
+        if (elegida && elegida.zoneId !== zoneId) {
+          for (const gate of actuales) {
+            if (gate.id !== gateId) {
+              await apiClient.patch(`/gates/${gate.id}`, { zoneId: null }, { token: token! });
+            }
+          }
+          await apiClient.patch(`/gates/${gateId}`, { zoneId }, { token: token! });
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: ["gates", eventId] });
+      void syncEventChanges();
+    } catch (e) {
+      if (e instanceof AppError) setError(e.message);
+    }
+  }
+
   async function assignTicketType(zoneId: string, groupId: string | null) {
     setError(null);
     const zone = zones.find((z) => z.id === zoneId);
@@ -781,6 +818,8 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
               onUpdateZone={updateZone}
               onDeleteZone={deleteZone}
               onDuplicateZone={(id) => void duplicateZone(id)}
+              gates={gates}
+              onAssignGate={(zoneId, gateId) => void assignGate(zoneId, gateId)}
             />
           </div>
         </>

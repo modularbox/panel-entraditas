@@ -26,10 +26,15 @@ import { RequirePermission } from "@/shared/auth/RequirePermission";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { PanelLayout } from "./layouts/PanelLayout";
-import { NAV_ITEMS } from "./navItems";
+import { getDefaultSectionPath, NAV_ITEMS } from "./navItems";
 import { Cargando } from "@/shared/ui/Cargando";
 
 const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/accesos", "/clientes", "/organizaciones"]);
+
+function DefaultSectionRedirect() {
+  const permissions = useSessionStore((s) => s.effectivePermissions);
+  return <Navigate to={getDefaultSectionPath(permissions) ?? "/sin-acceso"} replace />;
+}
 
 export function AppRoutes() {
   const status = useSessionStore((s) => s.status);
@@ -60,8 +65,8 @@ export function AppRoutes() {
     <Routes>
       <Route element={<AuthLayout />}>
         {/* Already logged in: bounce away from login/invitation screens. */}
-        <Route path="/login" element={<Navigate to="/eventos" replace />} />
-        <Route path="/invitacion/:token" element={<Navigate to="/eventos" replace />} />
+        <Route path="/login" element={<DefaultSectionRedirect />} />
+        <Route path="/invitacion/:token" element={<DefaultSectionRedirect />} />
       </Route>
       <Route element={<PanelLayout />}>
         {/* Nav items not yet implemented get an auto-generated placeholder route,
@@ -88,7 +93,7 @@ export function AppRoutes() {
         </Route>
         <Route element={<RequirePermission permission="users:manage" />}>
           <Route path="/equipo" element={<TeamListPage />} />
-          <Route path="/equipo/invitar" element={<TeamMemberFormPage />} />
+          <Route path="/equipo/nuevo" element={<TeamMemberFormPage />} />
           <Route path="/equipo/:id/editar" element={<TeamMemberFormPage />} />
         </Route>
         <Route element={<RequirePermission permission="organizations:manage" />}>
@@ -114,7 +119,7 @@ export function AppRoutes() {
         </Route>
         <Route path="/terminos" element={<TermsPage />} />
         <Route path="/sin-acceso" element={<div>No tienes acceso a esta sección.</div>} />
-        <Route path="/" element={<Navigate to="/eventos" replace />} />
+        <Route path="/" element={<DefaultSectionRedirect />} />
       </Route>
     </Routes>
   );

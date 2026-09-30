@@ -102,7 +102,9 @@ export const PublicSeatZoneSchema = z.object({
   seats: z.array(PublicSeatSchema).optional(),
   /** Standing zones only: free capacity sold as a single tier. */
   capacity: z.number().int().nonnegative().optional(),
-  tierId: z.string().nullable().optional()
+  tierId: z.string().nullable().optional(),
+  /** Name of the gate the organiser assigned to this zone; the buyer site may print it on the ticket. */
+  gateName: z.string().nullable().optional()
 });
 export type PublicSeatZone = z.infer<typeof PublicSeatZoneSchema>;
 

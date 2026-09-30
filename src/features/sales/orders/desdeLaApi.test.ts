@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ApiPanelOrder } from "@/shared/lib/entraditasApi";
-import { filtrarPedidos, pedidoDesdeLaApi } from "./desdeLaApi";
+import type { ApiPanelOrder, ApiRefund } from "@/shared/lib/entraditasApi";
+import { filtrarPedidos, pedidoDesdeLaApi, refundDesdeLaApi } from "./desdeLaApi";
 
 function pedidoApi(extra: Partial<ApiPanelOrder> = {}): ApiPanelOrder {
   return {
@@ -60,6 +60,36 @@ describe("pedidoDesdeLaApi", () => {
 
   it("la venta no la tramitó nadie del panel: viene de la web", () => {
     expect(pedidoDesdeLaApi(pedidoApi()).userId).toBeNull();
+  });
+});
+
+describe("refundDesdeLaApi", () => {
+  function reembolsoApi(extra: Partial<ApiRefund> = {}): ApiRefund {
+    return {
+      id: "r-1",
+      orderId: "ped-1",
+      orderNumber: "ENT-A1B2C3",
+      customerName: "Axel Fassio",
+      amount: 5800,
+      reason: "Devolución solicitada por el cliente",
+      status: "processed",
+      createdAt: "2026-09-23T09:00:00+00:00",
+      ...extra
+    };
+  }
+
+  it("trae el reembolso a la forma del panel, importes en céntimos", () => {
+    const reembolso = refundDesdeLaApi(reembolsoApi());
+    expect(reembolso.amount).toBe(5800);
+    expect(reembolso.reason).toBe("Devolución solicitada por el cliente");
+    expect(reembolso.status).toBe("processed");
+    expect(reembolso.orderNumber).toBe("ENT-A1B2C3");
+  });
+
+  it("cae en numero de pedido y nombre cuando la fila no los trae resueltos", () => {
+    const reembolso = refundDesdeLaApi(reembolsoApi({ orderNumber: undefined, customerName: undefined }));
+    expect(reembolso.orderNumber).toBe("ped-1");
+    expect(reembolso.customerName).toBe("");
   });
 });
 

@@ -38,7 +38,7 @@ export function LoginPage() {
     }
     try {
       await login(values.email, values.password);
-      navigate("/eventos");
+      navigate("/");
     } catch (error) {
       // El motivo que llega de la API se ensena tal cual. Antes se sustituia siempre por
       // "Credenciales inválidas", y con eso una contrasena que dejo de valer no se distingue de

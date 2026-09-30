@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAPABILITIES, canAssignRole, getConfigurableCapabilities, hasPermission, resolveEffectivePermissions, ROLE_BASE_PERMISSIONS } from "./permissions";
+import { CAPABILITIES, canAssignRole, capabilityKeysToOverrides, getConfigurableCapabilities, hasPermission, overridesToCapabilityKeys, resolveEffectivePermissions, ROLE_BASE_PERMISSIONS } from "./permissions";
 
 describe("resolveEffectivePermissions", () => {
   it("returns exactly the role's base permissions with no overrides", () => {
@@ -115,6 +115,19 @@ describe("sell_tickets capability", () => {
     expect(puerta.has("orders:refund")).toBe(false);
     expect(puerta.has("users:manage")).toBe(false);
     expect(puerta.has("organizations:manage")).toBe(false);
+  });
+});
+
+describe("manage_events capability", () => {
+  it("grants event reading and creation so the member can reach the event wizard", () => {
+    expect(capabilityKeysToOverrides("suborganizador", ["manage_events"])).toEqual([
+      { permission: "events:read", effect: "allow" },
+      { permission: "events:create", effect: "allow" }
+    ]);
+  });
+
+  it("keeps an existing create-only grant selected when editing the member", () => {
+    expect(overridesToCapabilityKeys("suborganizador", [{ permission: "events:create", effect: "allow" }])).toContain("manage_events");
   });
 });
 

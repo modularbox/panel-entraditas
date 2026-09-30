@@ -1,4 +1,4 @@
-import type { Zone } from "@entraditas/types";
+import type { Gate, Zone } from "@entraditas/types";
 import { Button } from "@/shared/ui/button";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { useTips } from "@/shared/ui/tips";
@@ -14,6 +14,8 @@ export interface ZoneEditorPanelProps {
   ) => void;
   onDeleteZone: (id: string) => void;
   onDuplicateZone?: (id: string) => void;
+  gates?: Gate[];
+  onAssignGate?: (zoneId: string, gateId: string | null) => void;
 }
 
 // No hay boton de zona accesible: la movilidad reducida se marca asiento a asiento desde el
@@ -26,6 +28,9 @@ const ADD_BUTTONS: { kind: Zone["kind"]; label: string; ayuda: string }[] = [
   { kind: "gate", label: "+ Puerta", ayuda: "Acceso por donde entra el público; no se vende" }
 ];
 
+/** Las zonas que se venden se entran por una puerta; escenario y puertas no. */
+const GATEABLE_KINDS: Zone["kind"][] = ["numbered", "standing", "accessible"];
+
 /** El lienzo guarda porcentajes con todos sus decimales; en una casilla solo estorban. */
 function redondear(valor: number): number {
   return Math.round(valor * 10) / 10;
@@ -37,10 +42,13 @@ export function ZoneEditorPanel({
   onAddZone,
   onUpdateZone,
   onDeleteZone,
-  onDuplicateZone
+  onDuplicateZone,
+  gates = [],
+  onAssignGate
 }: ZoneEditorPanelProps) {
   const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
   const { tip, capa } = useTips();
+  const assignedGate = selectedZone ? gates.find((gate) => gate.zoneId === selectedZone.id) ?? null : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -76,6 +84,36 @@ export function ZoneEditorPanel({
             defaultValue={selectedZone.name}
             onBlur={(e) => onUpdateZone(selectedZone.id, { name: e.target.value })}
           />
+
+          {onAssignGate && GATEABLE_KINDS.includes(selectedZone.kind) && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="zone-gate">Puerta de acceso</label>
+              {gates.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No hay puertas todavía: créalas en el paso "Puertas". En la entrada saldrá la puerta
+                  asignada, p. ej. "A1 · Platea · Puerta 5".
+                </p>
+              ) : (
+                <select
+                  id="zone-gate"
+                  value={assignedGate?.id ?? ""}
+                  onChange={(e) => onAssignGate(selectedZone.id, e.target.value === "" ? null : e.target.value)}
+                  {...tip("La puerta por la que entra el público a esta zona; sale impresa en la entrada")}
+                >
+                  <option value="">Sin puerta</option>
+                  {gates.map((gate) => {
+                    const anotherZone = gate.zoneId && gate.zoneId !== selectedZone.id ? zones.find((z) => z.id === gate.zoneId)?.name : null;
+                    return (
+                      <option key={gate.id} value={gate.id}>
+                        {gate.name}
+                        {anotherZone ? ` (ahora en ${anotherZone})` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
+            </div>
+          )}
 
           {selectedZone.kind === "standing" && (
             <>

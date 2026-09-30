@@ -26,7 +26,7 @@ export function InvitationAcceptPage() {
     try {
       const result = await apiClient.post<AcceptedSession>(`/invitations/${token}/accept`, { password: values.password });
       setSession(result);
-      navigate("/eventos");
+      navigate("/");
     } catch (cause) {
       if (cause instanceof AppError) setAcceptError(cause.message);
     }

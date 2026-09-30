@@ -86,7 +86,7 @@ export interface Capability {
 // marcado, así que juntarlos no le quita nada a nadie.
 export const CAPABILITIES: Capability[] = [
   { key: "manage_organizations", label: "Gestionar organizadores", permissions: ["organizations:manage"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_no", suborganizador: "fixed_no" } },
-  { key: "manage_events", label: "Crear y editar eventos", permissions: ["events:create"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
+  { key: "manage_events", label: "Crear y editar eventos", permissions: ["events:read", "events:create"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
   { key: "view_orders", label: "Ver pedidos y compradores", permissions: ["orders:read"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
   { key: "refund_orders", label: "Devolver dinero", permissions: ["orders:refund"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "fixed_no" } },
   { key: "sell_tickets", label: "Vender entradas en taquilla", permissions: ["orders:create"], accessByRole: { superadmin: "fixed_yes", organizador: "fixed_yes", suborganizador: "configurable" } },
@@ -106,5 +106,8 @@ export function capabilityKeysToOverrides(role: RoleSlug, enabledKeys: string[])
 }
 export function overridesToCapabilityKeys(role: RoleSlug, overrides: PermissionOverride[]): string[] {
   const allowed = new Set(overrides.filter((override) => override.effect === "allow").map((override) => override.permission));
-  return getConfigurableCapabilities(role).filter((capability) => capability.permissions.every((permission) => allowed.has(permission))).map((capability) => capability.key);
+  return getConfigurableCapabilities(role).filter((capability) =>
+    capability.permissions.every((permission) => allowed.has(permission)) ||
+    (capability.key === "manage_events" && allowed.has("events:create"))
+  ).map((capability) => capability.key);
 }

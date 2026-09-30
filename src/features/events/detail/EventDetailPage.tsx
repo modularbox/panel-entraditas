@@ -34,9 +34,6 @@ type TabKey = (typeof ENABLED_TABS)[number]["key"];
 // Estados desde los que tiene sentido pedir la revision otra vez.
 const PUBLISHABLE: Event["status"][] = ["draft", "rejected"];
 
-// Sections not built yet; rendered as disabled buttons so the full nav is visible early.
-const DISABLED_TABS = ["Pedidos", "Métricas"];
-
 function noop() {
   // Reused wizard step components call onSaved/goNext; there is no "next
   // step" on a detail page, so both are intentionally no-ops here.
@@ -90,18 +87,6 @@ export function EventDetailPage() {
                 )}
               >
                 {tab.label}
-              </button>
-            </li>
-          ))}
-          {DISABLED_TABS.map((label) => (
-            <li key={label}>
-              <button
-                type="button"
-                disabled
-                title="Disponible en una fase posterior"
-                className="rounded-md border-2 border-border px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-muted-foreground opacity-60"
-              >
-                {label}
               </button>
             </li>
           ))}

@@ -11,9 +11,10 @@ import { Cargando } from "@/shared/ui/Cargando";
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const columnHelper = createColumnHelper<Refund>();
+const SIN_USUARIO = "Sin usuario";
 const columns = [
   columnHelper.accessor("orderNumber", {
-    header: "NÂº pedido",
+    header: "Nº pedido",
     cell: (info) => (
       <Link to={`/ventas/pedidos/${info.row.original.orderId}`} className="font-semibold text-primary hover:underline">
         {info.getValue()}
@@ -26,6 +27,12 @@ const columns = [
     cell: (info) => <span className="text-refund">{euro.format(-info.getValue() / 100)}</span>
   }),
   columnHelper.accessor("reason", { header: "Motivo" }),
+  // Quién pulsó el reembolso. La API lo saca de `refunds.requested_by`; si no lo sabe (una
+  // devolución pedida por el comprador), se dice en vez de dejar la celda en blanco.
+  columnHelper.accessor("refundedBy", {
+    header: "Usuario",
+    cell: (info) => <span className="whitespace-nowrap">{info.getValue() || SIN_USUARIO}</span>
+  }),
   columnHelper.accessor("createdAt", { header: "Fecha", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") })
 ];
 
@@ -59,7 +66,7 @@ export function RefundsListPage() {
         </select>
 
         <label htmlFor="refund-search-filter" className="sr-only">Buscar</label>
-        <input id="refund-search-filter" type="search" maxLength={LIMITES.busqueda} value={q} onChange={(e) => setQ(e.target.value)} placeholder="NÂº pedido o comprador" className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm" />
+        <input id="refund-search-filter" type="search" maxLength={LIMITES.busqueda} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nº pedido o comprador" className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm" />
       </div>
 
       {isLoading ? (

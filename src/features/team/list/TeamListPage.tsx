@@ -33,23 +33,12 @@ export function TeamListPage() {
   const { data: members = [], isLoading } = useTeamQuery();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [error, setError] = useState<string | null>(null);
-  const [resentLinks, setResentLinks] = useState<Record<string, string>>({});
 
   async function toggleStatus(member: User) {
     setError(null);
     try {
       await apiClient.post(`/users/${member.id}/${member.status === "disabled" ? "enable" : "disable"}`, undefined, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["team"] });
-    } catch (cause) {
-      if (cause instanceof AppError) setError(cause.message);
-    }
-  }
-
-  async function resendInvite(member: User) {
-    setError(null);
-    try {
-      const result = await apiClient.post<{ inviteUrl: string }>(`/users/${member.id}/resend-invite`, undefined, { token: token! });
-      setResentLinks((previous) => ({ ...previous, [member.id]: result.inviteUrl }));
     } catch (cause) {
       if (cause instanceof AppError) setError(cause.message);
     }
@@ -65,9 +54,7 @@ export function TeamListPage() {
           <div className="flex flex-wrap gap-2">
             <Link to={`/equipo/${row.original.id}/editar`}><Button type="button" variant="outline" className="h-8 px-2 text-xs">Editar</Button></Link>
             <Button type="button" variant={row.original.status === "disabled" ? "outline" : "destructive"} className="h-8 px-2 text-xs" onClick={() => toggleStatus(row.original)}>{row.original.status === "disabled" ? "Activar" : "Desactivar"}</Button>
-            {row.original.status === "invited" && <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={() => resendInvite(row.original)}>Reenviar invitación</Button>}
           </div>
-          {resentLinks[row.original.id] && <p className="mt-1 text-xs text-muted-foreground">Enlace: <code>{resentLinks[row.original.id]}</code></p>}
         </>
       )
     })
@@ -87,7 +74,7 @@ export function TeamListPage() {
     <div className="flex flex-col gap-6">
       <header className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold">Equipo</h1>
-        <Link to="/equipo/invitar"><Button>Invitar persona</Button></Link>
+        <Link to="/equipo/nuevo"><Button>Crear cuenta</Button></Link>
       </header>
       {error && <p role="alert">{error}</p>}
       {isLoading ? <Cargando /> : (

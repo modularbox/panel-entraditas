@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
 import type { SortingState } from "@tanstack/react-table";
 import type { Order } from "@entraditas/types";
+import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
+import { useOrganizationsQuery } from "@/features/organizations/list/useOrganizationsQuery";
 import { useOrdersQuery } from "./useOrdersQuery";
 import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { LIMITES } from "@/shared/lib/formLimits";
@@ -20,6 +22,10 @@ const STATUS_LABELS: Record<Order["status"], string> = {
   partially_refunded: "Reembolso parcial"
 };
 
+// Un pedido reembolsado del todo no pinta en Ventas: vive en Reembolsos. El filtro de estado no
+// puede ofrecerlo porque no hay filas que mostrar; el parcial sí se queda (con su diferencia).
+const ESTADOS_FILTRABLES = Object.entries(STATUS_LABELS).filter(([value]) => value !== "refunded");
+
 const CHANNEL_LABELS: Record<Order["channel"], string> = {
   web: "Web",
   panel: "Panel",
@@ -31,8 +37,14 @@ const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR"
 type Fila = Order & { eventTitle?: string };
 const columnHelper = createColumnHelper<Fila>();
 
-/** Las columnas dependen de los eventos: un pedido de ejemplo solo trae el id del suyo. */
-function columnasDePedidos(tituloDe: (fila: Fila) => string) {
+/**
+ * Las columnas dependen de los eventos: un pedido de ejemplo solo trae el id del suyo.
+ *
+ * La organización va entre el nº de pedido y el evento, y solo si se le pasa quien la resuelve
+ * (el superadmin, que es el único que ve pedidos de más de una organización). Para el resto la
+ * columna repetiría el nombre de su propia empresa en cada fila.
+ */
+function columnasDePedidos(tituloDe: (fila: Fila) => string, organizacionDe: ((fila: Fila) => string) | null) {
   return [
     columnHelper.accessor("orderNumber", {
       header: "Nº pedido",
@@ -42,13 +54,23 @@ function columnasDePedidos(tituloDe: (fila: Fila) => string) {
         </Link>
       )
     }),
+    ...(organizacionDe
+      ? [columnHelper.accessor((fila) => organizacionDe(fila), { id: "organizacion", header: "Organización" })]
+      : []),
     columnHelper.accessor((fila) => tituloDe(fila), { id: "evento", header: "Evento" }),
     columnHelper.accessor("customerName", { header: "Comprador" }),
     columnHelper.accessor("customerEmail", { header: "Correo" }),
     columnHelper.accessor((fila) => textoDeMetodoDePago(fila.paymentReference), { id: "pago", header: "Pago" }),
     columnHelper.accessor("channel", { header: "Canal", cell: (info) => CHANNEL_LABELS[info.getValue()] }),
     columnHelper.accessor("status", { header: "Estado", cell: (info) => STATUS_LABELS[info.getValue()] }),
-    columnHelper.accessor("total", { header: "Total", cell: (info) => euro.format(info.getValue() / 100) }),
+    columnHelper.accessor("total", {
+      header: "Total",
+      // Lo que se reembolsó deja de ser venta: la fila enseña la diferencia que queda por cobrar
+      // (total menos devuelto). Sin reembolso es el total.
+      cell: (info) => (
+        <span className="text-green-500">{euro.format((info.getValue() - info.row.original.refundedAmount) / 100)}</span>
+      )
+    }),
     columnHelper.accessor("createdAt", { header: "Fecha", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") })
   ];
 }
@@ -62,6 +84,10 @@ export function OrdersListPage() {
   const { data: eventsData } = useEventsQuery();
   // Memorizado por lo mismo que `orders`: de él salen las columnas de la tabla.
   const events = useMemo(() => eventsData ?? [], [eventsData]);
+  // El pedido solo trae el id de su organización, también en los datos de la API: el nombre sale
+  // del listado de organizaciones, que solo se pide si quien mira es el superadmin.
+  const esSuperadmin = useSessionStore((s) => s.user?.role === "superadmin");
+  const { data: organizaciones } = useOrganizationsQuery(esSuperadmin);
   const { data, isLoading } = useOrdersQuery({
     eventId: eventId || undefined,
     status: status || undefined,
@@ -74,8 +100,13 @@ export function OrdersListPage() {
   const esReal = data?.esReal ?? false;
   const columns = useMemo(() => {
     const titulos = new Map(events.map((event) => [event.id, event.title]));
-    return columnasDePedidos((fila) => fila.eventTitle || titulos.get(fila.eventId) || "—");
-  }, [events]);
+    if (!esSuperadmin) return columnasDePedidos((fila) => fila.eventTitle || titulos.get(fila.eventId) || "—", null);
+    const organizacionesPorId = new Map((organizaciones ?? []).map((organizacion) => [organizacion.id, organizacion.name]));
+    return columnasDePedidos(
+      (fila) => fila.eventTitle || titulos.get(fila.eventId) || "—",
+      (fila) => organizacionesPorId.get(fila.organizationId) ?? "—"
+    );
+  }, [events, esSuperadmin, organizaciones]);
   const table = useReactTable({
     data: orders,
     columns,
@@ -92,8 +123,10 @@ export function OrdersListPage() {
         <h1 className="font-display text-2xl font-semibold">Pedidos</h1>
         {esReal && (
           <p className="mt-1 text-sm text-muted-foreground">
-            Compras reales de entraditas.com. El cobro todavía no pasa por una pasarela: el pedido se guarda
-            como pagado, y por eso aún no se puede reembolsar desde aquí.
+            Compras reales de entraditas.com. El cobro todavía no pasa por una pasarela: el pedido se
+            guarda como pagado, y un reembolso desde aquí es una simulación. Reembolsado del todo, el
+            pedido sale de esta lista y se queda en Reembolsos; si solo se devuelve una parte, aquí
+            queda la diferencia.
           </p>
         )}
       </header>
@@ -108,7 +141,7 @@ export function OrdersListPage() {
         <label htmlFor="status-filter" className="sr-only">Estado</label>
         <select id="status-filter" aria-label="Estado" value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-md border-2 border-foreground bg-surface px-2 text-sm">
           <option value="">Todos los estados</option>
-          {Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {ESTADOS_FILTRABLES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
 
         <label htmlFor="channel-filter" className="sr-only">Canal</label>

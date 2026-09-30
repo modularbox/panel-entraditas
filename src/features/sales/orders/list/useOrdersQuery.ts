@@ -21,7 +21,20 @@ export interface OrdersFilters {
  *
  * `esReal` acompaña a la lista porque la pantalla tiene que poder decirlo: un pedido de verdad no
  * se puede reembolsar todavía desde aquí, y callarlo sería peor que avisarlo.
+ *
+ * Un pedido reembolsado del todo sale de Ventas y vive solo en Reembolsos; el parcial se queda,
+ * mostrando la diferencia en el Total. De ahí el filtro: reembolsos enteros no pintan aquí.
  */
+const REEMBOLSADO_DEL_TODO = "refunded";
+
+/**
+ * Lo que no pinta en la lista de Ventas: un pedido reembolsado entero ha dejado de ser una venta,
+ * es una devolución, y su sitio está en la pestaña Reembolsos.
+ */
+function sinReembolsados<T extends Order>(pedidos: T[]): T[] {
+  return pedidos.filter((pedido) => pedido.status !== REEMBOLSADO_DEL_TODO);
+}
+
 export function useOrdersQuery(filters: OrdersFilters) {
   const token = useSessionStore((state) => state.token);
   const params = new URLSearchParams();
@@ -37,10 +50,10 @@ export function useOrdersQuery(filters: OrdersFilters) {
     queryFn: async (): Promise<{ items: (Order & { eventTitle?: string })[]; esReal: boolean }> => {
       if (desdeApi) {
         const pedidos = await fetchApiOrders({ eventId: filters.eventId });
-        return { items: filtrarPedidos(pedidos.map(pedidoDesdeLaApi), filters), esReal: true };
+        return { items: sinReembolsados(filtrarPedidos(pedidos.map(pedidoDesdeLaApi), filters)), esReal: true };
       }
       const datos = await apiClient.get<Order[]>(`/orders${query ? `?${query}` : ""}`, { token: token! });
-      return { items: datos, esReal: false };
+      return { items: sinReembolsados(datos), esReal: false };
     },
     enabled: Boolean(token)
   });

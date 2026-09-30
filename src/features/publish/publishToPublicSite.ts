@@ -1,5 +1,15 @@
 import type { ApiEventPayload } from "./toApiEventPayload";
-import type { CapacityPool, DiscountCode, Event, Organization, SubEvent, TicketType, Venue, Zone } from "@entraditas/types";
+import type {
+  CapacityPool,
+  DiscountCode,
+  Event,
+  Gate,
+  Organization,
+  SubEvent,
+  TicketType,
+  Venue,
+  Zone
+} from "@entraditas/types";
 import { apiClient } from "@/shared/lib/apiClient";
 import { canPublishToApi, isApiConfigured, publishEventToApi, removeEventFromApi } from "@/shared/lib/entraditasApi";
 import { shouldAppearOnPublicSite } from "@/shared/lib/eventLifecycle";
@@ -69,10 +79,11 @@ interface EventoReunido {
 async function reunirPayload(eventId: string, token: string): Promise<EventoReunido | null> {
   try {
     const event = await apiClient.get<Event>(`/events/${eventId}`, { token });
-    const [subEvents, ticketTypes, discountCodes] = await Promise.all([
+    const [subEvents, ticketTypes, discountCodes, gates] = await Promise.all([
       apiClient.get<SubEvent[]>(`/events/${eventId}/sub-events`, { token }),
       apiClient.get<TicketType[]>(`/events/${eventId}/ticket-types`, { token }),
-      apiClient.get<DiscountCode[]>(`/events/${eventId}/discount-codes`, { token }).catch(() => [])
+      apiClient.get<DiscountCode[]>(`/events/${eventId}/discount-codes`, { token }).catch(() => []),
+      apiClient.get<Gate[]>(`/events/${eventId}/gates`, { token }).catch(() => [])
     ]);
 
     const venue = event.venueId
@@ -94,7 +105,7 @@ async function reunirPayload(eventId: string, token: string): Promise<EventoReun
 
     // Solo llegan aqui eventos aprobados, que es lo unico que la web puede vender: "publicado".
     const payload = toApiEventPayload(
-      toPublicEvent({ event, organization, venue, zones, subEvents, ticketTypes, pools, discountCodes }),
+      toPublicEvent({ event, organization, venue, zones, subEvents, ticketTypes, pools, discountCodes, gates }),
       "published",
       event.organizationId ?? null
     );

@@ -2,16 +2,39 @@ import { useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { OrganizationDetail, OrganizationSubOrganizer } from "@entraditas/types";
-import { useSessionStore, type SessionResponse } from "@/shared/auth/sessionStore";
+import type { ApiOrganizationDetail, ApiOrganizationTeamMember } from "@/shared/lib/entraditasApi";
+import { getSessionEffectivePermissions, hydrateConnectedSession, useSessionStore, type SessionResponse } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
-import { EventStatusBadge } from "@/shared/ui/EventStatusBadge";
 import { OrganizationCustomers } from "./OrganizationCustomers";
 import { Cargando } from "@/shared/ui/Cargando";
+import { getDefaultSectionPath } from "@/app/navItems";
 
 const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
+
+/** Etiquetas de los estados reales del evento. El badge compartido solo conoce los de los mocks;
+ *  aqui los estados que salen de la base van con etiqueta propia y segura. */
+const ESTADO_DE_EVENTO: Record<string, string> = {
+  draft: "Borrador",
+  pending_review: "Pendiente de revisión",
+  in_review: "En revisión",
+  published: "Publicado",
+  on_sale: "A la venta",
+  sold_out: "Agotado",
+  paused: "En pausa",
+  finished: "Finalizado",
+  cancelled: "Cancelado",
+  rejected: "Rechazado"
+};
+
+function EstadoDeEvento({ estado }: { estado: string }) {
+  return (
+    <span className="inline-block whitespace-nowrap rounded-pill border-2 border-foreground px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide">
+      {ESTADO_DE_EVENTO[estado] ?? estado}
+    </span>
+  );
+}
 
 export function OrganizationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,20 +46,21 @@ export function OrganizationDetailPage() {
 
   const { data: organization, isLoading, error } = useQuery({
     queryKey: ["organizations", id],
-    queryFn: () => apiClient.get<OrganizationDetail>(`/organizations/${id}`, { token: token! }),
+    queryFn: () => apiClient.get<ApiOrganizationDetail>(`/organizations/${id}`, { token: token! }),
     enabled: Boolean(id && token),
     retry: false // a 404 here is a valid "not found" outcome, not a transient failure to retry
   });
 
-  // "Conectar" cambia la sesión actual a la de un miembro de la organización (el organizador o un
-  // suborganizador concreto). Se navega primero a /eventos (sección con acceso para todos) y luego
-  // se intercambia la sesión; el botón "Volver a superadmin" del menú permite regresar.
+  // "Conectar" cambia la sesión actual a la de un miembro de la organización. Primero se navega
+  // a una sección autorizada para esa persona y luego se intercambia la sesión; el botón
+  // "Volver a superadmin" del menú permite regresar.
   async function connectAs(subjectId: string) {
     setConnectError(null);
     setConnectingId(subjectId);
     try {
-      const session = await apiClient.post<SessionResponse>(`/organizations/${organization?.id}/users/${subjectId}/connect`, undefined, { token: token! });
-      flushSync(() => navigate("/eventos"));
+      const response = await apiClient.post<SessionResponse>(`/organizations/${organization?.id}/users/${subjectId}/connect`, undefined, { token: token! });
+      const session = await hydrateConnectedSession(response);
+      flushSync(() => navigate(getDefaultSectionPath(new Set(getSessionEffectivePermissions(session))) ?? "/sin-acceso"));
       useSessionStore.getState().connectAs(session);
       queryClient.clear();
     } catch (cause) {
@@ -101,8 +125,8 @@ export function OrganizationDetailPage() {
               <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{organizer?.email ?? "—"}</dd>
             </div>
             <div>
-              <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Cuenta</dt>
-              <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{organizer?.bankAccount ?? "—"}</dd>
+              <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Teléfono</dt>
+              <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{organizer?.phone ?? "—"}</dd>
             </div>
           </dl>
         </div>
@@ -142,7 +166,7 @@ export function OrganizationDetailPage() {
       {/* EQUIPO */}
       <section aria-labelledby="team-heading">
         <h2 id="team-heading" className="mb-3 font-display text-lg font-semibold uppercase tracking-wide">Equipo</h2>
-        {organization.subOrganizers.length === 0 ? (
+        {organization.team.length === 0 ? (
           <p className="text-muted-foreground">Esta organización no tiene miembros de equipo.</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border-2 border-foreground bg-surface shadow-flat">
@@ -156,12 +180,12 @@ export function OrganizationDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {organization.subOrganizers.map((subOrganizer) => (
+                {organization.team.map((member) => (
                   <SubOrganizerRow
-                    key={subOrganizer.id}
-                    subOrganizer={subOrganizer}
-                    connecting={connectingId === subOrganizer.id}
-                    onConnect={() => connectAs(subOrganizer.id)}
+                    key={member.id}
+                    member={member}
+                    connecting={connectingId === member.id}
+                    onConnect={() => connectAs(member.id)}
                   />
                 ))}
               </tbody>
@@ -183,7 +207,8 @@ export function OrganizationDetailPage() {
                   <th className="px-4 py-3 font-medium text-muted-foreground">Título</th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Usuarios con acceso</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">Entradas</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">Usadas</th>
                 </tr>
               </thead>
               <tbody>
@@ -192,15 +217,10 @@ export function OrganizationDetailPage() {
                     <td className="px-4 py-3">
                       <Link to={`/eventos/${event.id}`} className="font-semibold text-primary hover:underline">{event.title}</Link>
                     </td>
-                    <td className="px-4 py-3"><EventStatusBadge status={event.status} /></td>
+                    <td className="px-4 py-3"><EstadoDeEvento estado={event.status} /></td>
                     <td className="px-4 py-3">{event.startsAt ? dateFormatter.format(new Date(event.startsAt)) : "Fecha por confirmar"}</td>
-                    <td className="px-4 py-3">
-                      {event.accessUsers.length === 0 ? (
-                        <span className="text-muted-foreground">Sin usuarios</span>
-                      ) : (
-                        <span>{event.accessUsers.map((user) => user.fullName).join(", ")}</span>
-                      )}
-                    </td>
+                    <td className="px-4 py-3">{event.ticketsCount}</td>
+                    <td className="px-4 py-3">{event.usedCount}</td>
                   </tr>
                 ))}
               </tbody>
@@ -215,16 +235,16 @@ export function OrganizationDetailPage() {
   );
 }
 
-function SubOrganizerRow({ subOrganizer, connecting, onConnect }: { subOrganizer: OrganizationSubOrganizer; connecting: boolean; onConnect: () => void }) {
+function SubOrganizerRow({ member, connecting, onConnect }: { member: ApiOrganizationTeamMember; connecting: boolean; onConnect: () => void }) {
   return (
     <tr className="border-t border-border">
-      <td className="px-4 py-3">{subOrganizer.fullName}</td>
-      <td className="px-4 py-3 text-muted-foreground">{subOrganizer.email}</td>
+      <td className="px-4 py-3">{member.fullName}</td>
+      <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
       <td className="px-4 py-3">
-        {subOrganizer.accessibleEvents.length === 0 ? (
-          <span className="text-muted-foreground">Sin eventos</span>
+        {member.accessibleEvents.length === 0 ? (
+          <span className="text-muted-foreground">Todos los eventos</span>
         ) : (
-          subOrganizer.accessibleEvents.map((event) => event.title).join(", ")
+          member.accessibleEvents.map((event) => event.title).join(", ")
         )}
       </td>
       <td className="px-4 py-3 text-right">
