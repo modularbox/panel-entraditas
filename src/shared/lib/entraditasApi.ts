@@ -84,7 +84,7 @@ async function request<T>(path: string, init: RequestInit = {}, avisaSiCaduca = 
       ...init.headers
     }
   });
-  const payload = (await response.json().catch(() => ({}))) as T & { error?: string };
+  const payload = (await response.json().catch(() => ({}))) as T & { error?: string; detalle?: string };
   if (!response.ok) {
     // 403 cuenta igual que 401: el hosting devuelve 403 cuando se come la cabecera Authorization,
     // asi que para quien lo vive es lo mismo que no tener sesion.
@@ -92,7 +92,10 @@ async function request<T>(path: string, init: RequestInit = {}, avisaSiCaduca = 
       storeApiToken(null);
       avisarDeSesionPerdida(path);
     }
-    throw new ErrorDeLaApi(payload.error || "No se pudo completar la peticion.", response.status);
+    throw new ErrorDeLaApi(
+      (payload.error || "No se pudo completar la peticion.") + (payload.detalle ? ` (${payload.detalle})` : ""),
+      response.status
+    );
   }
   return payload;
 }

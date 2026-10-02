@@ -11,7 +11,10 @@ export const PERMISSIONS = [
   "orders:read", "orders:create", "orders:refund",
   "guestlist:read", "guestlist:manage",
   "scan:validate", "reports:read", "reports:export",
-  "users:manage"
+  "users:manage",
+  // Eliminar y la Papelera (tanda 21): superadmin y organizador. No es configurable para el
+  // suborganizador: la API solo deja eliminar o restaurar a esos dos roles.
+  "trash:manage"
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

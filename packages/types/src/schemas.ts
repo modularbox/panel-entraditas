@@ -524,6 +524,8 @@ export const CustomerSchema = z.object({
   // Si ha dado permiso para recibir publicidad, desde la Configuración de entraditas.com.
   // Ausente cuenta como que no: un consentimiento que se da por supuesto no es un consentimiento.
   acceptsAdvertising: z.boolean().optional(),
+  // Bloqueado desde el panel (tanda 21): no entra ni compra en entraditas.com hasta desbloquearlo.
+  status: z.enum(["active", "blocked"]).optional(),
   createdAt: z.string().optional(), // fecha de alta
   ordersCount: z.number().int().nonnegative(), ticketsCount: z.number().int().nonnegative(), totalSpent: z.number().int().nonnegative(), lastPurchaseAt: z.string()
 });

@@ -11,6 +11,8 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { LIMITES } from "@/shared/lib/formLimits";
 import { canConnectCustomerToWeb, connectApiCustomerSession, getWebBase } from "@/shared/lib/entraditasApi";
 import { Cargando } from "@/shared/ui/Cargando";
+import { GestionCliente } from "@/features/papelera/BotonesDeGestion";
+import { EtiquetaBloqueado } from "@/shared/ui/EtiquetaBloqueado";
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 
@@ -24,16 +26,20 @@ function buildColumns(
   detailTo: (email: string) => string,
   conectar: (email: string) => void,
   conectandoEmail: string | null,
-  puedeConectar: boolean
+  puedeConectar: boolean,
+  puedeGestionar: boolean
 ) {
   const columnHelper = createColumnHelper<Customer>();
   return [
     columnHelper.accessor("name", {
       header: "Nombre",
       cell: (info) => (
-        <Link to={detailTo(info.row.original.email)} className="font-semibold text-primary hover:underline">
-          {info.getValue()}
-        </Link>
+        <span className="flex flex-col items-start gap-1 whitespace-nowrap">
+          <Link to={detailTo(info.row.original.email)} className="font-semibold text-primary hover:underline">
+            {info.getValue()}
+          </Link>
+          {info.row.original.status === "blocked" && <EtiquetaBloqueado />}
+        </span>
       )
     }),
     columnHelper.accessor("email", { header: "Email" }),
@@ -58,22 +64,30 @@ function buildColumns(
         return Number.isNaN(fecha.getTime()) ? <span className="text-muted-foreground">Sin compras</span> : fecha.toLocaleDateString("es-ES");
       }
     }),
-    ...(puedeConectar
+    ...(puedeConectar || puedeGestionar
       ? [
           columnHelper.display({
             id: "actions",
             header: "",
             enableSorting: false,
             cell: ({ row }) => (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 px-3 text-xs"
-                disabled={conectandoEmail === row.original.email}
-                onClick={() => conectar(row.original.email)}
-              >
-                {conectandoEmail === row.original.email ? "Conectando…" : "Conectar"}
-              </Button>
+              <div className="flex flex-nowrap items-start gap-2">
+                {puedeConectar && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 px-3 text-xs"
+                    // Bloqueado no puede entrar: la API tambien lo rechazaria.
+                    disabled={conectandoEmail === row.original.email || row.original.status === "blocked"}
+                    onClick={() => conectar(row.original.email)}
+                  >
+                    {conectandoEmail === row.original.email ? "Conectando…" : "Conectar"}
+                  </Button>
+                )}
+                {puedeGestionar && (
+                  <GestionCliente email={row.original.email} nombre={row.original.name} bloqueado={row.original.status === "blocked"} />
+                )}
+              </div>
             )
           })
         ]
@@ -131,10 +145,13 @@ export function CustomersListPage({ title = "Clientes", detailTo = (email) => `/
 
   // Memorizada por lo mismo que `visibles`: una lista de columnas nueva en cada render vuelve a
   // montar la tabla entera sin motivo.
+  // Bloquear y eliminar clientes es del superadmin: un cliente le compra a muchos organizadores, y
+  // ninguno puede echarlo de la plataforma entera (tanda 21).
+  const puedeGestionar = rol === "superadmin";
   const columnas = useMemo(
-    () => buildColumns(detailTo, conectar, conectandoEmail, puedeConectar),
+    () => buildColumns(detailTo, conectar, conectandoEmail, puedeConectar, puedeGestionar),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [detailTo, conectandoEmail, puedeConectar]
+    [detailTo, conectandoEmail, puedeConectar, puedeGestionar]
   );
 
   const table = useReactTable({

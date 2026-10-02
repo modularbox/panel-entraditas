@@ -127,10 +127,12 @@ async function request<T>(method: string, path: string, body?: unknown, opts?: R
   }
 
   if (!response.ok) {
+    const cuerpo = json && typeof json === "object" ? (json as { error?: unknown; detalle?: unknown }) : {};
+    // `detalle` lo manda la API con los fallos internos de las rutas del panel (tanda 21): que
+    // fallo y en que linea. Va en el mensaje para que quien lo vea pueda mandarlo tal cual.
     const mensaje =
-      json && typeof json === "object" && "error" in json && typeof (json as { error: unknown }).error === "string"
-        ? (json as { error: string }).error
-        : `Error ${response.status}`;
+      (typeof cuerpo.error === "string" ? cuerpo.error : `Error ${response.status}`) +
+      (typeof cuerpo.detalle === "string" && cuerpo.detalle !== "" ? ` (${cuerpo.detalle})` : "");
     if (response.status === 401 && !esIntentoDeEntrar(path)) avisarSinSesion?.(path);
     throw new AppError(codigoDeEstado(response.status), mensaje);
   }

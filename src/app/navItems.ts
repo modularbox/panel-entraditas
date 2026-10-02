@@ -11,7 +11,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Control de accesos", path: "/accesos", permission: "scan:validate" },
   { label: "Equipo", path: "/equipo", permission: "users:manage" },
   { label: "Clientes", path: "/clientes", permission: "orders:read" },
-  { label: "Organizaciones", path: "/organizaciones", permission: "organizations:manage" }
+  { label: "Organizaciones", path: "/organizaciones", permission: "organizations:manage" },
+  { label: "Papelera", path: "/papelera", permission: "trash:manage" }
 ];
 
 export function getAccessibleNavItems(permissions: ReadonlySet<string>): NavItem[] {

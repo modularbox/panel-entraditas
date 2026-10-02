@@ -12,6 +12,8 @@ import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { useOrganizationsQuery } from "./useOrganizationsQuery";
 import { Cargando } from "@/shared/ui/Cargando";
 import { getDefaultSectionPath } from "@/app/navItems";
+import { GestionOrganizacion } from "@/features/papelera/BotonesDeGestion";
+import { EtiquetaBloqueado } from "@/shared/ui/EtiquetaBloqueado";
 
 export function OrganizationsListPage() {
   const token = useSessionStore((state) => state.token);
@@ -46,7 +48,10 @@ export function OrganizationsListPage() {
       columnHelper.accessor("name", {
         header: "Nombre",
         cell: (info) => (
-          <Link to={`/organizaciones/${info.row.original.id}`} className="font-semibold text-primary hover:underline">{info.getValue()}</Link>
+          <span className="flex flex-col items-start gap-1 whitespace-nowrap">
+            <Link to={`/organizaciones/${info.row.original.id}`} className="font-semibold text-primary hover:underline">{info.getValue()}</Link>
+            {info.row.original.status === "suspended" && <EtiquetaBloqueado femenino />}
+          </span>
         )
       }),
       columnHelper.accessor("slug", { header: "Slug", cell: (info) => <span className="text-muted-foreground">{info.getValue()}</span> }),
@@ -70,16 +75,21 @@ export function OrganizationsListPage() {
         enableSorting: false,
         cell: ({ row }) => {
           const organizer = row.original.organizer;
+          const bloqueada = row.original.status === "suspended";
           return (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 px-3 text-xs"
-              disabled={!organizer || connectingId === row.original.id}
-              onClick={() => connect(row.original)}
-            >
-              {connectingId === row.original.id ? "Conectando…" : organizer ? "Conectar" : "Sin organizador"}
-            </Button>
+            <div className="flex flex-nowrap items-start gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 px-3 text-xs"
+                // Bloqueada, su equipo no puede entrar, tampoco desde aqui.
+                disabled={!organizer || bloqueada || connectingId === row.original.id}
+                onClick={() => connect(row.original)}
+              >
+                {connectingId === row.original.id ? "Conectando…" : organizer ? "Conectar" : "Sin organizador"}
+              </Button>
+              <GestionOrganizacion id={row.original.id} nombre={row.original.name} bloqueado={bloqueada} />
+            </div>
           );
         }
       })
@@ -103,7 +113,7 @@ export function OrganizationsListPage() {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold">Organizaciones</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Organizadores que venden a través de Entraditas. Al pulsar &quot;Conectar&quot; pasarás a la sesión de su organizador; para volver, usa &quot;Volver a superadmin&quot; en el menú.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Organizadores que venden a través de Entraditas. Al pulsar &quot;Conectar&quot; pasarás a la sesión de su organizador; para volver, usa &quot;Volver a superadmin&quot; en el menú. Una organización bloqueada no entra al panel ni vende en la web; eliminada, va a la Papelera con sus eventos y sus ventas.</p>
         </div>
         {/* Las altas nuevas entran por aqui: el formulario de la web deja una solicitud, y de ahi
             sale la organizacion. */}

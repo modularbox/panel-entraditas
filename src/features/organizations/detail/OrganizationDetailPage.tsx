@@ -10,6 +10,8 @@ import { Button } from "@/shared/ui/button";
 import { OrganizationCustomers } from "./OrganizationCustomers";
 import { Cargando } from "@/shared/ui/Cargando";
 import { getDefaultSectionPath } from "@/app/navItems";
+import { GestionOrganizacion } from "@/features/papelera/BotonesDeGestion";
+import { EtiquetaBloqueado } from "@/shared/ui/EtiquetaBloqueado";
 
 // En UTC, como la lista de eventos: la hora guardada es la que tecleo el organizador.
 const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
@@ -83,14 +85,28 @@ export function OrganizationDetailPage() {
   if (!organization) return null;
 
   const organizer = organization.organizer;
+  // Bloqueada, nadie de su equipo puede entrar, tampoco con "Conectar" (la API lo rechaza igual).
+  const bloqueada = organization.status === "suspended";
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center gap-4">
-        <BackButton fallback="/organizaciones" />
-        <header>
-          <h1 className="font-display text-2xl font-semibold">{organization.name}</h1>
-        </header>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <BackButton fallback="/organizaciones" />
+          <header>
+            <h1 className="flex flex-wrap items-center gap-2 font-display text-2xl font-semibold">
+              {organization.name}
+              {organization.status === "suspended" && <EtiquetaBloqueado femenino />}
+            </h1>
+          </header>
+        </div>
+        <GestionOrganizacion
+          id={organization.id}
+          nombre={organization.name}
+          bloqueado={organization.status === "suspended"}
+          compacto={false}
+          alEliminar={() => navigate("/organizaciones")}
+        />
       </div>
 
       {connectError && <p role="alert">{connectError}</p>}
@@ -113,7 +129,7 @@ export function OrganizationDetailPage() {
                 type="button"
                 variant="outline"
                 className="h-8 px-3 text-xs"
-                disabled={!organizer || connectingId === organizer.id}
+                disabled={!organizer || bloqueada || connectingId === organizer.id}
                 onClick={() => organizer && connectAs(organizer.id)}
               >
                 {connectingId === organizer?.id ? "Conectando…" : organizer ? "CONECTAR" : "Sin organizador"}
@@ -150,7 +166,7 @@ export function OrganizationDetailPage() {
           <div>
             <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Estado</dt>
             <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">
-              {organization.status === "suspended" ? "Suspendida" : "Activa"}
+              {organization.status === "suspended" ? "Bloqueada" : "Activa"}
             </dd>
           </div>
           <div>
@@ -186,6 +202,7 @@ export function OrganizationDetailPage() {
                     key={member.id}
                     member={member}
                     connecting={connectingId === member.id}
+                    bloqueada={bloqueada}
                     onConnect={() => connectAs(member.id)}
                   />
                 ))}
@@ -236,7 +253,7 @@ export function OrganizationDetailPage() {
   );
 }
 
-function SubOrganizerRow({ member, connecting, onConnect }: { member: ApiOrganizationTeamMember; connecting: boolean; onConnect: () => void }) {
+function SubOrganizerRow({ member, connecting, bloqueada, onConnect }: { member: ApiOrganizationTeamMember; connecting: boolean; bloqueada: boolean; onConnect: () => void }) {
   return (
     <tr className="border-t border-border">
       <td className="px-4 py-3">{member.fullName}</td>
@@ -249,7 +266,7 @@ function SubOrganizerRow({ member, connecting, onConnect }: { member: ApiOrganiz
         )}
       </td>
       <td className="px-4 py-3 text-right">
-        <Button type="button" variant="outline" className="h-8 px-3 text-xs" disabled={connecting} onClick={onConnect}>
+        <Button type="button" variant="outline" className="h-8 px-3 text-xs" disabled={connecting || bloqueada} onClick={onConnect}>
           {connecting ? "Conectando…" : "CONECTAR"}
         </Button>
       </td>

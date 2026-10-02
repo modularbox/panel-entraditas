@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import type { Order, OrderItem, Refund } from "@entraditas/types";
 import { Can } from "@/shared/auth/Can";
 import { BackButton } from "@/shared/ui/BackButton";
@@ -14,6 +14,7 @@ import { metodoDePago } from "../metodoDePago";
 import { useEventsQuery } from "@/features/events/list/useEventsQuery";
 import { LIMITES } from "@/shared/lib/formLimits";
 import { Cargando } from "@/shared/ui/Cargando";
+import { EliminarVenta } from "@/features/papelera/BotonesDeGestion";
 
 type OrderDetail = Order & { items: OrderItem[]; refunds: Refund[]; esReal?: boolean; eventTitle?: string; sessionLabel?: string };
 
@@ -109,6 +110,7 @@ export function OrderDetailPage() {
   const orderId = id!;
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Con sesión en la API la ficha sale de la base de ventas; sin ella, de los datos de ejemplo.
   // La API trae los reembolsos con el pedido: los anota el propio panel al devolver, de momento
@@ -153,14 +155,19 @@ export function OrderDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <BackButton fallback="/ventas/pedidos" />
-        <header>
-          <h1 className="font-display text-2xl font-semibold">{order.orderNumber}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {STATUS_LABELS[order.status]} · {CHANNEL_LABELS[order.channel]} · {new Date(order.createdAt).toLocaleDateString("es-ES")}
-          </p>
-        </header>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <BackButton fallback="/ventas/pedidos" />
+          <header>
+            <h1 className="font-display text-2xl font-semibold">{order.orderNumber}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {STATUS_LABELS[order.status]} · {CHANNEL_LABELS[order.channel]} · {new Date(order.createdAt).toLocaleDateString("es-ES")}
+            </p>
+          </header>
+        </div>
+        {order.esReal && (
+          <EliminarVenta id={order.id} numero={order.orderNumber} compacto={false} alEliminar={() => navigate("/ventas/pedidos")} />
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

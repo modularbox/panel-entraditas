@@ -6,6 +6,7 @@ import { Menu } from "@/components/Menu";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useInactivityLogout } from "@/shared/auth/useInactivityLogout";
 import { recordPanelVisit, resetPanelHistory } from "@/shared/ui/panelHistory";
+import { AvisoGlobal } from "@/shared/ui/AvisoGlobal";
 import { getAccessibleNavItems } from "../navItems";
 
 export function PanelLayout() {
@@ -73,6 +74,7 @@ export function PanelLayout() {
         onReturnToSuperadmin={impersonatorToken ? handleReturnToSuperadmin : undefined}
       />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+        <AvisoGlobal />
         <Outlet />
       </main>
     </div>

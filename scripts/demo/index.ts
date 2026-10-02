@@ -10,7 +10,7 @@ import type { EventoParaVender } from "./ventas";
  * `scripts/exportar-demo.ts` la convierte en lo que carga la API en MySQL. Cada vez que cambie algo
  * de aqui hay que subir DEMO_VERSION: la API solo la vuelve a cargar cuando cambia.
  */
-export const DEMO_VERSION = "2026-09-30.2";
+export const DEMO_VERSION = "2026-10-02.1";
 
 /** Las dos organizaciones de siempre, que ya existen en la base: la demo cuelga eventos de ellas. */
 export const ORGANIZACIONES_DE_SIEMPRE: Organization[] = [

@@ -12,6 +12,7 @@ import {
   type PublishOutcome
 } from "@/features/publish/publishToPublicSite";
 import { isPubliclyVisible } from "@/shared/lib/eventLifecycle";
+import { EliminarEvento } from "@/features/papelera/BotonesDeGestion";
 
 /** Estados en los que la revision ya ha entrado y el superadmin puede aprobar o rechazar. */
 const REVIEWABLE: Event["status"][] = ["in_review"];
@@ -24,7 +25,7 @@ const ESTADOS_A_MANO: Event["status"][] = ["draft", "in_review", "published", "r
 
 /**
  * Acciones de un evento en el listado: revisarlo, retirarlo de revision o de la web, cambiarle el
- * estado y cancelarlo.
+ * estado, cancelarlo y eliminarlo (a la papelera).
  *
  * Cada accion que cambia lo que ve el comprador se sincroniza con entraditas.com en el mismo
  * gesto. Antes solo existia "aprobar", asi que un evento despublicado o borrado en el panel
@@ -188,7 +189,7 @@ export function EventRowActions({ event }: { event: Event }) {
             variant={accion.variant}
             onClick={accion.onClick}
             disabled={working}
-            className="h-8 px-3 text-xs"
+            className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
           >
             {accion.label}
           </Button>
@@ -201,7 +202,7 @@ export function EventRowActions({ event }: { event: Event }) {
               variant="destructive"
               onClick={() => cancel.mutate()}
               disabled={working}
-              className="h-8 px-3 text-xs"
+              className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
             >
               {cancel.isPending ? "Cancelando..." : "Confirmar cancelación"}
             </Button>
@@ -210,7 +211,7 @@ export function EventRowActions({ event }: { event: Event }) {
               variant="outline"
               onClick={() => setConfirmingCancel(false)}
               disabled={working}
-              className="h-8 px-3 text-xs"
+              className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
             >
               Volver
             </Button>
@@ -224,7 +225,7 @@ export function EventRowActions({ event }: { event: Event }) {
               setConfirmingCancel(true);
             }}
             disabled={working}
-            className="h-8 px-3 text-xs"
+            className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
           >
             Cancelar evento
           </Button>
@@ -245,6 +246,9 @@ export function EventRowActions({ event }: { event: Event }) {
             ))}
           </select>
         )}
+
+        {/* Eliminar no es cancelar: lo manda a la papelera, de donde se restaura (tanda 21). */}
+        {!confirmingCancel && <EliminarEvento id={event.id} titulo={event.title} />}
       </div>
 
       {confirmingCancel && (

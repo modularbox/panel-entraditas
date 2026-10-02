@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Customer, Order } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { canReadFromApi, fetchApiCustomer, type ApiCustomerDetail } from "@/shared/lib/entraditasApi";
 import { BackButton } from "@/shared/ui/BackButton";
 import { Cargando } from "@/shared/ui/Cargando";
+import { GestionCliente } from "@/features/papelera/BotonesDeGestion";
+import { EtiquetaBloqueado } from "@/shared/ui/EtiquetaBloqueado";
 
 type CustomerDetail = Customer & { orders: (Order & { eventTitle: string })[] };
 
@@ -23,6 +25,7 @@ function desdeLaApi(ficha: ApiCustomerDetail): CustomerDetail {
     email: ficha.email,
     phone: ficha.phone || null,
     acceptsAdvertising: ficha.acceptsAdvertising,
+    status: ficha.status === "blocked" ? "blocked" : "active",
     createdAt: ficha.createdAt ?? undefined,
     ordersCount: ficha.ordersCount,
     ticketsCount: ficha.ticketsCount,
@@ -69,6 +72,7 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
   const { email } = useParams<{ email: string }>();
   const token = useSessionStore((s) => s.token);
   const isSuperadmin = useSessionStore((s) => s.user?.role === "superadmin");
+  const navigate = useNavigate();
 
   const desdeApi = canReadFromApi();
 
@@ -105,12 +109,26 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <BackButton fallback="/clientes" />
-        <header>
-          <h1 className="font-display text-2xl font-semibold">{customer.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{customer.email}</p>
-        </header>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <BackButton fallback="/clientes" />
+          <header>
+            <h1 className="flex flex-wrap items-center gap-2 font-display text-2xl font-semibold">
+              {customer.name}
+              {customer.status === "blocked" && <EtiquetaBloqueado />}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">{customer.email}</p>
+          </header>
+        </div>
+        {desdeApi && (
+          <GestionCliente
+            email={customer.email}
+            nombre={customer.name}
+            bloqueado={customer.status === "blocked"}
+            compacto={false}
+            alEliminar={() => navigate("/clientes")}
+          />
+        )}
       </div>
 
       {/* DATOS DEL CLIENTE */}

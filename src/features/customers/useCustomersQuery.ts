@@ -24,6 +24,7 @@ export function desdeLaApi(cliente: ApiCustomer): Customer {
     phone: cliente.phone || null,
     createdAt: cliente.createdAt ?? undefined,
     acceptsAdvertising: cliente.acceptsAdvertising === true,
+    status: cliente.status === "blocked" ? "blocked" : "active",
     ordersCount: cliente.ordersCount,
     ticketsCount: cliente.ticketsCount ?? 0,
     totalSpent: cliente.totalSpent,

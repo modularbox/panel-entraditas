@@ -72,8 +72,13 @@ export function AutoSincronizacionConLaWeb({ eventos }: AutoSincronizacionConLaW
 
   return (
     <div className="flex flex-col items-start gap-1">
+      {/* "0 publicados" se leia como "no hay nada en la web", y no era eso: es lo que se acaba de
+          volver a mandar. Lo que importa es cuales no se han podido poner al dia (tanda 21). */}
       <p role="status" className="text-xs font-medium text-destructive">
-        {`${estado.actualizados} publicados en entraditas.com. ${estado.fallos.length} con problemas:`}
+        {estado.fallos.length === 1
+          ? "Un evento publicado no se ha podido poner al día en entraditas.com:"
+          : `${estado.fallos.length} eventos publicados no se han podido poner al día en entraditas.com:`}
+        {estado.actualizados > 0 && ` (${estado.actualizados} sí se han actualizado)`}
       </p>
       {estado.fallos.map((fallo) => (
         <p key={fallo} className="max-w-2xl text-xs text-destructive">
