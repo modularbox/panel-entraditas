@@ -4,6 +4,7 @@ import type { DiscountCode, TicketType } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
+import { AccionConConfirmacion } from "@/shared/ui/AccionConConfirmacion";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { groupTicketTypes } from "./Step4TicketTypes";
 import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
@@ -141,9 +142,13 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
             <Button type="button" variant="outline" onClick={() => toggleStatus(c)} className="h-8 px-2 text-xs">
               {c.status === "active" ? "Desactivar" : "Activar"}
             </Button>
-            <Button type="button" variant="destructive" onClick={() => deleteDiscountCode(c.id)} className="h-8 px-2 text-xs">
-              Eliminar
-            </Button>
+            <AccionConConfirmacion
+              etiqueta="Eliminar"
+              confirmar="Sí, eliminar"
+              aviso={`El código ${c.code} dejará de poder usarse en entraditas.com.`}
+              accion={async () => deleteDiscountCode(c.id)}
+              compacto
+            />
           </li>
         ))}
       </ul>

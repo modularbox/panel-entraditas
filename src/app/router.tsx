@@ -12,6 +12,7 @@ import { EventWizardPage } from "@/features/events/wizard/EventWizardPage";
 import { OrderDetailPage } from "@/features/sales/orders/detail/OrderDetailPage";
 import { OrdersListPage } from "@/features/sales/orders/list/OrdersListPage";
 import { RefundsListPage } from "@/features/sales/refunds/list/RefundsListPage";
+import { TransfersListPage } from "@/features/sales/transfers/list/TransfersListPage";
 import { CustomersListPage } from "@/features/customers/CustomersListPage";
 import { CustomerDetailPage } from "@/features/customers/CustomerDetailPage";
 import { VentasLayout } from "@/features/sales/VentasLayout";
@@ -30,7 +31,7 @@ import { PanelLayout } from "./layouts/PanelLayout";
 import { getDefaultSectionPath, NAV_ITEMS } from "./navItems";
 import { Cargando } from "@/shared/ui/Cargando";
 
-const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/accesos", "/clientes", "/organizaciones", "/papelera"]);
+const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/accesos", "/clientes", "/organizaciones"]);
 
 function DefaultSectionRedirect() {
   const permissions = useSessionStore((s) => s.effectivePermissions);
@@ -107,13 +108,11 @@ export function AppRoutes() {
             <Route index element={<Navigate to="pedidos" replace />} />
             <Route path="pedidos" element={<OrdersListPage />} />
             <Route path="pedidos/:id" element={<OrderDetailPage />} />
+            <Route path="transferencias" element={<TransfersListPage />} />
             <Route path="reembolsos" element={<RefundsListPage />} />
           </Route>
           <Route path="/clientes" element={<CustomersListPage />} />
           <Route path="/clientes/:email" element={<CustomerDetailPage />} />
-        </Route>
-        <Route element={<RequirePermission permission="trash:manage" />}>
-          <Route path="/papelera" element={<PapeleraPage />} />
         </Route>
         <Route element={<RequirePermission permission="scan:validate" />}>
           <Route path="/accesos" element={<AccesosLayout />}>
@@ -123,6 +122,9 @@ export function AppRoutes() {
         </Route>
         <Route path="/terminos" element={<TermsPage />} />
         <Route path="/sin-acceso" element={<div>No tienes acceso a esta sección.</div>} />
+        {/* Aterriza de "Conectar": la pestaña nueva entra por aqui y va a la primera sección que la
+            persona conectada puede abrir. */}
+        <Route path="/conectar" element={<DefaultSectionRedirect />} />
         <Route path="/" element={<DefaultSectionRedirect />} />
       </Route>
     </Routes>

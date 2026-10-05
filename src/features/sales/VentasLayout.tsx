@@ -3,6 +3,7 @@ import { cn } from "@/shared/lib/cn";
 
 const ENABLED_TABS = [
   { to: "/ventas/pedidos", label: "Pedidos" },
+  { to: "/ventas/transferencias", label: "Transferencias" },
   { to: "/ventas/reembolsos", label: "Reembolsos" }
 ] as const;
 // Placeholder for tabs not yet built; renders as a disabled button instead of a link.

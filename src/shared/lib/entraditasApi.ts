@@ -29,6 +29,15 @@ export function normalizeApiBase(value: string | undefined): string {
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
 const WEB_BASE = normalizeApiBase(import.meta.env.VITE_WEB_URL);
 const TOKEN_STORAGE_KEY = "entraditas.panel.apiToken";
+/**
+ * Token que vale SOLO en la pestaña que lo guardo, por encima del compartido.
+ *
+ * "Conectar" abre una pestana nueva con la sesion del organizador y deja intacta la de superadmin.
+ * Como las dos pestanas son del mismo origen, `localStorage` esta compartida entre ellas y ahi no
+ * cabe la sesion conectada: escribirla ahi expulsaria al superadmin de su propia pestana. En
+ * `sessionStorage`, que es por pestana, si caben las dos.
+ */
+const TAB_TOKEN_STORAGE_KEY = "entraditas.panel.apiToken.pestana";
 
 export interface ApiStaff {
   id: string;
@@ -56,12 +65,38 @@ export function isApiConfigured(): boolean {
   return API_BASE !== "";
 }
 
+/** El token con el que se habla con la API: el de esta pestana si lo hay, si no el compartido. */
 export function getApiToken(): string | null {
-  return localStorage.getItem(TOKEN_STORAGE_KEY);
+  return sessionStorage.getItem(TAB_TOKEN_STORAGE_KEY) ?? localStorage.getItem(TOKEN_STORAGE_KEY);
 }
 
-export function storeApiToken(token: string | null): void {
-  if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
+/** Entra: esta cuenta pasa a ser la de ESTE navegador, en todas sus pestanas. */
+export function storeApiToken(token: string): void {
+  // Entrar con una cuenta deja obsoleta cualquier sesion de pestana anterior.
+  sessionStorage.removeItem(TAB_TOKEN_STORAGE_KEY);
+  localStorage.setItem(TOKEN_STORAGE_KEY, token);
+}
+
+/** Guarda un token que solo vale en esta pestana, sin tocar el compartido. */
+export function storeTabApiToken(token: string): void {
+  sessionStorage.setItem(TAB_TOKEN_STORAGE_KEY, token);
+}
+
+/** Salir del panel en este navegador: se van la sesion de la pestana y la compartida. */
+export function clearApiToken(): void {
+  sessionStorage.removeItem(TAB_TOKEN_STORAGE_KEY);
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
+/**
+ * La sesion que estaba en uso se ha caido sola (caducada, revocada o un 401).
+ *
+ * Se borra solo la que esta pestana estaba usando: si es la de "Conectar", borrarla tambien de
+ * `localStorage` dejaria al superadmin sin sesion en su propia pestana por culpa de una pestana
+ * que ni es suya. Si no hay sesion de pestana, la que se cae es la compartida.
+ */
+export function clearSesionActiva(): void {
+  if (sessionStorage.getItem(TAB_TOKEN_STORAGE_KEY) !== null) sessionStorage.removeItem(TAB_TOKEN_STORAGE_KEY);
   else localStorage.removeItem(TOKEN_STORAGE_KEY);
 }
 
@@ -89,7 +124,7 @@ async function request<T>(path: string, init: RequestInit = {}, avisaSiCaduca = 
     // 403 cuenta igual que 401: el hosting devuelve 403 cuando se come la cabecera Authorization,
     // asi que para quien lo vive es lo mismo que no tener sesion.
     if (avisaSiCaduca && (response.status === 401 || response.status === 403)) {
-      storeApiToken(null);
+      clearSesionActiva();
       avisarDeSesionPerdida(path);
     }
     throw new ErrorDeLaApi(
@@ -152,7 +187,7 @@ export async function iniciarSesionEnLaApi(email: string, password: string): Pro
     };
   }
 
-  storeApiToken(null);
+  clearSesionActiva();
   // Un 5xx es un problema del servidor, no una negativa sobre estas credenciales.
   if (response.status >= 500) return { estado: "sin-respuesta" };
   return { estado: "rechazado", mensaje: payload.error ?? "Correo o contraseña incorrectos." };
@@ -185,7 +220,7 @@ export async function conectarConLaApi(email: string, password: string): Promise
     storeApiToken(result.token);
     return result.staff;
   } catch (error) {
-    storeApiToken(null);
+    clearSesionActiva();
     throw error;
   }
 }
@@ -215,7 +250,7 @@ export async function estadoSesionApi(): Promise<EstadoSesionApi> {
     const respuesta = await fetch(`${API_BASE}/v1/panel/me`, { headers: { authorization: `Bearer ${token}` } });
     if (respuesta.ok) return "valida";
     if (respuesta.status >= 500) return "sin-respuesta";
-    storeApiToken(null);
+    clearSesionActiva();
     return "invalida";
   } catch {
     return "sin-respuesta";
@@ -236,7 +271,7 @@ export async function quienSoyEnLaApi(): Promise<ApiStaff | null> {
     };
   } catch {
     // El token caduco o se revoco: se limpia para que la interfaz no diga "conectado" sin serlo.
-    storeApiToken(null);
+    clearSesionActiva();
     return null;
   }
 }
@@ -244,10 +279,9 @@ export async function quienSoyEnLaApi(): Promise<ApiStaff | null> {
 /**
  * Igual, pero con un token concreto.
  *
- * Lo necesita "Volver a superadmin": cuando el superadmin ha entrado en una organizacion, el token
- * guardado pasa a ser el del miembro y el del superadmin solo sobrevive en `impersonatorToken`.
- * Sin este variante, el volver preguntaba por el token equivocado y la sesion volvia siendo la del
- * miembro ("sin acceso" a lo que el superadmin ve).
+ * Lo necesita `hydrateConnectedSession`: al conectar con un suborganizador, el token suyo se pide
+ * validar en la API porque su perfil trae los permisos efectivos, y en ese momento el token
+ * guardado todavia es el del superadmin que abrio la pestana.
  */
 export async function quienSoyEnLaApiConToken(token: string): Promise<ApiStaff | null> {
   if (!isApiConfigured()) return null;
@@ -270,10 +304,14 @@ export async function quienSoyEnLaApiConToken(token: string): Promise<ApiStaff |
   }
 }
 
-export async function logoutFromApi(): Promise<void> {
+export async function logoutFromApi(alcance: "navegador" | "pestana" = "navegador"): Promise<void> {
   if (!isApiConfigured() || !getApiToken()) return;
   await request("/v1/panel/auth/logout", { method: "POST" }, false).catch(() => undefined);
-  storeApiToken(null);
+  // Cerrar sesion a proposito es una decision sobre este navegador entero, asi que se va tambien la
+  // pestana de "Conectar" que hubiera abierta. En cambio, cuando lo que caduca es una sola pestana
+  // (por inactividad), el token del superadmin en su pestana es intocable.
+  if (alcance === "navegador") clearApiToken();
+  else clearSesionActiva();
 }
 
 /** Publica (o actualiza) el evento en la web publica. `payload` es el contrato ya adaptado. */
@@ -563,6 +601,10 @@ export interface ApiPanelOrder {
   items: ApiOrderLine[];
   tickets: ApiOrderTicket[];
   refunds?: ApiRefund[];
+  /** Number of tickets that were transferred from this order (offers accepted). */
+  transferredCount?: number;
+  /** Number of tickets in the order that remain with the original buyer account. */
+  nonTransferredCount?: number;
 }
 
 export interface FiltrosDePedidos {

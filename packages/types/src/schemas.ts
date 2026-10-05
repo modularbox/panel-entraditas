@@ -476,7 +476,12 @@ export const OrderSchema = z.object({
   // Vencimiento de la reserva. La web reserva un número de entradas durante unos minutos y
   // expira si el pago no llega a tiempo; taquilla no reserva.
   expiresAt: z.string().nullable().optional(),
-  createdAt: z.string(), updatedAt: z.string()
+  createdAt: z.string(), updatedAt: z.string(),
+  // Cuántas entradas de este pedido se han cedido a otras cuentas (cesiones aceptadas). La API lo
+  // calcula cuando trae los pedidos: sirve para saber qué tanto se ha "movido" un pedido.
+  transferredCount: z.number().int().nonnegative().optional(),
+  /** Cuántas entradas siguen en manos del comprador original, si se quiere ver la diferencia. */
+  nonTransferredCount: z.number().int().nonnegative().optional()
 });
 export type Order = z.infer<typeof OrderSchema>;
 
@@ -499,6 +504,29 @@ export const RefundSchema = z.object({
   createdAt: z.string()
 });
 export type Refund = z.infer<typeof RefundSchema>;
+
+// Una cesión de entrada: quién se la offertaba a quién, sobre qué pedido y con qué resultado.
+// La crea el comprador desde entraditas.com; aquí solo se lee, ya resuelta por el lado del pedido.
+export const TicketTransferSchema = z.object({
+  id: z.string(), ticketId: z.string(),
+  /** Estado de la entrada cedida. Lo importante no es el suyo, sino que puede haber cambiado al aceptarse. */
+  ticketStatus: z.string(), ticketSeat: z.string().nullable().optional(),
+  orderId: z.string(), orderNumber: z.string(),
+  eventId: z.string(), eventTitle: z.string().optional(),
+  // null cuando el pedido es de antes de que los pedidos guardaran organización: entonces manda la del evento.
+  organizationId: z.string().nullable().optional(), organizationName: z.string().optional(),
+  // El lado que se va. La cuenta que tenía la entrada, que no siempre es la que compró el pedido.
+  fromUserId: z.string(), fromName: z.string(), fromEmail: z.string(),
+  // El lado que se queda. El nombre puede venir vacío si el receptor aún no tiene cuenta.
+  toUserId: z.string(), toName: z.string(), toEmail: z.string(),
+  /** El correo al que se ofreció la cesión, que no siempre coincide con el de la cuenta del receptor. */
+  toEmailOffered: z.string().optional(),
+  status: z.enum(["pending","accepted","rejected","cancelled","expired"]),
+  /** El mensaje con el que el cesionario acompaña la oferta. */
+  message: z.string().nullable().optional(),
+  createdAt: z.string(), respondedAt: z.string().nullable().optional()
+});
+export type TicketTransfer = z.infer<typeof TicketTransferSchema>;
 
 // Perfil de cuenta de un cliente comprador, tal como vive en la bd (tabla customers). La "ficha de
 // cliente" del panel fusiona este perfil con los pedidos visibles del email correspondiente, de modo

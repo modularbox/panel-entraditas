@@ -57,9 +57,11 @@ export function pedidoDesdeLaApi(pedido: ApiPanelOrder): PedidoConEvento {
       : {}),
     paidAt: pedido.status === "paid" ? creado : null,
     expiresAt: null,
-    createdAt: creado,
-    updatedAt: creado,
-    items: pedido.items.map((linea) => ({
+  createdAt: creado,
+  updatedAt: creado,
+  transferredCount: pedido.transferredCount ?? 0,
+  nonTransferredCount: pedido.nonTransferredCount ?? 0,
+  items: pedido.items.map((linea) => ({
       id: linea.id,
       orderId: pedido.id,
       // El tipo de entrada puede no existir como fila cuando el evento se publicó sin montarlo

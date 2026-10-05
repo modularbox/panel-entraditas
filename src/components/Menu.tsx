@@ -9,13 +9,12 @@ export interface MenuProps {
   items: NavItem[];
   user: SessionUser | null;
   onLogout: () => void;
-  onReturnToSuperadmin?: () => void;
   /** Volver a pedir los datos sin recargar la pagina entera. */
   onRefresh?: () => void;
   refreshing?: boolean;
 }
 
-export function Menu({ items, user, onLogout, onReturnToSuperadmin, onRefresh, refreshing }: MenuProps) {
+export function Menu({ items, user, onLogout, onRefresh, refreshing }: MenuProps) {
   const location = useLocation();
   // En el móvil el menú va plegado tras un botón (tanda 17, "todo responsive"): desplegado, ocupaba
   // la primera pantalla entera y había que bajar para ver la página. En ordenador se ve siempre.
@@ -82,11 +81,6 @@ export function Menu({ items, user, onLogout, onReturnToSuperadmin, onRefresh, r
           {onRefresh ? (
             <Button variant="outline" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing}>
               {refreshing ? "Actualizando…" : "Actualizar información"}
-            </Button>
-          ) : null}
-          {onReturnToSuperadmin ? (
-            <Button variant="outline" onClick={onReturnToSuperadmin}>
-              Volver a superadmin
             </Button>
           ) : null}
           <Button variant="ghost" onClick={onLogout}>

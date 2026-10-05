@@ -1,20 +1,20 @@
 import { create } from "zustand";
 import { alPerderLaSesion } from "@/shared/lib/apiClient";
 import {
-  estadoSesionApi, getApiToken, iniciarSesionEnLaApi, isApiConfigured, logoutFromApi, quienSoyEnLaApi,
-  quienSoyEnLaApiConToken, type ApiStaff
+  clearSesionActiva, estadoSesionApi, getApiToken, iniciarSesionEnLaApi, isApiConfigured, logoutFromApi, quienSoyEnLaApi,
+  quienSoyEnLaApiConToken, storeApiToken, type ApiStaff
 } from "@/shared/lib/entraditasApi";
 import { resolveEffectivePermissions } from "./permissions";
 import { guardarCierre, olvidarCierre, type MotivoDeCierre } from "./sessionExpiry";
 import type { PermissionOverride, RoleSlug } from "@entraditas/types";
 
-// Misma clave con la que `entraditasApi` recuerda el token (`getApiToken`/`storeApiToken`): son la
-// misma sesion, la del panel sobre api.entraditas.com. Hasta ahora la store guardaba su token en
-// una clave propia y la API en otra, asi que al recargar la pagina `restore()` recuperaba el token
-// con el que se habia quedado (el del superadmin antes de un "Conectar") y la sesion saltaba a la
-// del superadmin aunque se estuviera dentro de una organizacion.
-const TOKEN_STORAGE_KEY = "entraditas.panel.apiToken";
-const IMPERSONATOR_STORAGE_KEY = "entraditas.panel.impersonatorToken";
+// El token se recuerda en `entraditasApi` (`getApiToken`/`storeApiToken`), no aqui: son la misma
+  // sesion, la del panel sobre api.entraditas.com. Hasta ahora la store guardaba su token en una
+  // clave propia y la API en otra, asi que al recargar la pagina `restore()` recuperaba el token con
+  // el que se habia quedado (el del superadmin antes de un "Conectar") y la sesion saltaba a la del
+  // superadmin aunque se estuviera dentro de una organizacion. Por eso la store ya no escribe claves
+  // de storage: usa los accesores de la API, que ademas distinguen la sesion compartida de la de
+  // pestana.
 
 export interface SessionUser {
   id: string;
@@ -83,17 +83,12 @@ interface SessionState {
   effectivePermissions: Set<string>;
   eventScopes: string[];
   status: "idle" | "authenticated" | "unauthenticated";
-  // The superadmin's own token, saved when they "Conectar" into an organization's admin account
-  // (see connectAs) so they can switch straight back without logging in again. Null otherwise.
-  impersonatorToken: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   /** Cierra la sesion sin que nadie lo haya pedido, dejando dicho por que. */
   expire: (motivo: MotivoDeCierre, inactivoMs?: number) => void;
   restore: () => Promise<void>;
   setSession: (session: SessionResponse) => void;
-  connectAs: (session: SessionResponse) => void;
-  returnToSuperadmin: () => Promise<void>;
 }
 
 /**
@@ -117,53 +112,36 @@ function sesionDesde(staff: ApiStaff, token: string): SessionResponse {
   };
 }
 
+/** Como queda la store cuando no hay sesion que valga, para no repetirlo en cada cierre. */
+function sesionCerrada(): Pick<SessionState, "token" | "user" | "effectivePermissions" | "eventScopes" | "status"> {
+  return {
+    token: null,
+    user: null,
+    effectivePermissions: new Set(),
+    eventScopes: [],
+    status: "unauthenticated"
+  };
+}
 export const useSessionStore = create<SessionState>((set, get) => ({
   token: null,
   user: null,
   effectivePermissions: new Set(),
   eventScopes: [],
   status: "idle",
-  impersonatorToken: null,
 
   setSession(session) {
     const accessToken = session.accessToken ?? session.token;
     if (!accessToken) throw new Error("La API no devolvió un token de sesión.");
-    localStorage.setItem(TOKEN_STORAGE_KEY, accessToken);
+    storeApiToken(accessToken);
     // Ya ha vuelto a entrar: el aviso de por que se cerro la anterior ha cumplido.
     olvidarCierre();
-    // Every fresh session (login, restore-like, or returning to the superadmin) starts clean —
-    // any leftover impersonator token from a previous, unrelated session no longer applies.
-    localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
-    set({ token: accessToken, user: session.user, effectivePermissions: new Set(getSessionEffectivePermissions(session)), eventScopes: getSessionEventScopes(session), status: "authenticated", impersonatorToken: null });
-  },
-
-  connectAs(session) {
-    // Only reachable from "Conectar" in Organizaciones, which only a superadmin can open (see
-    // requireOrganizationManager), so the token being replaced here is always theirs.
-    const currentToken = get().token;
-    get().setSession(session);
-    if (currentToken) {
-      localStorage.setItem(IMPERSONATOR_STORAGE_KEY, currentToken);
-      set({ impersonatorToken: currentToken });
-    }
-  },
-
-  async returnToSuperadmin() {
-    const token = get().impersonatorToken;
-    if (!token) return;
-    try {
-      // El token activo sigue siendo el del organizador conectado; el perfil debe validarse con el
-      // token del superadmin que se guardó al hacer la conexión.
-      const result = await quienSoyEnLaApiConToken(token);
-      if (!result) throw new Error("Sesión no válida");
-      get().setSession(sesionDesde(result, token));
-    } catch {
-      // The superadmin's token is no longer valid — there's nothing to return to, so drop back to
-      // a clean logged-out state instead of leaving a dead-end button around.
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
-      set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
-    }
+    set({
+      token: accessToken,
+      user: session.user,
+      effectivePermissions: new Set(getSessionEffectivePermissions(session)),
+      eventScopes: getSessionEventScopes(session),
+      status: "authenticated"
+    });
   },
 
   /**
@@ -189,12 +167,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   async logout() {
+    // Salir es una decision sobre este navegador: se van tambien las pestanas de "Conectar".
     await logoutFromApi().catch(() => undefined);
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-    localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
     // Salir por voluntad propia no deja aviso: el de la vez anterior no tiene nada que decir aqui.
     olvidarCierre();
-    set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
+    set(sesionCerrada());
   },
 
   /**
@@ -208,10 +185,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   expire(motivo, inactivoMs) {
     if (get().status !== "authenticated") return;
     guardarCierre({ motivo, ...(inactivoMs !== undefined ? { inactivoMs } : {}) });
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-    localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
-    set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
-    void logoutFromApi().catch(() => undefined);
+    // Solo se cae la sesion de esta pestana. Si lo que caduca es la de "Conectar", el superadmin
+    // sigue con la suya en su pestana y no tiene por que enterarse.
+    clearSesionActiva();
+    set(sesionCerrada());
+    void logoutFromApi("pestana").catch(() => undefined);
   },
 
   async restore() {
@@ -223,8 +201,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const token = getApiToken();
     if (!token) {
       // El token viejo del panel no sirve para la API: quien lo tenga guardado tendra que entrar.
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
+      clearSesionActiva();
+      set(sesionCerrada());
       return;
     }
 
@@ -233,9 +211,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       // Se deja dicho POR QUE. Sin esto el login aparecia sin explicacion: para quien lo vive, el
       // panel simplemente le echa, y lo que ve es "entra" sin saber que se le habia caducado.
       guardarCierre({ motivo: "sesion-no-valida" });
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      localStorage.removeItem(IMPERSONATOR_STORAGE_KEY);
-      set({ status: "unauthenticated", token: null, user: null, effectivePermissions: new Set(), eventScopes: [], impersonatorToken: null });
+      clearSesionActiva();
+      set(sesionCerrada());
       return;
     }
     if (estado === "sin-respuesta") {
@@ -247,8 +224,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     const staff = await quienSoyEnLaApi();
     if (!staff) {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      set({ token: null, user: null, effectivePermissions: new Set(), eventScopes: [], status: "unauthenticated", impersonatorToken: null });
+      clearSesionActiva();
+      set(sesionCerrada());
       return;
     }
     const session = sesionDesde(staff, token);
@@ -257,8 +234,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       user: session.user,
       effectivePermissions: new Set(session.effectivePermissions),
       eventScopes: session.eventScopes,
-      status: "authenticated",
-      impersonatorToken: localStorage.getItem(IMPERSONATOR_STORAGE_KEY)
+      status: "authenticated"
     });
   }
 }));

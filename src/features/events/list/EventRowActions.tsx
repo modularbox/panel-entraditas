@@ -204,7 +204,7 @@ export function EventRowActions({ event }: { event: Event }) {
               disabled={working}
               className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
             >
-              {cancel.isPending ? "Cancelando..." : "Confirmar cancelación"}
+              {cancel.isPending ? "Cancelando..." : "Sí, cancelar evento"}
             </Button>
             <Button
               type="button"
@@ -248,7 +248,7 @@ export function EventRowActions({ event }: { event: Event }) {
         )}
 
         {/* Eliminar no es cancelar: lo manda a la papelera, de donde se restaura (tanda 21). */}
-        {!confirmingCancel && <EliminarEvento id={event.id} titulo={event.title} />}
+        {/* {!confirmingCancel && <EliminarEvento id={event.id} titulo={event.title} />} */}
       </div>
 
       {confirmingCancel && (

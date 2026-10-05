@@ -1,15 +1,14 @@
 import { useState } from "react";
-import { flushSync } from "react-dom";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import type { ApiOrganizationDetail, ApiOrganizationTeamMember } from "@/shared/lib/entraditasApi";
-import { getSessionEffectivePermissions, hydrateConnectedSession, useSessionStore, type SessionResponse } from "@/shared/auth/sessionStore";
+import { hydrateConnectedSession, useSessionStore, type SessionResponse } from "@/shared/auth/sessionStore";
+import { abrirPestanaDeConexion } from "@/shared/auth/conectarEnPestana";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { BackButton } from "@/shared/ui/BackButton";
 import { Button } from "@/shared/ui/button";
 import { OrganizationCustomers } from "./OrganizationCustomers";
 import { Cargando } from "@/shared/ui/Cargando";
-import { getDefaultSectionPath } from "@/app/navItems";
 import { GestionOrganizacion } from "@/features/papelera/BotonesDeGestion";
 import { EtiquetaBloqueado } from "@/shared/ui/EtiquetaBloqueado";
 
@@ -42,8 +41,6 @@ function EstadoDeEvento({ estado }: { estado: string }) {
 export function OrganizationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const token = useSessionStore((state) => state.token);
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
 
@@ -54,19 +51,27 @@ export function OrganizationDetailPage() {
     retry: false // a 404 here is a valid "not found" outcome, not a transient failure to retry
   });
 
-  // "Conectar" cambia la sesión actual a la de un miembro de la organización. Primero se navega
-  // a una sección autorizada para esa persona y luego se intercambia la sesión; el botón
-  // "Volver a superadmin" del menú permite regresar.
-  async function connectAs(subjectId: string) {
+  // "Conectar" no cambia la sesion de quien le da al boton: se la pasa a una pestana nueva. Quien
+  // sigue aqui sigue siendo el superadmin de siempre; el conectado entra en su propia pestana, y
+  // al cerrarla se acaba su sesion.
+  async function conectarEnPestana(subjectId: string) {
     setConnectError(null);
     setConnectingId(subjectId);
+    // La pestana se pide de golpe, antes del primer `await`: el clic es lo unico que autoriza a
+    // abrirla, y esa autorizacion se gasta en cuanto el codigo vuelve al hilo de peticiones.
+    const pestana = abrirPestanaDeConexion();
+    if (!pestana) {
+      setConnectingId(null);
+      setConnectError("El navegador no dejó abrir la pestaña nueva. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.");
+      return;
+    }
     try {
       const response = await apiClient.post<SessionResponse>(`/organizations/${organization?.id}/users/${subjectId}/connect`, undefined, { token: token! });
       const session = await hydrateConnectedSession(response);
-      flushSync(() => navigate(getDefaultSectionPath(new Set(getSessionEffectivePermissions(session))) ?? "/sin-acceso"));
-      useSessionStore.getState().connectAs(session);
-      queryClient.clear();
+      pestana.conectar(session);
     } catch (cause) {
+      // La conexion no llego: la pestana en blanco se cierra, que si no se queda ahi para siempre.
+      pestana.cerrar();
       if (cause instanceof AppError) setConnectError(cause.message);
     } finally {
       setConnectingId(null);
@@ -105,7 +110,6 @@ export function OrganizationDetailPage() {
           nombre={organization.name}
           bloqueado={organization.status === "suspended"}
           compacto={false}
-          alEliminar={() => navigate("/organizaciones")}
         />
       </div>
 
@@ -130,7 +134,7 @@ export function OrganizationDetailPage() {
                 variant="outline"
                 className="h-8 px-3 text-xs"
                 disabled={!organizer || bloqueada || connectingId === organizer.id}
-                onClick={() => organizer && connectAs(organizer.id)}
+                onClick={() => organizer && conectarEnPestana(organizer.id)}
               >
                 {connectingId === organizer?.id ? "Conectando…" : organizer ? "CONECTAR" : "Sin organizador"}
               </Button>
@@ -203,7 +207,7 @@ export function OrganizationDetailPage() {
                     member={member}
                     connecting={connectingId === member.id}
                     bloqueada={bloqueada}
-                    onConnect={() => connectAs(member.id)}
+                    onConnect={() => conectarEnPestana(member.id)}
                   />
                 ))}
               </tbody>

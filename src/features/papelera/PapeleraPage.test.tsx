@@ -69,7 +69,7 @@ describe("PapeleraPage", () => {
     pintar();
 
     fireEvent.click(await screen.findByRole("button", { name: "Borrar para siempre" }));
-    expect(screen.getByText(/Se borran también sus 12 ventas/)).toBeInTheDocument();
+    expect(screen.getByText(/¿Está seguro de la acción que va a realizar?/)).toBeInTheDocument();
     expect(borrar).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Sí, borrar para siempre" }));

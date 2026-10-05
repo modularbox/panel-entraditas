@@ -1,21 +1,19 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Menu } from "@/components/Menu";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useInactivityLogout } from "@/shared/auth/useInactivityLogout";
 import { recordPanelVisit, resetPanelHistory } from "@/shared/ui/panelHistory";
 import { AvisoGlobal } from "@/shared/ui/AvisoGlobal";
+import { ConfirmProvider } from "@/shared/ui/useConfirm";
 import { getAccessibleNavItems } from "../navItems";
 
 export function PanelLayout() {
   const effectivePermissions = useSessionStore((s) => s.effectivePermissions);
   const user = useSessionStore((s) => s.user);
   const logout = useSessionStore((s) => s.logout);
-  const impersonatorToken = useSessionStore((s) => s.impersonatorToken);
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const location = useLocation();
   const mounted = useRef(false);
   const visibleItems = getAccessibleNavItems(effectivePermissions);
@@ -35,16 +33,6 @@ export function PanelLayout() {
     recordPanelVisit(location.pathname + location.search);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, location.search]);
-
-  const handleReturnToSuperadmin = async () => {
-    // Navigate to a section everyone has access to and let React commit that (flushSync) BEFORE
-    // swapping the session — see OrganizationsListPage's connect() for why flushSync matters:
-    // without it, RequirePermission on a page the superadmin can't see (e.g. "Equipo") would react
-    // to the permission loss and redirect to /sin-acceso, racing this navigation.
-    flushSync(() => navigate("/eventos"));
-    await useSessionStore.getState().returnToSuperadmin();
-    queryClient.clear();
-  };
 
   /**
    * Volver a pedir los datos, sin recargar la pagina.
@@ -71,11 +59,12 @@ export function PanelLayout() {
         onLogout={() => logout()}
         onRefresh={handleRefresh}
         refreshing={actualizando}
-        onReturnToSuperadmin={impersonatorToken ? handleReturnToSuperadmin : undefined}
       />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <AvisoGlobal />
-        <Outlet />
+        <ConfirmProvider>
+          <Outlet />
+        </ConfirmProvider>
       </main>
     </div>
   );

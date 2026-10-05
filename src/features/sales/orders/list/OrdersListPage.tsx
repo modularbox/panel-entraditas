@@ -11,7 +11,6 @@ import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { LIMITES } from "@/shared/lib/formLimits";
 import { textoDeMetodoDePago } from "../metodoDePago";
 import { Cargando } from "@/shared/ui/Cargando";
-import { EliminarVenta } from "@/features/papelera/BotonesDeGestion";
 
 const STATUS_LABELS: Record<Order["status"], string> = {
   pending: "Pendiente",
@@ -72,14 +71,15 @@ function columnasDePedidos(tituloDe: (fila: Fila) => string, organizacionDe: ((f
         <span className="text-green-500">{euro.format((info.getValue() - info.row.original.refundedAmount) / 100)}</span>
       )
     }),
-    columnHelper.accessor("createdAt", { header: "Fecha", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") }),
+    columnHelper.accessor((fila) => fila.transferredCount ?? 0, { id: "transferidas", header: "Transferidas", cell: (info) => info.getValue() }),
+    columnHelper.accessor("createdAt", { header: "Fecha", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") })
     // Eliminar la venta la manda a la papelera (tanda 21). El boton solo sale a quien puede.
-    columnHelper.display({
-      id: "acciones",
-      header: "",
-      enableSorting: false,
-      cell: ({ row }) => <EliminarVenta id={row.original.id} numero={row.original.orderNumber} />
-    })
+    // columnHelper.display({
+    //   id: "acciones",
+    //   header: "",
+    //   enableSorting: false,
+    //   cell: ({ row }) => <EliminarVenta id={row.original.id} numero={row.original.orderNumber} />
+    // })
   ];
 }
 
@@ -168,7 +168,7 @@ export function OrdersListPage() {
         <p className="text-muted-foreground">No hay pedidos que coincidan con los filtros.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border-2 border-foreground bg-surface shadow-flat">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-full text-left text-sm">
             <thead className="bg-surface-alt">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
