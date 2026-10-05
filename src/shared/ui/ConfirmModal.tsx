@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { AppError } from "@/shared/lib/apiClient";
 import { Button } from "./button";
 
@@ -6,7 +6,8 @@ interface ConfirmModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;
-  message: string;
+  /** Lo que va a pasar. Puede ser texto o algo compuesto, segun quien lo llama. */
+  message: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm: () => Promise<void> | void;

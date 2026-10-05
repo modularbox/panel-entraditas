@@ -35,8 +35,8 @@ describe("Eliminar y bloquear", () => {
     const borrar = vi.spyOn(apiClient, "delete").mockResolvedValue({ ok: true });
     pintar(<EliminarEvento id="ev-1" titulo="Noche de Jazz" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
-    expect(screen.getByText(/¿Está seguro de la acción que va a realizar?/)).toBeInTheDocument();
+fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
+      expect(screen.getByText(/Va a la papelera/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Sí, a la papelera" }));
 
     await waitFor(() => expect(borrar).toHaveBeenCalledWith("/events/ev-1", { token: "token-de-prueba" }));
@@ -75,8 +75,8 @@ describe("Eliminar y bloquear", () => {
     const post = vi.spyOn(apiClient, "post").mockResolvedValue({ ok: true });
     pintar(<GestionCliente email="ana@ejemplo.es" nombre="Ana" bloqueado={false} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Bloquear" }));
-    expect(screen.getByText(/¿Está seguro de la acción que va a realizar?/)).toBeInTheDocument();
+fireEvent.click(screen.getByRole("button", { name: "Bloquear" }));
+      expect(screen.getByText(/No podrá entrar en entraditas.com ni comprar/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Sí, bloquear" }));
     await waitFor(() => expect(post).toHaveBeenCalledWith("/customers/ana%40ejemplo.es/block", undefined, { token: "token-de-prueba" }));
   });

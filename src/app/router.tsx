@@ -31,7 +31,7 @@ import { PanelLayout } from "./layouts/PanelLayout";
 import { getDefaultSectionPath, NAV_ITEMS } from "./navItems";
 import { Cargando } from "@/shared/ui/Cargando";
 
-const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/accesos", "/clientes", "/organizaciones"]);
+const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/accesos", "/clientes", "/organizaciones", "/papelera"]);
 
 function DefaultSectionRedirect() {
   const permissions = useSessionStore((s) => s.effectivePermissions);
@@ -113,6 +113,9 @@ export function AppRoutes() {
           </Route>
           <Route path="/clientes" element={<CustomersListPage />} />
           <Route path="/clientes/:email" element={<CustomerDetailPage />} />
+        </Route>
+        <Route element={<RequirePermission permission="trash:manage" />}>
+          <Route path="/papelera" element={<PapeleraPage />} />
         </Route>
         <Route element={<RequirePermission permission="scan:validate" />}>
           <Route path="/accesos" element={<AccesosLayout />}>

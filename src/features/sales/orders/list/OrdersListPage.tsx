@@ -11,6 +11,7 @@ import { SortableHeader } from "@/shared/ui/SortableHeader";
 import { LIMITES } from "@/shared/lib/formLimits";
 import { textoDeMetodoDePago } from "../metodoDePago";
 import { Cargando } from "@/shared/ui/Cargando";
+import { EliminarVenta } from "@/features/papelera/BotonesDeGestion";
 
 const STATUS_LABELS: Record<Order["status"], string> = {
   pending: "Pendiente",
@@ -72,14 +73,14 @@ function columnasDePedidos(tituloDe: (fila: Fila) => string, organizacionDe: ((f
       )
     }),
     columnHelper.accessor((fila) => fila.transferredCount ?? 0, { id: "transferidas", header: "Transferidas", cell: (info) => info.getValue() }),
-    columnHelper.accessor("createdAt", { header: "Fecha", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") })
+    columnHelper.accessor("createdAt", { header: "Fecha", cell: (info) => new Date(info.getValue()).toLocaleDateString("es-ES") }),
     // Eliminar la venta la manda a la papelera (tanda 21). El boton solo sale a quien puede.
-    // columnHelper.display({
-    //   id: "acciones",
-    //   header: "",
-    //   enableSorting: false,
-    //   cell: ({ row }) => <EliminarVenta id={row.original.id} numero={row.original.orderNumber} />
-    // })
+    columnHelper.display({
+      id: "acciones",
+      header: "",
+      enableSorting: false,
+      cell: ({ row }) => <EliminarVenta id={row.original.id} numero={row.original.orderNumber} />
+    })
   ];
 }
 
