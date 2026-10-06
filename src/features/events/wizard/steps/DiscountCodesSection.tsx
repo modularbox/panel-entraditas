@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DiscountCode, TicketType } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
@@ -15,8 +16,10 @@ export interface DiscountCodesSectionProps {
   eventId: string | null;
 }
 
-const CASILLA = "h-10 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground";
-const ETIQUETA = "text-sm font-semibold";
+const CELDA_INPUT =
+  "h-9 w-full min-w-0 rounded-md border-2 border-foreground bg-surface px-2 text-sm text-foreground";
+const CELDA = "border-t border-border px-3 py-2";
+const CABECERA = "border-b-2 border-border px-3 pb-2 pt-3 text-left text-xs font-semibold uppercase text-muted-foreground";
 
 function useDiscountCodesQuery(eventId: string | null) {
   const token = useSessionStore((s) => s.token);
@@ -58,16 +61,58 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
   const [maxUsesPerCustomerInput, setMaxUsesPerCustomerInput] = useState("");
   const [validFrom, setValidFrom] = useState("");
   const [validTo, setValidTo] = useState("");
-  const [appliesToMode, setAppliesToMode] = useState<"all" | "specific">("all");
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [seAplicaOpen, setSeAplicaOpen] = useState(false);
+  const seAplicaRef = useRef<HTMLDivElement>(null);
+  const seAplicaPanelRef = useRef<HTMLDivElement>(null);
+  const [seAplicaPos, setSeAplicaPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
+  const esEspecifico = selectedGroupIds.length > 0;
   const canCreate = code.trim() !== "" && valueInput.trim() !== "";
+
+  function formatearImporte() {
+    if (valueInput.trim() === "") return;
+    const num = Number(valueInput);
+    setValueInput(Number.isFinite(num) ? num.toFixed(2) : valueInput);
+  }
+
+  useEffect(() => {
+    if (!seAplicaOpen) return;
+    function fuera(e: MouseEvent) {
+      const objetivo = e.target as Node;
+      if (seAplicaRef.current?.contains(objetivo) || seAplicaPanelRef.current?.contains(objetivo)) return;
+      setSeAplicaOpen(false);
+    }
+    function cerrar() {
+      setSeAplicaOpen(false);
+    }
+    document.addEventListener("mousedown", fuera);
+    window.addEventListener("scroll", cerrar, true);
+    window.addEventListener("resize", cerrar);
+    return () => {
+      document.removeEventListener("mousedown", fuera);
+      window.removeEventListener("scroll", cerrar, true);
+      window.removeEventListener("resize", cerrar);
+    };
+  }, [seAplicaOpen]);
+
+  function toggleSeAplica() {
+    if (seAplicaOpen) {
+      setSeAplicaOpen(false);
+      return;
+    }
+    const el = seAplicaRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setSeAplicaPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    setSeAplicaOpen(true);
+  }
 
   async function createDiscountCode() {
     const descuento =
       type === "percent" ? `${Number(valueInput)}% de descuento` : `${(Number(valueInput) / 100).toFixed(2)} EUR de descuento`;
     const alcance =
-      appliesToMode === "all"
+      selectedGroupIds.length === 0
         ? "sirve con cualquier tipo de entrada"
         : `solo sirve con ${selectedGroupIds.length} ${selectedGroupIds.length === 1 ? "tipo" : "tipos"} de entrada`;
     const usos = maxUsesInput === "" ? "" : ` y se puede usar ${maxUsesInput} veces en total`;
@@ -91,7 +136,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
           maxUses: maxUsesInput === "" ? null : Number(maxUsesInput),
           maxUsesPerCustomer: maxUsesPerCustomerInput === "" ? null : Number(maxUsesPerCustomerInput),
           // appliesTo: null means the code applies to every ticket type group.
-          appliesTo: appliesToMode === "all" ? null : selectedGroupIds,
+          appliesTo: selectedGroupIds.length === 0 ? null : selectedGroupIds,
           validFrom: validFrom === "" ? null : new Date(validFrom).toISOString(),
           validTo: validTo === "" ? null : new Date(validTo).toISOString()
         },
@@ -104,7 +149,6 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
       setMaxUsesPerCustomerInput("");
       setValidFrom("");
       setValidTo("");
-      setAppliesToMode("all");
       setSelectedGroupIds([]);
       await queryClient.invalidateQueries({ queryKey: ["discount-codes", eventId] });
       void syncEventChanges();
@@ -160,169 +204,224 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {error && <p role="alert">{error}</p>}
-      <ul aria-label="Códigos de descuento" className="flex flex-col gap-2">
-        {codes.map((c) => (
-          // flex-wrap: en el móvil el código y sus dos botones no caben en una fila (tanda 18).
-          <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border-2 border-border bg-surface px-3 py-2 text-sm">
-            <span className="min-w-0 flex-1 basis-40 font-semibold">
-              <span>{c.code}</span> — {formatValue(c)}
-            </span>
-            <Button type="button" variant="outline" onClick={() => toggleStatus(c)} className="h-8 px-2 text-xs">
-              {c.status === "active" ? "Desactivar" : "Activar"}
-            </Button>
-            <AccionConConfirmacion
-              etiqueta="Eliminar"
-              confirmar="Sí, eliminar"
-              aviso={`El código ${c.code} dejará de poder usarse en entraditas.com.`}
-              accion={async () => deleteDiscountCode(c.id)}
-              compacto
-            />
-          </li>
-        ))}
-      </ul>
-
-      {/* En flex y con cada casilla del ancho de lo que cabe en ella: una fecha ocupa lo que
-          ocupa una fecha y un tope de usos son tres cifras. En una sola columna a ancho completo
-          sobraba media pantalla a la derecha y parecia que cabia algo mas. Envuelve sola cuando
-          la pantalla no da para las ocho casillas, en vez de romperlas todas en columnas. */}
-      <fieldset className="min-w-0 rounded-lg border-2 border-border bg-surface p-4">
-        <legend className="px-2 font-display font-semibold">Nuevo código de descuento</legend>
-
-        <div className="flex flex-wrap items-end gap-x-3 gap-y-3">
-          <div className="flex w-28 min-w-24 grow flex-col gap-1">
-            <label htmlFor="dc-code" className={ETIQUETA}>
-              Código
-            </label>
-            <input id="dc-code" maxLength={LIMITES.codigo} value={code} onChange={(e) => setCode(e.target.value)} className={`${CASILLA} w-full`} />
-          </div>
-
-          {/* Porcentaje o importe: debajo del valor, porque es la unidad de la cifra que se acaba
-              de escribir. Encima se elegia la unidad antes de saber el numero. */}
-          <div className="flex w-28 min-w-24 grow flex-col gap-1">
-            <label htmlFor="dc-value" className={ETIQUETA}>
-              Valor
-            </label>
-            <NumericInput
-              id="dc-value"
-              allowDecimal
-              maxLength={7}
-              min="0"
-              value={valueInput}
-              onChange={(e) => setValueInput(e.target.value)}
-              className={`${CASILLA} w-full`}
-            />
-            <div className="mt-1 flex gap-4">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="radio" name="dc-type" checked={type === "percent"} onChange={() => setType("percent")} />
-                Porcentaje
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="radio" name="dc-type" checked={type === "fixed"} onChange={() => setType("fixed")} />
-                Importe fijo
-              </label>
-            </div>
-          </div>
-
-          <div className="flex w-24 min-w-20 grow flex-col gap-1">
-            <label htmlFor="dc-max-uses" className={ETIQUETA}>
-              Usos máximos
-            </label>
-            <NumericInput
-              id="dc-max-uses"
-              maxLength={6}
-              min="0"
-              value={maxUsesInput}
-              onChange={(e) => setMaxUsesInput(e.target.value)}
-              placeholder="Ilimitado"
-              className={`${CASILLA} w-full`}
-            />
-          </div>
-
-          <div className="flex w-20 min-w-16 grow flex-col gap-1">
-            <label htmlFor="dc-max-uses-per-customer" className={ETIQUETA}>
-              Usos máximos por cliente
-            </label>
-            <NumericInput
-              id="dc-max-uses-per-customer"
-              maxLength={6}
-              min="0"
-              value={maxUsesPerCustomerInput}
-              onChange={(e) => setMaxUsesPerCustomerInput(e.target.value)}
-              placeholder="Ilimitado"
-              className={`${CASILLA} w-full`}
-            />
-          </div>
-
-          <div className="flex w-36 min-w-32 grow flex-col gap-1">
-            <label htmlFor="dc-valid-from" className={ETIQUETA}>
-              Válido desde
-            </label>
-            <input
-              id="dc-valid-from"
-              type="date"
-              value={validFrom}
-              onChange={(e) => setValidFrom(e.target.value)}
-              className={`${CASILLA} w-full`}
-            />
-          </div>
-
-          <div className="flex w-36 min-w-32 grow flex-col gap-1">
-            <label htmlFor="dc-valid-to" className={ETIQUETA}>
-              Válido hasta
-            </label>
-            <input
-              id="dc-valid-to"
-              type="date"
-              value={validTo}
-              onChange={(e) => setValidTo(e.target.value)}
-              className={`${CASILLA} w-full`}
-            />
-          </div>
-
-          <div className="flex w-32 min-w-28 grow flex-col gap-2">
-            <span className={ETIQUETA}>Se aplica a</span>
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="radio" name="dc-applies-to" checked={appliesToMode === "all"} onChange={() => setAppliesToMode("all")} />
-                Todos los tipos de entrada
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="radio"
-                  name="dc-applies-to"
-                  checked={appliesToMode === "specific"}
-                  onChange={() => setAppliesToMode("specific")}
-                />
-                Tipos concretos
-              </label>
-            </div>
-
-            {appliesToMode === "specific" && (
-              <div className="flex flex-wrap gap-x-6 gap-y-1.5">
-                {groups.map((g) => (
-                  <label key={g.groupId} className="flex items-center gap-2 text-sm font-medium">
-                    <input
-                      type="checkbox"
-                      checked={selectedGroupIds.includes(g.groupId)}
-                      onChange={(e) =>
-                        setSelectedGroupIds((prev) =>
-                          e.target.checked ? [...prev, g.groupId] : prev.filter((id) => id !== g.groupId)
-                        )
-                      }
+      <div className="min-w-0 overflow-x-auto rounded-lg border-2 border-border bg-surface">
+        <table aria-label="Códigos de descuento" className="w-full min-w-[920px] border-collapse text-sm">
+          <caption className="px-4 pt-3 text-left font-display text-base font-semibold">Códigos de descuento</caption>
+          <thead>
+            <tr>
+              <th scope="col" className={CABECERA}>
+                Código
+              </th>
+              <th scope="col" className={CABECERA}>
+                Importe
+              </th>
+              <th scope="col" className={CABECERA}>
+                Tipo
+              </th>
+              <th scope="col" className={CABECERA}>
+                Usos máx.
+              </th>
+              <th scope="col" className={CABECERA}>
+                Por cliente
+              </th>
+              <th scope="col" className={CABECERA}>
+                Válido desde
+              </th>
+              <th scope="col" className={CABECERA}>
+                Válido hasta
+              </th>
+              <th scope="col" className={CABECERA}>
+                Se aplica a
+              </th>
+              <th scope="col" className={`${CABECERA} text-right`}>
+                <span className="sr-only">Acciones</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {codes.map((c) => (
+              <tr key={c.id}>
+                <td className={`${CELDA} font-semibold`}>{c.code}</td>
+                <td className={CELDA}>{formatValue(c)}</td>
+                <td className={`${CELDA} text-muted-foreground`}>{c.type === "percent" ? "Porcentual" : "Importe fijo"}</td>
+                <td className={`${CELDA} text-muted-foreground`}>{c.maxUses === null ? "Ilimitado" : c.maxUses}</td>
+                <td className={`${CELDA} text-muted-foreground`}>
+                  {c.maxUsesPerCustomer === null ? "Ilimitado" : c.maxUsesPerCustomer}
+                </td>
+                <td className={`${CELDA} text-muted-foreground`}>
+                  {c.validFrom ? new Date(c.validFrom).toLocaleDateString("es-ES") : "—"}
+                </td>
+                <td className={`${CELDA} text-muted-foreground`}>
+                  {c.validTo ? new Date(c.validTo).toLocaleDateString("es-ES") : "—"}
+                </td>
+                <td className={`${CELDA} text-muted-foreground`}>
+                  {c.appliesTo === null || c.appliesTo.length === 0 ? "Todos los tipos" : "Tipos concretos"}
+                </td>
+                <td className={`${CELDA}`}>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => toggleStatus(c)} className="h-8 px-2 text-xs">
+                      {c.status === "active" ? "Desactivar" : "Activar"}
+                    </Button>
+                    <AccionConConfirmacion
+                      etiqueta="Eliminar"
+                      confirmar="Sí, eliminar"
+                      aviso={`El código ${c.code} dejará de poder usarse en entraditas.com.`}
+                      accion={async () => deleteDiscountCode(c.id)}
+                      compacto
                     />
-                    {g.name}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-          <Button type="button" onClick={createDiscountCode} disabled={!canCreate} className="shrink-0">
-            Crear código
-          </Button>
-        </div>
-      </fieldset>
+                  </div>
+                </td>
+              </tr>
+            ))}
+
+            {/* Fila de alta: cada campo es una columna de la tabla y el tipo de importe es un
+                desplegable con "Porcentual" por defecto. */}
+            <tr className="align-bottom">
+              <td className={CELDA}>
+                <input
+                  id="dc-code"
+                  aria-label="Código"
+                  maxLength={LIMITES.codigo}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className={CELDA_INPUT}
+                />
+              </td>
+              <td className={CELDA}>
+                <NumericInput
+                  id="dc-value"
+                  aria-label="Importe"
+                  allowDecimal
+                  maxLength={7}
+                  min="0"
+                  value={valueInput}
+                  onChange={(e) => setValueInput(e.target.value)}
+                  onBlur={formatearImporte}
+                  placeholder="0.00"
+                  className={`${CELDA_INPUT} max-w-24`}
+                />
+              </td>
+              <td className={CELDA}>
+                <select
+                  id="dc-type"
+                  aria-label="Tipo de importe"
+                  value={type}
+                  onChange={(e) => setType(e.target.value as DiscountCode["type"])}
+                  className={CELDA_INPUT}
+                >
+                  <option value="percent">Porcentual</option>
+                  <option value="fixed">Importe fijo</option>
+                </select>
+              </td>
+              <td className={CELDA}>
+                <NumericInput
+                  id="dc-max-uses"
+                  aria-label="Usos máximos"
+                  maxLength={6}
+                  min="0"
+                  value={maxUsesInput}
+                  onChange={(e) => setMaxUsesInput(e.target.value)}
+                  placeholder="Ilimitado"
+                  className={`${CELDA_INPUT} max-w-24`}
+                />
+              </td>
+              <td className={CELDA}>
+                <NumericInput
+                  id="dc-max-uses-per-customer"
+                  aria-label="Usos máximos por cliente"
+                  maxLength={6}
+                  min="0"
+                  value={maxUsesPerCustomerInput}
+                  onChange={(e) => setMaxUsesPerCustomerInput(e.target.value)}
+                  placeholder="Ilimitado"
+                  className={`${CELDA_INPUT} max-w-24`}
+                />
+              </td>
+              <td className={CELDA}>
+                <input
+                  id="dc-valid-from"
+                  type="date"
+                  aria-label="Válido desde"
+                  value={validFrom}
+                  onChange={(e) => setValidFrom(e.target.value)}
+                  className={CELDA_INPUT}
+                />
+              </td>
+              <td className={CELDA}>
+                <input
+                  id="dc-valid-to"
+                  type="date"
+                  aria-label="Válido hasta"
+                  value={validTo}
+                  onChange={(e) => setValidTo(e.target.value)}
+                  className={CELDA_INPUT}
+                />
+              </td>
+              <td className={CELDA}>
+                <div ref={seAplicaRef}>
+                  <button
+                    type="button"
+                    aria-label="Se aplica a"
+                    aria-expanded={seAplicaOpen}
+                    onClick={toggleSeAplica}
+                    className={`${CELDA_INPUT} flex items-center justify-between gap-2 text-left`}
+                  >
+                    <span className="min-w-0 truncate">
+                      {esEspecifico ? (
+                        <span className="min-w-0 truncate">
+                          {selectedGroupIds
+                            .map((id) => groups.find((g) => g.groupId === id)?.name ?? "")
+                            .filter(Boolean)
+                            .join(", ")}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Ningún tipo</span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground" aria-hidden>
+                      ▾
+                    </span>
+                  </button>
+                </div>
+                {seAplicaOpen &&
+                  seAplicaPos &&
+                  createPortal(
+                    <div
+                      ref={seAplicaPanelRef}
+                      className="z-50 max-h-64 overflow-y-auto rounded-md border-2 border-border bg-surface p-2 shadow-lg"
+                      style={{ position: "fixed", top: seAplicaPos.top, left: seAplicaPos.left, width: seAplicaPos.width }}
+                    >
+                      {groups.map((g) => (
+                        <label key={g.groupId} className="flex items-center gap-2 px-1 py-1 text-sm font-medium">
+                          <input
+                            type="checkbox"
+                            checked={selectedGroupIds.includes(g.groupId)}
+                            onChange={(e) =>
+                              setSelectedGroupIds((prev) =>
+                                e.target.checked ? [...prev, g.groupId] : prev.filter((id) => id !== g.groupId)
+                              )
+                            }
+                          />
+                          {g.name}
+                        </label>
+                      ))}
+                    </div>,
+                    document.body
+                  )}
+              </td>
+              <td className={CELDA}>
+                <div className="flex items-end justify-end">
+                  <Button type="button" onClick={() => void createDiscountCode()} disabled={!canCreate} className="shrink-0">
+                    Añadir
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
