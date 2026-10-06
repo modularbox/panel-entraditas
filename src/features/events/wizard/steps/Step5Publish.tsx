@@ -192,11 +192,6 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
       detail: hasTicketTypes ? "Hay al menos un tipo de entrada" : "Falta crear al menos un tipo de entrada"
     },
     {
-      label: "Diseño de la entrada",
-      ok: Boolean(event?.ticketDesign),
-      detail: event?.ticketDesign ? "Plantilla de la entrada guardada" : "Falta guardar el diseño de la entrada en el paso anterior"
-    },
-    {
       label: "Plano y zonas",
       ok:
         sellableZones.length === 0 ||
@@ -213,6 +208,11 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
               : overCapacityGroups.length > 0
                 ? "Una asignación supera el límite de entradas disponibles"
                 : "Zonas asignadas correctamente"
+    },
+    {
+      label: "Diseño de la entrada",
+      ok: Boolean(event?.ticketDesign),
+      detail: event?.ticketDesign ? "Plantilla de la entrada guardada" : "Falta guardar el diseño de la entrada en el paso anterior"
     }
   ];
   const canRequestReview = checklist.every((item) => item.ok);

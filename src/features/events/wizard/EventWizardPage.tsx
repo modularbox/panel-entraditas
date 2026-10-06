@@ -42,7 +42,7 @@ interface WizardStep {
  *
  * Las listas de invitados estuvieron aqui como paso 6 y ya no estan: Jorge retiro la funcion
  * entera del panel el 11/09 (componente, tipos, permisos y mocks) y Axel confirmo el 12/09 que
- * se da por buena esa decision. Si vuelve, vuelve entre "Puertas" y "Publicar".
+ * se da por buena esa decision. Si vuelve, vuelve justo antes de "Publicar".
  *
  * El cuestionario previo (los limites de venta y acceso) se responde antes de entrar, en el
  * dialogo de "Antes de crear el evento", y sus respuestas viajan con el evento al crearlo.
@@ -50,14 +50,14 @@ interface WizardStep {
  * EventRulesQuestions).
  */
 const ALL_STEPS: WizardStep[] = [
-  { key: "info", label: "Información del evento", needsEventId: false },
+  { key: "info", label: "Información general", needsEventId: false },
   { key: "subeventos", label: "Sesiones", needsEventId: true },
   { key: "tipos", label: "Tipos de entrada", needsEventId: true },
-  { key: "plano", label: "Asientos", needsEventId: true },
+  { key: "plano", label: "Aforos y zonas", needsEventId: true },
+  { key: "puertas", label: "Control de acceso", needsEventId: true },
   { key: "descuentos", label: "Códigos de descuento", needsEventId: true },
-  { key: "puertas", label: "Puertas", needsEventId: true },
-  { key: "diseno", label: "Diseño de la entrada", needsEventId: true },
-  { key: "publicar", label: "Publicar evento", needsEventId: true }
+  { key: "diseno", label: "Diseño de entradas", needsEventId: true },
+  { key: "publicar", label: "Publicar", needsEventId: true }
 ];
 
 export function EventWizardPage() {
@@ -103,7 +103,7 @@ export function EventWizardPage() {
         {eventId ?? "sin-id"}
       </p>
 
-      {/* flex-wrap: en el móvil "Paso 3 de 7 - Asientos" y los dos botones no caben en una fila y
+      {/* flex-wrap: en el móvil "Paso 4 de 8 - Aforos y zonas" y los dos botones no caben en una fila y
           "Siguiente" se salía de la pantalla (tanda 18). */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="min-w-0 text-sm font-bold uppercase tracking-wide text-muted-foreground">

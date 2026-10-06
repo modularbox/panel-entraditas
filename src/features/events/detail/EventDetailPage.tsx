@@ -19,11 +19,11 @@ import { Cargando } from "@/shared/ui/Cargando";
 const ENABLED_TABS = [
   { key: "general", label: "Información general" },
   { key: "subeventos", label: "Sesiones" },
-  { key: "aforos", label: "Aforos y zonas" },
   { key: "tipos", label: "Tipos de entrada" },
-  { key: "diseno", label: "Diseño de entradas" },
+  { key: "aforos", label: "Aforos y zonas" },
+  { key: "puertas", label: "Control de acceso" },
   { key: "descuentos", label: "Códigos de descuento" },
-  { key: "puertas", label: "Puertas" },
+  { key: "diseno", label: "Diseño de entradas" },
   // Retirar de la web deja el evento en borrador: desde aqui se vuelve a enviar a revision
   // (y de ahi a publicado) sin tener que rehacer el asistente entero.
   { key: "publicar", label: "Publicar" }

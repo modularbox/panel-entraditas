@@ -21,19 +21,31 @@ test("admin logs in, creates a full event through the wizard, and publishes it",
   await expect(page.getByRole("list", { name: "Funciones" }).getByRole("listitem")).toHaveCount(1);
   await page.getByRole("button", { name: "Continuar" }).click();
 
-  // Step 3 — Aforo y zonas: defaults are fine for the smoke test
-  await page.getByRole("button", { name: "Continuar" }).click();
-
-  // Step 4 — Tipos de entrada
+  // Step 3 — Tipos de entrada
   await page.getByLabel("Nombre").fill("General");
   await page.getByLabel("Precio (céntimos)").fill("1000");
   await page.getByRole("button", { name: "Crear tipo de entrada" }).click();
   await expect(page.getByRole("list", { name: "Tipos de entrada" }).getByRole("listitem")).toHaveCount(1);
   await page.getByRole("button", { name: "Continuar" }).click();
 
-  // Step 5 — Publicación
-  await expect(page.getByText("✅ Al menos un tipo de entrada")).toBeVisible();
-  await page.getByRole("button", { name: "Publicar evento" }).click();
+  // Step 4 — Aforos y zonas: defaults are fine for the smoke test
+  await page.getByRole("button", { name: "Continuar" }).click();
+
+  // Step 5 — Control de acceso
+  await page.getByRole("button", { name: "Siguiente" }).click();
+
+  // Step 6 — Códigos de descuento
+  await page.getByRole("button", { name: "Siguiente" }).click();
+
+  // Step 7 — Diseño de entradas: se guarda el diseño por defecto para poder seguir
+  await page.getByRole("button", { name: "Guardar diseño" }).click();
+  await expect(page.getByText("Diseño de la entrada guardado.")).toBeVisible();
+  await page.getByRole("button", { name: "Siguiente" }).click();
+
+  // Step 8 — Publicación
+  await expect(page.getByText("Hay al menos un tipo de entrada")).toBeVisible();
+  await page.getByRole("button", { name: "Enviar a revisión" }).click();
+  await page.getByRole("button", { name: "Sí, enviar" }).click();
   await expect(page.getByRole("heading", { name: "Evento E2E" })).toBeVisible();
 
   // The published event shows up back in the list.
