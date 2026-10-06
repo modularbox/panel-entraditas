@@ -397,6 +397,8 @@ export interface ApiCustomerOrder {
 /** La ficha de un cliente con su historial. Un organizador solo ve lo que le ha comprado a el. */
 export interface ApiCustomerDetail extends Omit<ApiCustomer, "events"> {
   acceptsAdvertising: boolean;
+  /** Fecha de nacimiento (YYYY-MM-DD), para saber la edad del cliente. */
+  birthDate: string | null;
   orders: ApiCustomerOrder[];
 }
 

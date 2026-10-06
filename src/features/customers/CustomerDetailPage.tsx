@@ -9,7 +9,11 @@ import { Cargando } from "@/shared/ui/Cargando";
 import { GestionCliente } from "@/features/papelera/BotonesDeGestion";
 import { EtiquetaBloqueado } from "@/shared/ui/EtiquetaBloqueado";
 
-type CustomerDetail = Customer & { orders: (Order & { eventTitle: string })[] };
+type CustomerDetail = Customer & {
+  orders: (Order & { eventTitle: string })[];
+  /** Fecha de nacimiento (YYYY-MM-DD), para poder decir la edad del cliente. */
+  birthDate?: string;
+};
 
 /**
  * La ficha tal y como la devuelve api.entraditas.com, con la forma que pinta esta pantalla.
@@ -27,6 +31,7 @@ function desdeLaApi(ficha: ApiCustomerDetail): CustomerDetail {
     acceptsAdvertising: ficha.acceptsAdvertising,
     status: ficha.status === "blocked" ? "blocked" : "active",
     createdAt: ficha.createdAt ?? undefined,
+    birthDate: ficha.birthDate ?? undefined,
     ordersCount: ficha.ordersCount,
     ticketsCount: ficha.ticketsCount,
     totalSpent: ficha.totalSpent,
@@ -62,6 +67,19 @@ const CHANNEL_LABELS: Record<Order["channel"], string> = {
 
 const euro = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const number = new Intl.NumberFormat("es-ES");
+
+/** Los años cumplidos a día de hoy, a partir de una fecha de nacimiento YYYY-MM-DD. */
+function edadDe(birthDate?: string): number | null {
+  if (!birthDate) return null;
+  const nacimiento = new Date(birthDate);
+  if (Number.isNaN(nacimiento.getTime())) return null;
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const sinCumplir =
+    hoy.getMonth() < nacimiento.getMonth() ||
+    (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate());
+  return sinCumplir ? edad - 1 : edad;
+}
 
 export interface CustomerDetailPageProps {
   /** Label used by the not-found state, e.g. "Asistente" inside the Ventas CRM. */
@@ -146,6 +164,12 @@ export function CustomerDetailPage({ notFoundLabel = "Cliente" }: CustomerDetail
           <div>
             <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Teléfono</dt>
             <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">{customer.phone ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Edad</dt>
+            <dd className="mt-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm">
+              {edadDe(customer.birthDate) === null ? "—" : `${edadDe(customer.birthDate)} años`}
+            </dd>
           </div>
           {isSuperadmin && (
             <div>
