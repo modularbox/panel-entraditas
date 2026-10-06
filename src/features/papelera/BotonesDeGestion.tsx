@@ -128,12 +128,10 @@ export function GestionCliente({ email, nombre, bloqueado, compacto, alEliminar 
 }
 
 /**
- * Bloquear una organizacion es reversible y se deshace desde aqui mismo. Eliminarla NO se
- * ofrece: manda sus eventos y sus ventas a la papelera de la plataforma entera, que es una
- * decision que no le toca a una pantalla de gestion. Quien la necesite de verdad, la pide
- * expresamente y se hace por la via que corresponda.
+ * Bloquear una organizacion es reversible y se deshace desde aqui mismo. Eliminarla la manda a la
+ * papelera con sus eventos y sus ventas, y desde ahi se restaura.
  */
-export function GestionOrganizacion({ id, nombre, bloqueado, compacto }: GestionProps & { id: string }) {
+export function GestionOrganizacion({ id, nombre, bloqueado, compacto, alEliminar }: GestionProps & { id: string }) {
   const { token, superadmin } = usePuedeGestionar();
   const refrescar = useRefrescarTodo();
   const avisar = useAvisoGlobal((s) => s.avisar);
@@ -168,6 +166,19 @@ export function GestionOrganizacion({ id, nombre, bloqueado, compacto }: Gestion
           }}
         />
       )}
+      <AccionConConfirmacion
+        etiqueta="Eliminar"
+        confirmar="Sí, a la papelera"
+        trabajando="Eliminando..."
+        compacto={compacto}
+        aviso="Va a la papelera con sus eventos y sus ventas: dejan de verse en el panel, en la web y en las cifras, y su equipo no puede entrar. Se puede restaurar desde la Papelera."
+        accion={async () => {
+          await enviarAPapelera("organization", id, token);
+          avisar(`${nombre} está en la papelera, con sus eventos y sus ventas.`, VER_PAPELERA);
+          alEliminar?.();
+          await refrescar();
+        }}
+      />
     </div>
   );
 }

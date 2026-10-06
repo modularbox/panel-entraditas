@@ -7,6 +7,7 @@ import { Button } from "@/shared/ui/button";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { groupTicketTypes } from "./Step4TicketTypes";
 import { useSubEventsQuery } from "./useSubEventsQuery";
+import { useConfirm } from "@/shared/ui/useConfirm";
 import { useZonesQuery } from "./useZonesQuery";
 import { LIMITES } from "@/shared/lib/formLimits";
 
@@ -69,6 +70,7 @@ function formatWindow(gate: Pick<Gate, "opensAt" | "closesAt">): string {
 export function GatesSection({ eventId }: GatesSectionProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
+  const confirmar = useConfirm();
   const { data: event } = useEventQuery(eventId);
   const { data: gates = [] } = useGatesQuery(eventId);
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
@@ -95,6 +97,18 @@ export function GatesSection({ eventId }: GatesSectionProps) {
   const canCreate = name.trim() !== "" && code.trim() !== "";
 
   async function createGate() {
+    const zona = zoneId === "" ? null : zones.find((candidate) => candidate.id === zoneId) ?? null;
+    const adonde = zona ? `en la zona "${zona.name}"` : "sin zona asignada todavía";
+    const puertas = allowReentry ? "y deja volver a entrar con la misma entrada" : "y no deja reentrada";
+
+    const adelante = await confirmar({
+      title: "Crear la puerta",
+      message: `Se crea la puerta "${name.trim()}" con código "${code.trim()}", ${DIRECTION_LABEL[direction].toLowerCase()} y ${adonde}. Escanea como máximo ${maxScansInput || "1"} ${Number(maxScansInput) === 1 ? "vez" : "veces"} por entrada ${puertas}.`,
+      confirmLabel: "Sí, crear la puerta",
+      working: "Creando..."
+    });
+    if (!adelante) return;
+
     setError(null);
     try {
       await apiClient.post(
@@ -134,6 +148,19 @@ export function GatesSection({ eventId }: GatesSectionProps) {
   }
 
   async function toggleActive(gate: Gate) {
+    const activar = !gate.isActive;
+    const zona = zones.find((z) => z.id === gate.zoneId);
+    const adelante = await confirmar({
+      title: activar ? "Activar la puerta" : "Desactivar la puerta",
+      message: activar
+        ? `La puerta "${gate.name}" vuelve a comprobar entradas${zona?.name ? ` en la zona "${zona.name}"` : ""}.`
+        : `La puerta "${gate.name}" deja de comprobar entradas${zona?.name ? ` en la zona "${zona.name}"` : ""}. Quien ya tenga una entrada se la deja pasar igual.`,
+      confirmLabel: activar ? "Sí, activar" : "Sí, desactivar",
+      danger: !activar,
+      working: "Guardando..."
+    });
+    if (!adelante) return;
+
     setError(null);
     try {
       await apiClient.patch(`/gates/${gate.id}`, { isActive: !gate.isActive }, { token: token! });
@@ -144,6 +171,21 @@ export function GatesSection({ eventId }: GatesSectionProps) {
   }
 
   async function updateOperators(gate: Gate, operatorUserIds: string[]) {
+    const nombres = operatorUserIds
+      .map((id) => team.find((miembro) => miembro.id === id)?.email ?? id)
+      .filter(Boolean);
+    const texto = nombres.length === 0
+      ? "se queda sin nadie que la vigile"
+      : `solo ${nombres.join(", ")} ${nombres.length === 1 ? "la vigila" : "la vigilan"}`;
+
+    const adelante = await confirmar({
+      title: "Cambiar quién vigila la puerta",
+      message: `En la puerta "${gate.name}" ${texto}. Las entradas ya validadas siguen valiendo.`,
+      confirmLabel: "Sí, guardar",
+      working: "Guardando..."
+    });
+    if (!adelante) return;
+
     setError(null);
     try {
       await apiClient.patch(`/gates/${gate.id}`, { operatorUserIds }, { token: token! });
@@ -154,6 +196,17 @@ export function GatesSection({ eventId }: GatesSectionProps) {
   }
 
   async function deleteGate(id: string) {
+    const gate = gates.find((g) => g.id === id);
+    const zona = zones.find((z) => z.id === gate?.zoneId);
+    const adelante = await confirmar({
+      title: "Eliminar la puerta",
+      message: `Se elimina la puerta "${gate?.name ?? "sin nombre"}"${zona?.name ? ` de la zona "${zona.name}"` : ""} y deja de aparecer en el control de acceso. Las entradas ya validadas con ella siguen valiendo. No se puede deshacer desde aqui.`,
+      confirmLabel: "Sí, eliminar",
+      danger: true,
+      working: "Eliminando..."
+    });
+    if (!adelante) return;
+
     setError(null);
     try {
       await apiClient.delete(`/gates/${id}`, { token: token! });

@@ -13,6 +13,7 @@ import { OptionButton, QuestionSection } from "./EventRulesQuestions";
 import { CoverImageCropper } from "./CoverImageCropper";
 import { step1Schema, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";
+import { useConfirm } from "@/shared/ui/useConfirm";
 import { useWizardStore } from "../wizardStore";
 import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 import { LIMITES } from "@/shared/lib/formLimits";
@@ -74,6 +75,7 @@ async function filesToDataUrls(files: FileList | null): Promise<string[]> {
 }
 
 export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps) {
+  const confirmar = useConfirm();
   const token = useSessionStore((s) => s.token);
   const draftRules = useWizardStore((s) => s.draftRules);
   const syncEventChanges = useSyncEventChangesToWeb(eventId);
@@ -222,6 +224,23 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
       setSaveError("Elige para qué organizador es el evento.");
       return;
     }
+
+    // Guardar el evento lo cambia de verdad (nombre, fechas, portada, quién lo organiza), asi que
+    // se pregunta. El aviso nombra lo que mas se nota: el titulo y las fechas que vera la gente.
+    const titulo = formValues.title?.trim();
+    const fechas = formValues.datePending
+      ? "sin fecha todavia"
+      : `${formValues.startDate} a las ${formValues.startTime}`;
+    const adelante = await confirmar({
+      title: eventId ? "Guardar los cambios del evento" : "Guardar el evento",
+      message: eventId
+        ? `Se guardan los cambios de "${titulo || "este evento"}" y se actualizan en entraditas.com. Fechas: ${fechas}. Quien ya tenga una entrada no pierde su butaca.`
+        : `Se crea "${titulo || "este evento"}" con fechas ${fechas}. Todavia no se anuncia en entraditas.com: eso se hace al final del asistente.`,
+      confirmLabel: "Sí, guardar",
+      working: "Guardando..."
+    });
+    if (!adelante) return;
+
     try {
       const startsAt = formValues.datePending ? null : toIsoDate(formValues.startDate, formValues.startTime);
       const endsAt = startsAt ? new Date(new Date(startsAt).getTime() + 2 * 60 * 60 * 1000).toISOString() : null;

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Event, OrganizationListItem } from "@entraditas/types";
 import { apiClient } from "@/shared/lib/apiClient";
 import { useSessionStore } from "@/shared/auth/sessionStore";
+import { ConfirmProvider } from "@/shared/ui/useConfirm";
 import { EventsListPage } from "./EventsListPage";
 
 function evento(extra: Partial<Event> = {}): Event {
@@ -37,7 +38,10 @@ function pintar() {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter>
-        <EventsListPage />
+        {/* Las acciones de cada fila piden confirmacion, asi que necesitan el modal montado. */}
+        <ConfirmProvider>
+          <EventsListPage />
+        </ConfirmProvider>
       </MemoryRouter>
     </QueryClientProvider>
   );

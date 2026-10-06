@@ -3,8 +3,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { InvitationAcceptPage } from "@/features/auth/InvitationAcceptPage";
 import { TermsPage } from "@/features/legal/TermsPage";
-import { AccesosLayout } from "@/features/access/AccesosLayout";
-import { GatesOverviewPage } from "@/features/access/gates/GatesOverviewPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { EventDetailPage } from "@/features/events/detail/EventDetailPage";
 import { EventsListPage } from "@/features/events/list/EventsListPage";
@@ -31,7 +29,7 @@ import { PanelLayout } from "./layouts/PanelLayout";
 import { getDefaultSectionPath, NAV_ITEMS } from "./navItems";
 import { Cargando } from "@/shared/ui/Cargando";
 
-const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/accesos", "/clientes", "/organizaciones", "/papelera"]);
+const PLACEHOLDER_PATHS = new Set(["/eventos", "/equipo", "/dashboard", "/ventas", "/clientes", "/organizaciones", "/papelera"]);
 
 function DefaultSectionRedirect() {
   const permissions = useSessionStore((s) => s.effectivePermissions);
@@ -116,12 +114,6 @@ export function AppRoutes() {
         </Route>
         <Route element={<RequirePermission permission="trash:manage" />}>
           <Route path="/papelera" element={<PapeleraPage />} />
-        </Route>
-        <Route element={<RequirePermission permission="scan:validate" />}>
-          <Route path="/accesos" element={<AccesosLayout />}>
-            <Route index element={<Navigate to="puertas" replace />} />
-            <Route path="puertas" element={<GatesOverviewPage />} />
-          </Route>
         </Route>
         <Route path="/terminos" element={<TermsPage />} />
         <Route path="/sin-acceso" element={<div>No tienes acceso a esta sección.</div>} />

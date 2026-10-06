@@ -4,6 +4,7 @@ import type { CapacityPool, Event, Gate, SubEvent, TemplateZone, TicketType, Zon
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
+import { useConfirm } from "@/shared/ui/useConfirm";
 import { zoneTicketTypeGroupId } from "@/shared/lib/zoneTicketType";
 import { useWizardStore } from "../wizardStore";
 import { useSubEventsQuery } from "./useSubEventsQuery";
@@ -85,6 +86,7 @@ function useGatesQuery(eventId: string | null) {
 export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanSectionProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
+  const confirmar = useConfirm();
   const { data: event } = useEventQuery(eventId);
   const venueId = event?.venueId ?? null;
   const { data: zones = [] } = useZonesQuery(venueId);
@@ -291,11 +293,20 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
    */
   async function crearRecinto() {
     if (!event || !token) return;
-    setCreandoRecinto(true);
-    setRecintoError(null);
     const nombre = recintoNombre.trim() || event.location?.trim() || "Recinto";
     const ciudad = recintoCiudad.trim() || event.locality?.trim() || "";
     const aforo = Math.max(1, Math.floor(Number(recintoAforo) || 1));
+
+    const adelante = await confirmar({
+      title: "Crear el recinto",
+      message: `Se crea "${nombre}"${ciudad ? ` en ${ciudad}` : ""} con aforo ${aforo} y se cuelga del evento. El evento no tiene hoy ninguno, y las zonas se guardan dentro.`,
+      confirmLabel: "Sí, crear recinto",
+      working: "Creando..."
+    });
+    if (!adelante) return;
+
+    setCreandoRecinto(true);
+    setRecintoError(null);
     try {
       const recinto = await apiClient.post<{ id: string }>(
         "/venues",
@@ -314,6 +325,13 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
 
   async function addZone(kind: Zone["kind"]) {
     if (!venueId) return;
+    const adelante = await confirmar({
+      title: "Añadir una zona",
+      message: `Se crea la zona "${ZONE_KIND_NAMES[kind]}" dentro del recinto. Empieza vacía, sin repartir ningún asiento, y la editas a continuación.`,
+      confirmLabel: "Sí, añadir",
+      working: "Creando..."
+    });
+    if (!adelante) return;
     setError(null);
     const layout: ZoneLayout = defaultZoneLayout(kind, zones);
     try {
@@ -340,6 +358,16 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     setError(null);
     const zone = zones.find((candidate) => candidate.id === id);
     if (!zone) return;
+
+    // En sentido inverso si es facil de deshacer: se anade una copia, no se toca la original.
+    const adelante = await confirmar({
+      title: "Duplicar la zona",
+      message: `Se crea otra zona al lado llamada "${zone.name} (copia)" con la misma forma y aforo. La original no cambia, y los asientos de la copia empiezan todos libres (no se reparte el reparto de la original, para no gastar dos veces el mismo stock).`,
+      confirmLabel: "Sí, duplicar",
+      working: "Duplicando..."
+    });
+    if (!adelante) return;
+
     const { id: _id, venueId: _venueId, name, x, y, ...rest } = zone;
     try {
       const created = await apiClient.post<Zone>(
@@ -458,6 +486,22 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   }
 
   async function deleteZone(id: string) {
+    const zona = zones.find((z) => z.id === id);
+    const nombre = zona?.name ?? "esta zona";
+    const puestos = zona ? `${zona.capacity} asientos` : "";
+    const puerta = gates.some((g) => g.zoneId === id)
+      ? " La puerta que tenias asignada a esta zona se queda sin zona y hay que volver a elegirla."
+      : "";
+
+    const adelante = await confirmar({
+      title: "Eliminar la zona",
+      message: `Se elimina "${nombre}"${puestos ? ` (${puestos})` : ""} del plano y desaparece de entraditas.com.${puerta} Las entradas ya compradas de esta zona se conservan. No se puede deshacer desde aqui.`,
+      confirmLabel: "Sí, eliminar",
+      danger: true,
+      working: "Eliminando..."
+    });
+    if (!adelante) return;
+
     setError(null);
     try {
       await apiClient.delete(`/zones/${id}`, { token: token! });
@@ -471,15 +515,31 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
 
   /** Asigna la puerta del evento a una zona (una puerta solo puede servir a una zona). */
   async function assignGate(zoneId: string, gateId: string | null) {
+    const zona = zones.find((candidate) => candidate.id === zoneId);
+    const actuales = gates.filter((gate) => gate.zoneId === zoneId);
+    const elegida = gateId ? gates.find((gate) => gate.id === gateId) : undefined;
+
+    const adelante = await confirmar({
+      title: gateId === null ? "Quitar la puerta" : "Cambiar la puerta",
+      message:
+        gateId === null
+          ? `Se desvincula ${actuales.length === 1 ? "la puerta" : "las puertas"} de "${zona?.name ?? "esta zona"}". No deja de existir: queda sin zona y la puedes volver a asignar.`
+          : elegida && elegida.zoneId && elegida.zoneId !== zoneId
+            ? `La puerta "${elegida.name}" pasa a "${zona?.name ?? "esta zona"}". Si hoy servía a otra zona, esa se queda sin puerta.`
+            : `Se asocia la puerta "${elegida?.name ?? ""}" a "${zona?.name ?? "esta zona"}".`,
+      confirmLabel: gateId === null ? "Sí, quitar" : "Sí, cambiar",
+      danger: gateId !== null && Boolean(elegida?.zoneId && elegida.zoneId !== zoneId),
+      working: "Guardando..."
+    });
+    if (!adelante) return;
+
     setError(null);
     try {
-      const actuales = gates.filter((gate) => gate.zoneId === zoneId);
       if (gateId === null) {
         for (const gate of actuales) {
           await apiClient.patch(`/gates/${gate.id}`, { zoneId: null }, { token: token! });
         }
       } else {
-        const elegida = gates.find((gate) => gate.id === gateId);
         if (elegida && elegida.zoneId !== zoneId) {
           for (const gate of actuales) {
             if (gate.id !== gateId) {
@@ -497,10 +557,23 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   }
 
   async function assignTicketType(zoneId: string, groupId: string | null) {
-    setError(null);
     const zone = zones.find((z) => z.id === zoneId);
     const pool = pools.find((p) => p.zoneId === zoneId);
     if (!zone || !pool) return;
+
+    // Cambiar de grupo cambia con que tipo de entrada se vende la zona, y por tanto el stock que
+    // consume: las entradas ya vendidas no se tocan, pero el reparto de aforo pasa a ser otro.
+    const adelante = await confirmar({
+      title: "Cambiar el tipo de entrada",
+      message: groupId
+        ? `La zona "${zone.name}" pasa a venderse con otro tipo de entrada. Su aforo (${zone.capacity}) queda repartido bajo ese grupo.`
+        : `Se quita el tipo de entrada de "${zone.name}": la zona queda sin vender hasta que le asignes uno.`,
+      confirmLabel: "Sí, cambiar",
+      working: "Guardando..."
+    });
+    if (!adelante) return;
+
+    setError(null);
     try {
       await apiClient.patch(
         `/capacity-pools/${pool.id}`,
@@ -551,6 +624,22 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
   }
 
   async function setSeatingMode(mode: Event["seatingMode"]) {
+    if (!event) return;
+    // Mismo calculo que en el render: un evento con zonas pero sin la opcion guardada ya vive en
+    // "plan", y cambiarlo ahi si que hay algo que dejar de usar.
+    const anterior = event.seatingMode ?? (zones.length > 0 ? "plan" : null);
+    if (anterior === mode) return;
+    if (anterior !== null) {
+      const adelante = await confirmar({
+        title: "Cambiar la forma de crear las zonas",
+        message: `Ahora mismo usas "${anterior === "plan" ? "plano con asientos" : "zonas sin plano"}", y al cambiar solo se guarda la que elijas ahora. Las zonas que ya existan no se borran solas.`,
+        confirmLabel: "Sí, cambiar",
+        danger: true,
+        working: "Cambiando..."
+      });
+      if (!adelante) return;
+    }
+
     setError(null);
     try {
       await apiClient.patch(`/events/${eventId}`, { seatingMode: mode }, { token: token! });

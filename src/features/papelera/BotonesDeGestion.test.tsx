@@ -90,19 +90,27 @@ fireEvent.click(screen.getByRole("button", { name: "Bloquear" }));
     await waitFor(() => expect(post).toHaveBeenCalledWith("/organizations/org-1/unblock", undefined, { token: "token-de-prueba" }));
   });
 
-  // Eliminar una organizacion se quedo fuera de la pantalla de gestion a proposito: se lleva sus
-  // eventos y sus ventas a la papelera de la plataforma, y eso no es un boton de gestion.
-  it("una organización no se puede eliminar desde aquí: solo se bloquea", () => {
+  // Eliminar una organizacion se lleva a la papelera sus eventos y sus ventas, asi que va con su
+  // aviso y su confirmacion, igual que eliminar un evento.
+  it("eliminar una organización pide confirmación y la manda a la papelera", async () => {
+    const borrar = vi.spyOn(apiClient, "delete").mockResolvedValue({ ok: true });
     pintar(<GestionOrganizacion id="org-1" nombre="Sur Live" bloqueado={false} />);
 
-    expect(screen.getByRole("button", { name: "Bloquear" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Eliminar" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
+    expect(screen.getByText(/Va a la papelera/)).toBeInTheDocument();
+    expect(borrar).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sí, a la papelera" }));
+
+    await waitFor(() => expect(borrar).toHaveBeenCalledWith("/organizations/org-1", { token: "token-de-prueba" }));
+    expect(await screen.findByText("Sur Live está en la papelera, con sus eventos y sus ventas.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver la papelera" })).toHaveAttribute("href", "/papelera");
   });
 
-  it("una organización bloqueada tampoco ofrece eliminar, solo desbloquear", () => {
+  it("una organización bloqueada sigue pudiéndose eliminar", () => {
     pintar(<GestionOrganizacion id="org-1" nombre="Sur Live" bloqueado />);
 
     expect(screen.getByRole("button", { name: "Desbloquear" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Eliminar" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Eliminar" })).toBeInTheDocument();
   });
 });

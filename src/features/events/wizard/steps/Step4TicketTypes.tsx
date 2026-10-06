@@ -11,6 +11,7 @@ import { Icon } from "@/shared/ui/icon";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
+import { useConfirm } from "@/shared/ui/useConfirm";
 
 export interface Step4TicketTypesProps {
   eventId: string | null;
@@ -136,7 +137,7 @@ function SortableRow({
               />
             </div>
             <div>
-              <label htmlFor={`edit-price-${group.groupId}`}>Precio (�)</label>
+              <label htmlFor={`edit-price-${group.groupId}`}>Precio (€)</label>
               <NumericInput
                 id={`edit-price-${group.groupId}`}
                 allowDecimal
@@ -170,6 +171,7 @@ function SortableRow({
 export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTypesProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
+  const confirmar = useConfirm();
   const { data: ticketTypes = [] } = useTicketTypesQuery(eventId);
   const { data: subEvents = [] } = useSubEventsQuery(eventId);
   const groups = useMemo(() => groupTicketTypes(ticketTypes), [ticketTypes]);
@@ -213,6 +215,19 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
       setError("Indica cuántas entradas se pueden vender para este tipo.");
       return;
     }
+
+    const alcance =
+      scopeMode === "event"
+        ? "para todo el evento"
+        : `para ${selectedSubEventIds.length} ${selectedSubEventIds.length === 1 ? "sesión" : "sesiones"}`;
+    const adelante = await confirmar({
+      title: "Añadir el tipo de entrada",
+      message: `Se crea "${name.trim()}" ${alcance} a ${priceEuros} EUR, con ${parsedQuantity} entradas en venta. Empieza sin ventas.`,
+      confirmLabel: "Sí, añadirlo",
+      working: "Añadiendo..."
+    });
+    if (!adelante) return;
+
     try {
       await apiClient.post(
         `/events/${eventId}/ticket-types`,
@@ -284,23 +299,55 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
 
   async function saveEdit(groupId: string) {
     setError(null);
+    const group = groups.find((g) => g.groupId === groupId);
+    if (!group) return;
+    const rows = ticketTypes.filter((item) => item.groupId === groupId);
+    const parsedQuantity = Number(editQuantityTotal);
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
+      setError("Indica una cantidad válida para el tipo de entrada.");
+      return;
+    }
+    const soldCount = rows.reduce((sum, row) => sum + row.quantitySold, 0);
+    if (parsedQuantity < soldCount) {
+      setError(`No se puede bajar la cantidad por debajo de las ${soldCount} entradas ya vendidas.`);
+      return;
+    }
+
+    // Antes de preguntar, se juntan los cambios de verdad. Preguntar por "guardar" a secas no
+    // dice nada: lo que interesa es si baja el precio, si se acaban las entradas o ambas.
+    const cambios: string[] = [];
+    if (editName.trim() && editName.trim() !== group.name) {
+      cambios.push(`el nombre pasa de "${group.name}" a "${editName.trim()}"`);
+    }
+    const precioNuevo = Math.round(Number(editPriceEuros) * 100);
+    if (precioNuevo !== group.basePrice) {
+      cambios.push(
+        `el precio pasa de ${(group.basePrice / 100).toFixed(2)} a ${(precioNuevo / 100).toFixed(2)} EUR` +
+          (precioNuevo < group.basePrice ? " (baja lo que pagan las que se vendan después)" : "")
+      );
+    }
+    if (parsedQuantity !== group.quantityTotal) {
+      cambios.push(
+        `la cantidad pasa de ${group.quantityTotal ?? "sin límite"} a ${parsedQuantity}` +
+          (soldCount > 0 ? `, con ${soldCount} ya vendidas` : "")
+      );
+    }
+    if (cambios.length === 0) return;
+
+    const adelante = await confirmar({
+      title: "Guardar los cambios",
+      message: `Se guarda el tipo de entrada de "${editName.trim() || group.name}" y se actualiza en entraditas.com: ${cambios.join("; ")}.`,
+      confirmLabel: "Sí, guardar",
+      working: "Guardando..."
+    });
+    if (!adelante) return;
+
     try {
-      const rows = ticketTypes.filter((item) => item.groupId === groupId);
-      const parsedQuantity = Number(editQuantityTotal);
-      if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
-        setError("Indica una cantidad válida para el tipo de entrada.");
-        return;
-      }
-      const soldCount = rows.reduce((sum, row) => sum + row.quantitySold, 0);
-      if (parsedQuantity < soldCount) {
-        setError(`No se puede bajar la cantidad por debajo de las ${soldCount} entradas ya vendidas.`);
-        return;
-      }
       await Promise.all(
         rows.map((item) =>
           apiClient.patch(
             `/ticket-types/${item.id}`,
-            { name: editName, basePrice: Math.round(Number(editPriceEuros) * 100), quantityTotal: parsedQuantity, color: editColor },
+            { name: editName, basePrice: precioNuevo, quantityTotal: parsedQuantity, color: editColor },
             { token: token! }
           )
         )
@@ -314,9 +361,28 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
   }
 
   async function deleteGroup(groupId: string) {
+    const group = groups.find((g) => g.groupId === groupId);
+    if (!group) return;
+    const rows = ticketTypes.filter((item) => item.groupId === groupId);
+    const soldCount = rows.reduce((sum, row) => sum + row.quantitySold, 0);
+
+    // Un tipo de entrada no se borra solo: hay una fila por sesion. Y si ya se vendio, las
+    // ventas se quedan sin un tipo al que pertenecer, asi que el aviso lo dice.
+    const cuantos = rows.length === 1 ? "" : ` y sus otras ${rows.length - 1} sesiones`;
+    const vendido = soldCount > 0
+      ? ` Ya hay ${soldCount} ${soldCount === 1 ? "entrada vendida" : "entradas vendidas"}: esas ventas se conservan, pero el tipo deja de estar a la venta y desaparece de entraditas.com.`
+      : " Nadie ha comprado de este tipo todavia.";
+    const adelante = await confirmar({
+      title: "Eliminar el tipo de entrada",
+      message: `Se elimina "${group.name}"${cuantos} del evento y deja de ofrecerse en entraditas.com.${vendido} No se puede deshacer desde aqui.`,
+      confirmLabel: "Sí, eliminar",
+      danger: true,
+      working: "Eliminando..."
+    });
+    if (!adelante) return;
+
     setError(null);
     try {
-      const rows = ticketTypes.filter((item) => item.groupId === groupId);
       await Promise.all(rows.map((item) => apiClient.delete(`/ticket-types/${item.id}`, { token: token! })));
       if (editingGroupId === groupId) setEditingGroupId(null);
       await queryClient.invalidateQueries({ queryKey: ["ticket-types", eventId] });
@@ -359,69 +425,86 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
 
       <fieldset>
         <legend>Nuevo tipo de entrada</legend>
-        <label htmlFor="tt-name">Nombre</label>
-        <input id="tt-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-3">
+          <div className="flex w-36 min-w-28 grow flex-col gap-1">
+            <label htmlFor="tt-name">Nombre</label>
+            <input id="tt-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
 
-        <label htmlFor="tt-price">Precio (�)</label>
-        <div className="flex items-center gap-2">
-          <NumericInput
-            id="tt-price"
-            allowDecimal
-            maxLength={7}
-            step="0.01"
-            min="0"
-            value={priceEuros}
-            onFocus={() => {
-              if (priceEuros === "0.00") setPriceEuros("");
-            }}
-            onChange={(e) => setPriceEuros(e.target.value)}
-            onBlur={(e) => setPriceEuros(Number(e.target.value || 0).toFixed(2))}
-            className="h-10 w-28 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground"
-          />
-          <span className="text-sm font-semibold text-muted-foreground">�</span>
-        </div>
+          <div className="flex w-28 min-w-24 grow flex-col gap-1">
+            <label htmlFor="tt-price">Precio (€)</label>
+            <div className="flex items-center gap-2">
+              <NumericInput
+                id="tt-price"
+                allowDecimal
+                maxLength={7}
+                step="0.01"
+                min="0"
+                value={priceEuros}
+                onFocus={() => {
+                  if (priceEuros === "0.00") setPriceEuros("");
+                }}
+                onChange={(e) => setPriceEuros(e.target.value)}
+                onBlur={(e) => setPriceEuros(Number(e.target.value || 0).toFixed(2))}
+                className="h-10 w-full rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground"
+              />
+              <span className="text-sm font-semibold text-muted-foreground">€</span>
+            </div>
+          </div>
 
-        <label htmlFor="tt-quantity">Cantidad total</label>
-        <NumericInput
-          id="tt-quantity"
-          min="1"
-          step="1"
-          maxLength={6}
-          value={quantityTotal}
-          onChange={(e) => setQuantityTotal(e.target.value)}
-          className="h-10 w-32 rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground"
-        />
-
-        <label htmlFor="tt-color">Color</label>
-        <div className="flex flex-wrap items-center gap-2">
-          {TICKET_COLOR_PALETTE.map((item) => (
-            <button
-              key={item}
-              type="button"
-              aria-label={`Usar color ${item}`}
-              aria-pressed={color === item}
-              onClick={() => setColor(item)}
-              className="h-9 w-9 rounded-md border-2 border-foreground"
-              style={{ backgroundColor: item, boxShadow: color === item ? "0 0 0 3px hsl(var(--accent))" : undefined }}
+          <div className="flex w-32 min-w-24 grow flex-col gap-1">
+            <label htmlFor="tt-quantity">Cantidad total</label>
+            <NumericInput
+              id="tt-quantity"
+              min="1"
+              step="1"
+              maxLength={6}
+              value={quantityTotal}
+              onChange={(e) => setQuantityTotal(e.target.value)}
+              className="h-10 w-full rounded-md border-2 border-foreground bg-surface px-3 text-sm text-foreground"
             />
-          ))}
-          <input id="tt-color" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-12" />
-        </div>
+          </div>
 
-        <div className="mt-3 flex flex-wrap gap-4">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input type="radio" name="scope" checked={scopeMode === "event"} onChange={() => setScopeMode("event")} />
-            Todo el evento
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="radio"
-              name="scope"
-              checked={scopeMode === "subevents"}
-              onChange={() => setScopeMode("subevents")}
-            />
-            Sesiones concretas
-          </label>
+          <div className="flex w-48 min-w-40 grow flex-col gap-1">
+            <label htmlFor="tt-color">Color</label>
+            <div className="flex flex-wrap items-center gap-2">
+              {TICKET_COLOR_PALETTE.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  aria-label={`Usar color ${item}`}
+                  aria-pressed={color === item}
+                  onClick={() => setColor(item)}
+                  className="h-9 w-9 rounded-md border-2 border-foreground"
+                  style={{ backgroundColor: item, boxShadow: color === item ? "0 0 0 3px hsl(var(--accent))" : undefined }}
+                />
+              ))}
+              <input id="tt-color" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-12" />
+            </div>
+          </div>
+
+          <div className="flex w-48 min-w-40 grow flex-col gap-2">
+            <span className="text-sm font-medium">Sesiones</span>
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="radio" name="scope" checked={scopeMode === "event"} onChange={() => setScopeMode("event")} />
+                Todo el evento
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="radio"
+                  name="scope"
+                  checked={scopeMode === "subevents"}
+                  onChange={() => setScopeMode("subevents")}
+                />
+                Sesiones concretas
+              </label>
+            </div>
+          </div>
+
+          <Button type="button" onClick={createTicketType} className="shrink-0">
+            Crear tipo de entrada
+          </Button>
         </div>
 
         {scopeMode === "subevents" && (
@@ -446,9 +529,6 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
           </fieldset>
         )}
 
-        <Button type="button" onClick={createTicketType} className="mt-4">
-          Crear tipo de entrada
-        </Button>
       </fieldset>
     </div>
   );

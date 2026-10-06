@@ -4,6 +4,7 @@ import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 import { cn } from "@/shared/lib/cn";
 import { useTips } from "@/shared/ui/tips";
+import { useConfirm } from "@/shared/ui/useConfirm";
 import {
   buildSeatGrid,
   capacityOfSeatRows,
@@ -58,6 +59,7 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
   const seats = buildSeatGrid({ ...zone, seatRows: rows, rowAOrigin, rowNaming, seatNaming });
   const total = capacityOfSeatRows(rows) ?? 0;
   const { tip, capa } = useTips();
+  const confirmar = useConfirm();
 
   // "Multiplicar" es lo natural cuando conoces la sala; "dividir", cuando lo que te han dado es
   // un aforo total. Son la misma rejilla contada al reves, asi que se elige una u otra.
@@ -424,7 +426,16 @@ export function SeatRowsEditor({ zone, rowAOrigin, onChange }: SeatRowsEditorPro
                     className="h-8 w-7 shrink-0 p-0 shadow-none"
                     aria-label={`Eliminar la fila ${name}`}
                     {...tip("Borra esta fila entera")}
-                    onClick={() => {
+                    onClick={async () => {
+                      const butacas = seatsInRow(row);
+                      const adelante = await confirmar({
+                        title: "Eliminar la fila",
+                        message: `Se borra la fila ${name} con sus ${butacas} butacas: baja el aforo de la zona y esas butacas dejan de poder repartirse entre tipos de entrada. Las entradas ya vendidas no se cancelan.`,
+                        confirmLabel: "Sí, eliminar",
+                        danger: true,
+                        working: "Eliminando..."
+                      });
+                      if (!adelante) return;
                       commit(rows.filter((_, i) => i !== index));
                       setFilaActiva(null);
                       setButacaAbierta(null);

@@ -5,13 +5,12 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Eventos", path: "/eventos", permission: "events:read" },
   { label: "Dashboard", path: "/dashboard", permission: "reports:read" },
+  { label: "Eventos", path: "/eventos", permission: "events:read" },
   { label: "Ventas", path: "/ventas", permission: "orders:read" },
-  { label: "Control de accesos", path: "/accesos", permission: "scan:validate" },
-  { label: "Equipo", path: "/equipo", permission: "users:manage" },
   { label: "Clientes", path: "/clientes", permission: "orders:read" },
   { label: "Organizaciones", path: "/organizaciones", permission: "organizations:manage" },
+  { label: "Equipo", path: "/equipo", permission: "users:manage" },
   { label: "Papelera", path: "/papelera", permission: "trash:manage" }
 ];
 

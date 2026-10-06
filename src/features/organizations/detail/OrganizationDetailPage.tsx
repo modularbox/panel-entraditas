@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { ApiOrganizationDetail, ApiOrganizationTeamMember } from "@/shared/lib/entraditasApi";
 import { hydrateConnectedSession, useSessionStore, type SessionResponse } from "@/shared/auth/sessionStore";
@@ -41,6 +41,7 @@ function EstadoDeEvento({ estado }: { estado: string }) {
 export function OrganizationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const token = useSessionStore((state) => state.token);
+  const navigate = useNavigate();
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
 
@@ -110,6 +111,7 @@ export function OrganizationDetailPage() {
           nombre={organization.name}
           bloqueado={organization.status === "suspended"}
           compacto={false}
+          alEliminar={() => navigate("/organizaciones")}
         />
       </div>
 

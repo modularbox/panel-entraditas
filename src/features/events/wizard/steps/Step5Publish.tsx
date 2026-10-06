@@ -6,6 +6,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { zoneTicketTypeGroupId } from "@/shared/lib/zoneTicketType";
 import { Button } from "@/shared/ui/button";
+import { useConfirm } from "@/shared/ui/useConfirm";
 import { PREVIEW_CATEGORIES, PublicEventPreview, type PreviewTicketTier } from "./publicEventPreview";
 import {
   buildSeatGrid,
@@ -121,6 +122,7 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
   const { data: pools = [] } = useCapacityPoolsQuery(firstSubEvent?.id);
   const { data: zones = [] } = useZonesQuery(event?.venueId);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const confirmar = useConfirm();
   const planElements = planElementsFromZones(zones);
 
 
@@ -237,6 +239,14 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
   };
 
   async function requestReview() {
+    const adelante = await confirmar({
+      title: "Enviar a revisión",
+      message: `Se manda "${event?.title ?? "el evento"}" a revisión y pasa a estar visto por alguien de entraditas. Mientras no lo aprueben no se publica ni se pueden vender entradas. Si algo falla se puede retirar desde la lista de eventos.`,
+      confirmLabel: "Sí, enviar",
+      working: "Enviando..."
+    });
+    if (!adelante) return;
+
     setPublishError(null);
     try {
       await apiClient.post(`/events/${eventId}/publish`, undefined, { token: token! });

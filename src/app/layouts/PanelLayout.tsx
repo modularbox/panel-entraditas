@@ -4,6 +4,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Menu } from "@/components/Menu";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useInactivityLogout } from "@/shared/auth/useInactivityLogout";
+import { cn } from "@/shared/lib/cn";
 import { recordPanelVisit, resetPanelHistory } from "@/shared/ui/panelHistory";
 import { AvisoGlobal } from "@/shared/ui/AvisoGlobal";
 import { ConfirmProvider } from "@/shared/ui/useConfirm";
@@ -51,6 +52,11 @@ export function PanelLayout() {
     }
   };
 
+  // Las tablas de Ventas (12 columnas) y la de Eventos son anchas: esas secciones abren mas el
+  // main en pantallas grandes. El resto del panel se queda en max-w-7xl para no estirar tarjetas
+  // y detalle.
+  const cajaAncha = ["/ventas", "/eventos"].some((seccion) => location.pathname.startsWith(seccion));
+
   return (
     <div className="min-h-screen bg-background">
       <Menu
@@ -60,7 +66,7 @@ export function PanelLayout() {
         onRefresh={handleRefresh}
         refreshing={actualizando}
       />
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className={cn("mx-auto px-4 py-6 sm:px-6 sm:py-8", cajaAncha ? "max-w-[1728px]" : "max-w-7xl")}>
         <AvisoGlobal />
         <ConfirmProvider>
           <Outlet />

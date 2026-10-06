@@ -22,6 +22,8 @@ export interface SessionUser {
   fullName: string;
   role: RoleSlug;
   organizationId: string | null;
+  /** El nombre de la organizacion, para el menu. El superadmin no tiene organizacion. */
+  organizationName?: string | null;
   effectivePermissions?: string[];
   permissionOverrides?: PermissionOverride[];
   eventScopes?: string[];
@@ -65,6 +67,7 @@ export async function hydrateConnectedSession(session: SessionResponse): Promise
       fullName: staff.fullName,
       role: staff.role,
       organizationId: staff.organizationId,
+      organizationName: staff.organizationName ?? session.user.organizationName ?? null,
       permissionOverrides,
       eventScopes: staff.eventScopes ?? session.eventScopes ?? session.user.eventScopes
     },
@@ -105,7 +108,8 @@ function sesionDesde(staff: ApiStaff, token: string): SessionResponse {
       email: staff.email,
       fullName: staff.fullName,
       role: staff.role,
-      organizationId: staff.organizationId
+      organizationId: staff.organizationId,
+      organizationName: staff.organizationName ?? null
     },
     effectivePermissions: staff.effectivePermissions ?? [...resolveEffectivePermissions(staff.role, staff.permissionOverrides ?? [])],
     eventScopes: staff.eventScopes ?? []

@@ -29,26 +29,12 @@ const STATUS_FILTERS: Array<{ value: "" | Event["status"]; label: string }> = [
 const dateFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
 
 /**
- * Editar, en todos los eventos.
- *
- * Antes solo se llegaba al asistente por el titulo, que lleva a la ficha: la lista no ofrecia
- * editar en ningun sitio. Un evento en revision no se edita de primeras -lo esta mirando alguien-
- * y lo que se ofrece ahi es retirarlo de revision (EventRowActions), que lo devuelve a borrador;
- * al enviarlo otra vez, vuelve a revision.
+ * Editar, en todos los eventos salvo los que están en revisión: retirarlo de revisión (en
+ * EventRowActions) es lo que se ofrece para editarlo, porque una vez en borrador el botón vuelve.
  */
 function EditarEvento({ event }: { event: Event }) {
   if (event.status === "in_review") {
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        disabled
-        title="Está en revisión: retíralo de revisión para poder editarlo."
-        className="h-8 px-3 text-xs"
-      >
-        Editar
-      </Button>
-    );
+    return null;
   }
   return (
     <Link to={`/eventos/${event.id}/editar`}>

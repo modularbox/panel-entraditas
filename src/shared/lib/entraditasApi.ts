@@ -45,6 +45,8 @@ export interface ApiStaff {
   fullName: string;
   role: "superadmin" | "organizador" | "suborganizador";
   organizationId: string | null;
+  /** El nombre de la organizacion del usuario, para el menu del panel. */
+  organizationName?: string | null;
   status: string;
   effectivePermissions?: string[];
   permissionOverrides?: PermissionOverride[];

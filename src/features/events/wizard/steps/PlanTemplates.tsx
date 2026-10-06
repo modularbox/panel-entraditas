@@ -4,6 +4,7 @@ import type { TemplateZone, VenuePlanTemplate, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
+import { useConfirm } from "@/shared/ui/useConfirm";
 import { LIMITES } from "@/shared/lib/formLimits";
 
 export interface PlanTemplatesProps {
@@ -31,6 +32,7 @@ export function usePlanTemplatesQuery() {
 export function PlanTemplates({ zones, mode, onApply }: PlanTemplatesProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
+  const confirmar = useConfirm();
   const { data: allTemplates = [] } = usePlanTemplatesQuery();
   const templates = allTemplates.filter((template) => template.mode === mode);
   const [name, setName] = useState("");
@@ -57,7 +59,48 @@ export function PlanTemplates({ zones, mode, onApply }: PlanTemplatesProps) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["venue-plan-templates"] })
   });
 
-  async function applyTemplate(template: VenuePlanTemplate) {
+  /** Guardar la plantilla no es crear un evento: solo deja el plano a mano para reutilizarlo. */
+  async function guardarTemplate() {
+    const nombre = name.trim();
+    if (!nombre) return;
+    const adelante = await confirmar({
+      title: "Guardar la plantilla",
+      message: `Se guarda "${nombre}" con las ${zones.length} ${zones.length === 1 ? "zona" : "zonas"} del plano actual, para poder reutilizarla en otros eventos.`,
+      confirmLabel: "Sí, guardar",
+      working: "Guardando..."
+    });
+    if (!adelante) return;
+    saveTemplate.mutate(nombre);
+  }
+
+  async function borrarTemplate(template: VenuePlanTemplate) {
+    const adelante = await confirmar({
+      title: "Eliminar la plantilla",
+      message: `Se elimina la plantilla "${template.name}". Los eventos que ya la usaron no se tocan: solo desaparece de la lista. No se puede deshacer desde aqui.`,
+      confirmLabel: "Sí, eliminar",
+      danger: true,
+      working: "Eliminando..."
+    });
+    if (!adelante) return;
+    deleteTemplate.mutate(template.id);
+  }
+
+  /** Aplicar una plantilla pisa las zonas del evento, asi que tambien se pregunta. */
+  async function aplicarTemplate(template: VenuePlanTemplate) {
+    const cuantos = template.zones.length;
+    // Ojo: esto solo anade (POST una por una), no borra nada. Decir lo contrario metia miedo.
+    const mensaje =
+      cuantos === 1
+        ? `Se añade la zona de "${template.name}" a las ${zones.length} que ya tienes.`
+        : `Se añaden las ${cuantos} zonas de "${template.name}" a las ${zones.length} que ya tienes.`;
+    const adelante = await confirmar({
+      title: "Usar esta plantilla",
+      message: `${mensaje} Las que hay ahora no se borran, así que si alguna se solapa tendrás las dos en el mismo sitio.`,
+      confirmLabel: "Sí, usar la plantilla",
+      working: "Aplicando..."
+    });
+    if (!adelante) return;
+
     setError(null);
     setApplyingId(template.id);
     try {
@@ -94,7 +137,7 @@ export function PlanTemplates({ zones, mode, onApply }: PlanTemplatesProps) {
         </div>
         <Button
           type="button"
-          onClick={() => saveTemplate.mutate(name.trim())}
+          onClick={() => void guardarTemplate()}
           disabled={name.trim() === "" || zones.length === 0 || saveTemplate.isPending}
         >
           Guardar plantilla
@@ -121,7 +164,7 @@ export function PlanTemplates({ zones, mode, onApply }: PlanTemplatesProps) {
                 type="button"
                 variant="outline"
                 className="h-9 px-2 text-xs"
-                onClick={() => void applyTemplate(template)}
+                onClick={() => void aplicarTemplate(template)}
                 disabled={applyingId !== null}
               >
                 {applyingId === template.id ? "Aplicando..." : "Aplicar"}
@@ -130,7 +173,7 @@ export function PlanTemplates({ zones, mode, onApply }: PlanTemplatesProps) {
                 type="button"
                 variant="outline"
                 className="h-9 px-2 text-xs"
-                onClick={() => deleteTemplate.mutate(template.id)}
+                onClick={() => void borrarTemplate(template)}
               >
                 Eliminar
               </Button>

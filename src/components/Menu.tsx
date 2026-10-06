@@ -35,9 +35,16 @@ export function Menu({ items, user, onLogout, onRefresh, refreshing }: MenuProps
             </span>
             <span className="font-display text-xl font-semibold tracking-tight">Entraditas</span>
           </span>
-          {user?.fullName ? (
-            <span className="ml-10 text-xs font-semibold uppercase tracking-wide text-foreground/70">
-              {user.fullName}
+          {user?.organizationName || user?.fullName ? (
+            <span className="ml-10 flex flex-col leading-tight">
+              {user?.organizationName ? (
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                  {user.organizationName}
+                </span>
+              ) : null}
+              {user?.fullName ? (
+                <span className="text-xs font-medium uppercase tracking-wide text-foreground/50">{user.fullName}</span>
+              ) : null}
             </span>
           ) : null}
         </span>

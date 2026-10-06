@@ -3,8 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Event } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
-import { Button } from "@/shared/ui/button";
-import { EVENT_STATUS_LABEL } from "@/shared/ui/EventStatusBadge";
+import { AccionConConfirmacion } from "@/shared/ui/AccionConConfirmacion";
 import {
   describePublishOutcome,
   publishToPublicSite,
@@ -18,14 +17,8 @@ import { EliminarEvento } from "@/features/papelera/BotonesDeGestion";
 const REVIEWABLE: Event["status"][] = ["in_review"];
 
 /**
- * Estados que un superadmin puede poner a mano. "Finalizado" no esta: se deduce de la fecha, no se
- * guarda, asi que ponerlo seria inventar un estado que al repintar vuelve a cambiar solo.
- */
-const ESTADOS_A_MANO: Event["status"][] = ["draft", "in_review", "published", "rejected", "cancelled"];
-
-/**
- * Acciones de un evento en el listado: revisarlo, retirarlo de revision o de la web, cambiarle el
- * estado, cancelarlo y eliminarlo (a la papelera).
+ * Acciones de un evento en el listado: revisarlo (aprobar o rechazar), retirarlo de revision o de
+ * la web, cancelarlo y eliminarlo (a la papelera).
  *
  * Cada accion que cambia lo que ve el comprador se sincroniza con entraditas.com en el mismo
  * gesto. Antes solo existia "aprobar", asi que un evento despublicado o borrado en el panel
@@ -40,7 +33,6 @@ export function EventRowActions({ event }: { event: Event }) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -102,31 +94,10 @@ export function EventRowActions({ event }: { event: Event }) {
   });
 
   /**
-   * Cambio de estado a mano, solo superadmin. Arrastra la web con el: lo que pasa a publicado se
-   * envia a entraditas.com y lo que deja de estarlo se retira.
-   */
-  const changeStatus = useMutation({
-    mutationFn: async (status: Event["status"]) => {
-      await apiClient.post<Event>(`/events/${event.id}/status`, { status }, { token: token! });
-      if (status === "published") return publishToPublicSite(event.id, token!);
-      if (isPubliclyVisible(event.status)) return removeFromPublicSite(event.id);
-      return null;
-    },
-    onSuccess: async (outcome) => {
-      if (outcome) report(outcome);
-      else {
-        setFailed(false);
-        setMessage("Estado cambiado.");
-      }
-      await refresh();
-    },
-    onError: (error) => reportError(error, "No se pudo cambiar el estado.")
-  });
-
-  /**
    * Cancelar en vez de borrar (tanda 17). Un evento con entradas vendidas no puede desaparecer:
    * esas ventas, sus compradores y el dinero siguen existiendo. Cancelado, se queda en el panel
-   * con todo lo suyo y deja de anunciarse.
+   * con todo lo suyo y deja de anunciarse. Solo se ofrece para un evento publicado: si nunca salio
+   * a la web no hay nada que retirar, y para eso ya estan los otros botones.
    */
   const cancel = useMutation({
     mutationFn: async () => {
@@ -139,17 +110,13 @@ export function EventRowActions({ event }: { event: Event }) {
     },
     onSuccess: async (outcome) => {
       report(outcome, "Evento cancelado.");
-      setConfirmingCancel(false);
       await refresh();
     },
-    onError: (error) => {
-      setConfirmingCancel(false);
-      reportError(error, "No se pudo cancelar el evento.");
-    }
+    onError: (error) => reportError(error, "No se pudo cancelar el evento.")
   });
 
-  // Cambiar estados y borrar es cosa de quien administra, no de quien solo consulta. El servidor
-  // lo vuelve a comprobar.
+  // Aprobar, retirar, cancelar y borrar es cosa de quien administra, no de quien solo consulta. El
+  // servidor lo vuelve a comprobar.
   const canManage = role === "superadmin" || role === "organizador";
   const canReview = role === "superadmin";
   const reviewable = REVIEWABLE.includes(event.status);
@@ -159,104 +126,104 @@ export function EventRowActions({ event }: { event: Event }) {
     reject.isPending ||
     withdraw.isPending ||
     unpublish.isPending ||
-    changeStatus.isPending ||
     cancel.isPending;
-  const cancelado = event.status === "cancelled";
+  const cancelable = isPubliclyVisible(event.status);
 
-  const acciones: { label: string; onClick: () => void; variant?: "outline" | "destructive" }[] = [];
+  // Quien no administra no ve ninguna accion. Quien si, ve las que el estado del evento permite
+  // (cancelar, por ejemplo, solo si está publicado).
+  if (!canManage) return null;
+
+  /**
+   * Todo lo que cambia el evento pasa por aqui: aprobar, rechazar, retirar y cancelar. Cada boton
+   * va a su modal, que dice lo que va a pasar, y no se toca la API hasta que se confirma.
+   */
+  const acciones: {
+    etiqueta: string;
+    confirmar: string;
+    aviso: string;
+    accion: () => void;
+    pendiente: string;
+    peligro: boolean;
+    variante: "default" | "outline" | "destructive";
+  }[] = [];
   if (canReview && reviewable) {
-    acciones.push({ label: approve.isPending ? "Publicando..." : "Aprobar y publicar", onClick: () => approve.mutate() });
-    acciones.push({ label: "Rechazar", onClick: () => reject.mutate(), variant: "outline" });
+    acciones.push({
+      etiqueta: approve.isPending ? "Aprobando..." : "Aprobar",
+      confirmar: "Sí, aprobar",
+      aviso:
+        "El evento queda publicado y se anuncia en entraditas.com: el comprador ya puede comprar entradas. Para deshacerlo hay que retirarlo de la web.",
+      accion: () => approve.mutate(),
+      pendiente: "Aprobando...",
+      peligro: false,
+      variante: "default"
+    });
+    acciones.push({
+      etiqueta: "Rechazar",
+      confirmar: "Sí, rechazar",
+      aviso:
+        "El evento vuelve al organizador para que lo corrija. No se publica ni se anuncia en entraditas.com.",
+      accion: () => reject.mutate(),
+      pendiente: "Rechazando...",
+      peligro: false,
+      variante: "outline"
+    });
   }
   if (canManage && reviewable) {
-    acciones.push({ label: "Retirar de revisión", onClick: () => withdraw.mutate(), variant: "outline" });
+    acciones.push({
+      etiqueta: "Retirar de revisión",
+      confirmar: "Sí, retirar de revisión",
+      aviso: "El evento vuelve a borrador: puedes editarlo y volver a enviarlo a revisión cuando quieras.",
+      accion: () => withdraw.mutate(),
+      pendiente: "Retirando...",
+      peligro: false,
+      variante: "outline"
+    });
   }
   if (canManage && isPubliclyVisible(event.status)) {
-    acciones.push({ label: "Retirar de la web", onClick: () => unpublish.mutate(), variant: "outline" });
+    acciones.push({
+      etiqueta: "Retirar de la web",
+      confirmar: "Sí, retirar de la web",
+      aviso:
+        "Deja de anunciarse en entraditas.com y el comprador ya no lo ve. Sigue en el panel y se puede volver a publicar.",
+      accion: () => unpublish.mutate(),
+      pendiente: "Retirando...",
+      peligro: false,
+      variante: "outline"
+    });
   }
-
-  // Quien no administra no ve ninguna accion. Quien si, ve al menos "Cancelar evento" aunque el
-  // estado del evento no ofrezca ninguna transicion.
-  if (!canManage) return null;
 
   return (
     <div className="flex flex-col items-start gap-1">
       <div className="flex flex-nowrap gap-2">
         {acciones.map((accion) => (
-          <Button
-            key={accion.label}
-            type="button"
-            variant={accion.variant}
-            onClick={accion.onClick}
+          <AccionConConfirmacion
+            key={accion.etiqueta}
+            etiqueta={accion.etiqueta}
+            confirmar={accion.confirmar}
+            aviso={accion.aviso}
+            accion={async () => accion.accion()}
+            trabajando={accion.pendiente}
+            peligro={accion.peligro}
+            variante={accion.variante}
             disabled={working}
-            className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
-          >
-            {accion.label}
-          </Button>
+          />
         ))}
 
-        {cancelado ? null : confirmingCancel ? (
-          <>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => cancel.mutate()}
-              disabled={working}
-              className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
-            >
-              {cancel.isPending ? "Cancelando..." : "Confirmar cancelación"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setConfirmingCancel(false)}
-              disabled={working}
-              className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
-            >
-              Volver
-            </Button>
-          </>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setMessage(null);
-              setConfirmingCancel(true);
-            }}
+        {cancelable ? (
+          <AccionConConfirmacion
+            etiqueta="Cancelar"
+            confirmar="Confirmar cancelación"
+            aviso="Deja de venderse y se retira de entraditas.com. El evento y lo vendido se quedan en el panel como cancelados."
+            accion={async () => cancel.mutate()}
+            trabajando="Cancelando..."
+            variante="outline"
             disabled={working}
-            className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
-          >
-            Cancelar evento
-          </Button>
-        )}
-
-        {canReview && (
-          <select
-            aria-label="Cambiar estado"
-            value={event.status}
-            disabled={working}
-            onChange={(e) => changeStatus.mutate(e.target.value as Event["status"])}
-            className="h-8 rounded-md border-2 border-foreground bg-surface px-2 text-xs font-bold text-foreground"
-          >
-            {ESTADOS_A_MANO.map((status) => (
-              <option key={status} value={status}>
-                {EVENT_STATUS_LABEL[status]}
-              </option>
-            ))}
-          </select>
-        )}
+          />
+        ) : null}
 
         {/* Eliminar no es cancelar: lo manda a la papelera, de donde se restaura (tanda 21). */}
-        {!confirmingCancel && <EliminarEvento id={event.id} titulo={event.title} />}
+        <EliminarEvento id={event.id} titulo={event.title} />
       </div>
-
-      {confirmingCancel && (
-        <p className="max-w-xs text-xs font-medium text-muted-foreground">
-          Deja de venderse y se retira de entraditas.com. El evento y lo vendido se quedan en el
-          panel como cancelados.
-        </p>
-      )}
 
       {message && (
         <p role="status" className={`max-w-xs text-xs font-medium ${failed ? "text-destructive" : "text-success"}`}>

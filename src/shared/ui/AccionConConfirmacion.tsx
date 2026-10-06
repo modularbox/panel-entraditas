@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Button } from "./button";
+import { Button, type ButtonProps } from "./button";
 import { ConfirmModal } from "./ConfirmModal";
 
 /** Si el que llama no dice que va a pasar, al menos se pregunta antes de hacerlo. */
@@ -15,6 +15,8 @@ interface AccionConConfirmacionProps {
   peligro?: boolean;
   compacto?: boolean;
   disabled?: boolean;
+  /** Como se ve el boton que abre el modal. Por defecto, discretito. */
+  variante?: ButtonProps["variant"];
 }
 
 export function AccionConConfirmacion({
@@ -25,7 +27,8 @@ export function AccionConConfirmacion({
   trabajando = "Un momento...",
   peligro = true,
   compacto = true,
-  disabled = false
+  disabled = false,
+  variante = "outline"
 }: AccionConConfirmacionProps) {
   const [abierta, setAbierta] = useState(false);
   const tamano = `shrink-0 whitespace-nowrap ${compacto ? "h-8 px-3 text-xs" : ""}`;
@@ -34,7 +37,7 @@ export function AccionConConfirmacion({
     <>
       <Button
         type="button"
-        variant="outline"
+        variant={variante}
         className={tamano}
         disabled={disabled}
         onClick={() => setAbierta(true)}

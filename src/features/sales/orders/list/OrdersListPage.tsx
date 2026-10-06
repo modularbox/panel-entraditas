@@ -39,6 +39,28 @@ type Fila = Order & { eventTitle?: string; sessionLabel?: string };
 const columnHelper = createColumnHelper<Fila>();
 
 /**
+ * Ancho relativo de cada columna de Pedidos, expresado en píxeles sobre 1.232 (lo que mide la
+ * tabla en una pantalla de 1280, la caja mínima de Ventas). La cabecera los pasa a tanto por uno,
+ * así que las columnas suman siempre el 100 % de la caja y, con `table-fixed`, la tabla no puede
+ * ensancharse: no hay scroll horizontal. Si algo no cabe en su columna, el texto salta de renglón
+ * (`break-words`) en vez de empujar a las demás.
+ */
+const PESOS: Record<string, number> = {
+  orderNumber: 115,
+  organizacion: 115,
+  evento: 165,
+  customerName: 125,
+  customerEmail: 125,
+  pago: 70,
+  channel: 80,
+  status: 100,
+  total: 90,
+  transferidas: 105,
+  createdAt: 90,
+  acciones: 95
+};
+
+/**
  * Las columnas dependen de los eventos: un pedido de ejemplo solo trae el id del suyo.
  *
  * La organización va entre el nº de pedido y el evento, y solo si se le pasa quien la resuelve
@@ -168,30 +190,35 @@ export function OrdersListPage() {
       ) : orders.length === 0 ? (
         <p className="text-muted-foreground">No hay pedidos que coincidan con los filtros.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border-2 border-foreground bg-surface shadow-flat">
-          <table className="w-full min-w-full text-left text-sm">
+        <div className="w-full overflow-x-auto rounded-lg border-2 border-foreground bg-surface shadow-flat">
+          <table className="w-full table-fixed text-left text-xs">
             <thead className="bg-surface-alt">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      aria-sort={header.column.getIsSorted() !== false ? (header.column.getIsSorted() === "asc" ? "ascending" : "descending") : undefined}
-                      className="whitespace-nowrap px-4 py-3 font-medium text-muted-foreground"
-                    >
-                      <SortableHeader header={header} />
-                    </th>
-                  ))}
-                </tr>
-              ))}
+              {table.getHeaderGroups().map((headerGroup) => {
+                const total = headerGroup.headers.reduce((suma, header) => suma + (PESOS[header.column.id] ?? 1), 0);
+                return (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        aria-sort={header.column.getIsSorted() !== false ? (header.column.getIsSorted() === "asc" ? "ascending" : "descending") : undefined}
+                        style={{ width: `${((PESOS[header.column.id] ?? 1) / total) * 100}%` }}
+                        className="px-2 py-3 font-medium text-muted-foreground"
+                      >
+                        <SortableHeader header={header} />
+                      </th>
+                    ))}
+                  </tr>
+                );
+              })}
             </thead>
             <tbody>
               {table.getRowModel().rows.map((row) => (
                 <tr key={row.id} className="border-t border-border">
                   {row.getVisibleCells().map((cell) => (
-                    // Una línea por dato: en el móvil la tabla se desplaza de lado dentro de su caja
-                    // en vez de partir "PED-2026-0006" en tres renglones.
-                    <td key={cell.id} className="whitespace-nowrap px-4 py-3">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                    // Las columnas se estrechan y el texto salta de renglon en vez de ensanchar la
+                    // tabla: que quepa todo en la caja sin scroll horizontal. Un dato largo
+                    // ("PED-2026-0006", un correo sin espacios) se parte con break-words.
+                    <td key={cell.id} className="px-2 py-3 break-words">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                   ))}
                 </tr>
               ))}

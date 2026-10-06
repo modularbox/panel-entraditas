@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Event, SubEvent } from "@entraditas/types";
-import type { RecurringPattern } from "@/shared/lib/recurringSubEvents";
+import { generateRecurringSubEvents, type RecurringPattern } from "@/shared/lib/recurringSubEvents";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
@@ -9,6 +9,7 @@ import { Icon } from "@/shared/ui/icon";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
+import { useConfirm } from "@/shared/ui/useConfirm";
 
 export interface Step2ScheduleProps {
   eventId: string | null;
@@ -67,6 +68,7 @@ function subEventDateLabel(subEvent: SubEvent) {
 export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
+  const confirmar = useConfirm();
   const syncEventChanges = useSyncEventChangesToWeb(eventId);
   const { data: event } = useEventQuery(eventId);
   const { data: subEvents = [] } = useSubEventsQuery(eventId);
@@ -132,6 +134,17 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
       setError("No se pueden crear sesiones en el pasado.");
       return;
     }
+
+    const adelante = await confirmar({
+      title: "Crear la sesión",
+      message: `Se añade la sesión "${single.name.trim()}"${
+        single.datePending ? " con la fecha por confirmar" : ` el ${single.date} a las ${single.time}`
+      }, de ${single.durationMinutes} minutos.`,
+      confirmLabel: "Sí, crearla",
+      working: "Creando..."
+    });
+    if (!adelante) return;
+
     try {
       await apiClient.post<SubEvent>(
         `/events/${eventId}/sub-events`,
@@ -167,6 +180,23 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
       setError("No se pueden guardar sesiones en el pasado.");
       return;
     }
+
+    // Cambiar el horario de una sesion mueve entradas ya compradas, asi que se dice cuanto se
+    // mueve y cuantas hay de por medio.
+    const cuando = editing.datePending ? "sin fecha todavia" : `${editing.date} a las ${editing.time}`;
+    const original = subEvents.find((s) => s.id === editing.id);
+    const movida =
+      original?.startsAt != null && !editing.datePending ? original.startsAt.slice(0, 10) !== editing.date : false;
+    const adelante = await confirmar({
+      title: "Guardar la sesión",
+      message:
+        `Se guarda "${editing.name.trim()}" con fecha ${cuando}.` +
+        (movida ? " Cambia el dia, asi que quien ya tenga entrada de esta sesion vera el cambio." : ""),
+      confirmLabel: "Sí, guardar",
+      working: "Guardando..."
+    });
+    if (!adelante) return;
+
     try {
       await apiClient.patch<SubEvent>(`/sub-events/${editing.id}`, payloadFromEditor(editing), { token: token! });
       setEditing(null);
@@ -187,6 +217,22 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
       setError("No se pueden generar sesiones en el pasado.");
       return;
     }
+
+    const generadas = generateRecurringSubEvents(pattern);
+    const primera = generadas[0];
+    const ultima = generadas[generadas.length - 1];
+    if (!primera || !ultima) return;
+
+    const adelante = await confirmar({
+      title: "Generar las sesiones",
+      message: `Se crean ${generadas.length} ${generadas.length === 1 ? "sesión" : "sesiones"} con el nombre "${pattern.namePrefix}", empezando el ${primera.startsAt.slice(0, 10)} y de una en una cada ${pattern.intervalDays} ${
+        pattern.intervalDays === 1 ? "día" : "días"
+      }, hasta el ${ultima.startsAt.slice(0, 10)} a las ${pattern.time}.`,
+      confirmLabel: `Sí, crear ${generadas.length}`,
+      working: "Generando..."
+    });
+    if (!adelante) return;
+
     try {
       await apiClient.post<SubEvent[]>(`/events/${eventId}/sub-events/bulk`, pattern, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["sub-events", eventId] });
@@ -197,8 +243,19 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
   }
 
   async function copyFirstDoorsOpenToAll() {
-    const sourceDoorsOpenAt = subEvents.find((subEvent) => subEvent.doorsOpenAt)?.doorsOpenAt;
-    if (!sourceDoorsOpenAt) return;
+    const origen = subEvents.find((subEvent) => subEvent.doorsOpenAt);
+    const sourceDoorsOpenAt = origen?.doorsOpenAt;
+    if (!origen || !sourceDoorsOpenAt) return;
+
+    // Cambia la hora de puertas de todas las sesiones de golpe: no se puede deshacer desde aqui.
+    const adelante = await confirmar({
+      title: "Copiar la hora de puertas a todas",
+      message: `Las ${subEvents.length} sesiones pasan a abrir a las ${dateParts(sourceDoorsOpenAt).time}, que es la hora de "${origen.name}". Cada una deja de tener su propia hora de puertas.`,
+      confirmLabel: "Sí, copiarlas",
+      working: "Guardando..."
+    });
+    if (!adelante) return;
+
     setError(null);
     try {
       await Promise.all(
