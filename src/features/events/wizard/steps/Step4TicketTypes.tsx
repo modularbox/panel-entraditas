@@ -467,7 +467,7 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
 
           <div className="flex w-48 min-w-40 grow flex-col gap-1">
             <label htmlFor="tt-color">Color</label>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
               {TICKET_COLOR_PALETTE.map((item) => (
                 <button
                   key={item}
