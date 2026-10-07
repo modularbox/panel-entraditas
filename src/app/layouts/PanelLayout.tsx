@@ -52,10 +52,10 @@ export function PanelLayout() {
     }
   };
 
-  // Las tablas de Ventas (12 columnas) y la de Eventos son anchas: esas secciones abren mas el
-  // main en pantallas grandes. El resto del panel se queda en max-w-7xl para no estirar tarjetas
-  // y detalle.
-  const cajaAncha = ["/ventas", "/eventos"].some((seccion) => location.pathname.startsWith(seccion));
+  // Las tablas de Ventas (12 columnas), la de Eventos, la de Clientes y la de Organizaciones son
+  // anchas: esas secciones abren mas el main en pantallas grandes. El resto del panel se queda en
+  // max-w-7xl para no estirar tarjetas y detalle.
+  const cajaAncha = ["/ventas", "/eventos", "/organizaciones", "/clientes"].some((seccion) => location.pathname.startsWith(seccion));
 
   return (
     <div className="min-h-screen bg-background">
