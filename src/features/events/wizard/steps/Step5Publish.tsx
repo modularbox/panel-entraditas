@@ -20,6 +20,7 @@ import {
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useZonesQuery } from "./useZonesQuery";
 import { TICKET_COLOR_PALETTE, useTicketTypesQuery } from "./Step4TicketTypes";
+import { camposObligatoriosFaltantes, fechaDelEventoLista } from "./camposObligatorios";
 
 export interface Step5PublishProps {
   eventId: string | null;
@@ -87,13 +88,7 @@ function groupTickets(ticketTypes: TicketType[]): PreviewTicketTier[] {
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 }
 
-function plainText(value?: string | null): string {
-  return (value ?? "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+
 
 function planElementsFromZones(zones: Zone[]): VenuePlanElement[] {
   return zones
@@ -128,14 +123,8 @@ export function Step5Publish({ eventId }: Step5PublishProps) {
 
   const hasTicketTypes = (summary?.ticketTypesCount ?? 0) > 0;
   const sellableZones = zones.filter((zone) => zone.kind === "numbered" || zone.kind === "standing");
-  const missingBasicFields = [
-    !event?.title?.trim() ? "título" : null,
-    !event?.category?.trim() ? "categoría" : null,
-    !plainText(event?.description) ? "descripción" : null,
-    !event?.location?.trim() ? "ubicación" : null,
-    !event?.locality?.trim() ? "localidad" : null
-  ].filter(Boolean);
-  const dateReady = Boolean(event?.datePending || event?.startsAt);
+  const missingBasicFields = camposObligatoriosFaltantes(event);
+  const dateReady = fechaDelEventoLista(event);
   const stage = zones.find((zone) => zone.kind === "stage") ?? null;
   const groupUsage = new Map<string, number>();
   const hasUnassignedZone = sellableZones.some((zone) => {

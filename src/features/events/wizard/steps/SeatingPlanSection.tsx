@@ -16,6 +16,7 @@ import { ZoneListEditor } from "./ZoneListEditor";
 import { ZoneSeatEditor } from "./ZoneSeatEditor";
 import { SeatRowsEditor, type PlanPatch } from "./SeatRowsEditor";
 import { PlanTemplates } from "./PlanTemplates";
+import type { GuardadoSeccion } from "./Step1BasicInfo";
 import { SeatingModeChooser } from "./SeatingModeChooser";
 import { TicketTypeAssignment, type ZoneAssignment } from "./TicketTypeAssignment";
 import { groupTicketTypes } from "./Step4TicketTypes";
@@ -36,6 +37,7 @@ import {
 export interface SeatingPlanSectionProps {
   eventId: string | null;
   onValidationChange?: (valid: boolean) => void;
+  registrarGuardado?: (guardar: () => Promise<GuardadoSeccion>) => () => void;
 }
 
 const SELLABLE_KINDS: Zone["kind"][] = ["numbered", "standing"];
@@ -83,7 +85,7 @@ function useGatesQuery(eventId: string | null) {
   });
 }
 
-export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanSectionProps) {
+export function SeatingPlanSection({ eventId, onValidationChange, registrarGuardado }: SeatingPlanSectionProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
   const confirmar = useConfirm();
@@ -192,6 +194,16 @@ export function SeatingPlanSection({ eventId, onValidationChange }: SeatingPlanS
     }
   }
   flushRef.current = flushPendientes;
+
+  // El "Guardar" del detalle fuerza el vaciado inmediato del rebote de 350 ms: sin esto, un cambio
+  // recien hecho podria quedarse sin escribir si se pulsa justo despues de editar.
+  useEffect(() => {
+    if (!registrarGuardado) return;
+    return registrarGuardado(async () => {
+      await flushRef.current();
+      return { ok: true };
+    });
+  }, [registrarGuardado]);
 
   // Al salir del paso, cualquier cambio que el rebote no haya escrito todavia se fuerza antes de
   // que el editor se desmonte, para no perder la ultima fila por navegar deprisa.

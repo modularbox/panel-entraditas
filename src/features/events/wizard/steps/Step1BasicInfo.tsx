@@ -36,10 +36,22 @@ export function mensajeDeFallo(error: unknown): string {
   return "No se pudo guardar el evento. Lo que llevabas escrito queda guardado aquí como borrador.";
 }
 
+export interface GuardadoSeccion {
+  ok: boolean;
+  error?: string;
+}
+
 export interface Step1BasicInfoProps {
   eventId: string | null;
   onSaved: (id: string) => void;
   goNext?: () => void;
+  /**
+   * En el detalle del evento el "Guardar" vive fuera de esta seccion y desde ahi se dispara al
+   * formulario. La seccion se registra y devuelve una funcion que la desregistra.
+   */
+  registrarGuardado?: (guardar: () => Promise<GuardadoSeccion>) => () => void;
+  /** El detalle no pinta el boton propio: el "Guardar" esta al lado de las secciones. */
+  ocultarBotonGuardar?: boolean;
 }
 
 function dateParts(value: string | null | undefined): { startDate: string; startTime: string } {
@@ -74,7 +86,7 @@ async function filesToDataUrls(files: FileList | null): Promise<string[]> {
   );
 }
 
-export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps) {
+export function Step1BasicInfo({ eventId, onSaved, goNext, registrarGuardado, ocultarBotonGuardar }: Step1BasicInfoProps) {
   const confirmar = useConfirm();
   const token = useSessionStore((s) => s.token);
   const draftRules = useWizardStore((s) => s.draftRules);
@@ -99,6 +111,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
     reset,
     setValue,
     watch,
+    getValues,
     formState: { errors, isSubmitting, isDirty }
   } = useForm<Step1FormValues>({
     resolver: zodResolver(step1Schema),
@@ -218,28 +231,35 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
     }
   }, [existingEvent, isDirty, borrador, reset]);
 
-  async function onSubmit(formValues: Step1FormValues) {
+  async function onSubmit(formValues: Step1FormValues, opciones?: unknown): Promise<boolean> {
     setSaveError(null);
     if (eligeOrganizador && !organizadorId) {
       setSaveError("Elige para qué organizador es el evento.");
-      return;
+      return false;
     }
 
     // Guardar el evento lo cambia de verdad (nombre, fechas, portada, quién lo organiza), asi que
     // se pregunta. El aviso nombra lo que mas se nota: el titulo y las fechas que vera la gente.
+    // Desde el detalle lo pregunta el boton "Guardar" de fuera, asi que aqui se puede saltar.
     const titulo = formValues.title?.trim();
     const fechas = formValues.datePending
       ? "sin fecha todavia"
       : `${formValues.startDate} a las ${formValues.startTime}`;
-    const adelante = await confirmar({
-      title: eventId ? "Guardar los cambios del evento" : "Guardar el evento",
-      message: eventId
-        ? `Se guardan los cambios de "${titulo || "este evento"}" y se actualizan en entraditas.com. Fechas: ${fechas}. Quien ya tenga una entrada no pierde su butaca.`
-        : `Se crea "${titulo || "este evento"}" con fechas ${fechas}. Todavia no se anuncia en entraditas.com: eso se hace al final del asistente.`,
-      confirmLabel: "Sí, guardar",
-      working: "Guardando..."
-    });
-    if (!adelante) return;
+    const sinConfirmacion =
+      typeof opciones === "object" && opciones !== null && "sinConfirmacion" in opciones
+        ? Boolean((opciones as { sinConfirmacion?: boolean }).sinConfirmacion)
+        : false;
+    if (!sinConfirmacion) {
+      const adelante = await confirmar({
+        title: eventId ? "Guardar los cambios del evento" : "Guardar el evento",
+        message: eventId
+          ? `Se guardan los cambios de "${titulo || "este evento"}" y se actualizan en entraditas.com. Fechas: ${fechas}. Quien ya tenga una entrada no pierde su butaca.`
+          : `Se crea "${titulo || "este evento"}" con fechas ${fechas}. Todavia no se anuncia en entraditas.com: eso se hace al final del asistente.`,
+        confirmLabel: "Sí, guardar",
+        working: "Guardando..."
+      });
+      if (!adelante) return false;
+    }
 
     try {
       const startsAt = formValues.datePending ? null : toIsoDate(formValues.startDate, formValues.startTime);
@@ -302,12 +322,14 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
       onSaved(event.id);
       void syncEventChanges();
       goNext?.();
+      return true;
     } catch (error) {
       // Se vuelca ya, sin esperar al temporizador del guardado automatico: si el guardado ha
       // fallado, este es justo el momento en que hace falta que este puesto.
       ultimoGuardado.current = JSON.stringify(formValues);
       guardarBorrador(eventId, formValues as unknown as Record<string, unknown>);
       setSaveError(mensajeDeFallo(error));
+      return false;
     }
   }
 
@@ -338,6 +360,31 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
   function removeExtraDate(index: number) {
     setValue("extraDates", (values.extraDates ?? []).filter((_, i) => i !== index), { shouldDirty: true, shouldValidate: true });
   }
+
+  // Desde el detalle, el "Guardar" (al lado de las secciones) dispara el formulario sin volver a
+  // preguntar, que ya lo ha hecho el de fuera. trigger() respeta el schema de este paso.
+  useEffect(() => {
+    if (!registrarGuardado) return;
+    return registrarGuardado(async () => {
+      // Tras reset() desde el evento, los booleanos de los inputs ocultos llegan como "true"/"false"
+      // (string) y tumbarian el schema: se dejan como booleanos antes de validar y enviar.
+      const crudos = getValues();
+      const valores = {
+        ...crudos,
+        datePending: crudos.datePending === true,
+        notifyWhenDateConfirmed: crudos.notifyWhenDateConfirmed === true,
+        hasSubEvents: crudos.hasSubEvents === true
+      };
+      const resultado = step1Schema.safeParse(valores);
+      if (!resultado.success) {
+        return { ok: false, error: "Faltan campos obligatorios en la información general." };
+      }
+      const guardado = await onSubmit(valores, { sinConfirmacion: true });
+      return guardado
+        ? { ok: true }
+        : { ok: false, error: saveError ?? "No se pudieron guardar los cambios de la información general." };
+    });
+  }, [registrarGuardado]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)]">
@@ -582,9 +629,11 @@ export function Step1BasicInfo({ eventId, onSaved, goNext }: Step1BasicInfoProps
         {hasLoadError && <p role="alert">No se pudo cargar el evento.</p>}
         {saveError && <p role="alert">{saveError}</p>}
 
-        <Button type="submit" disabled={isSubmitting} className="self-start">
-          Guardar y continuar
-        </Button>
+        {!ocultarBotonGuardar && (
+          <Button type="submit" disabled={isSubmitting} className="self-start">
+            Guardar y continuar
+          </Button>
+        )}
       </div>
 
       <PublicEventPreview
