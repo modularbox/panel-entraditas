@@ -49,6 +49,23 @@ const ZONE_KIND_NAMES: Record<Zone["kind"], string> = {
   gate: "Puerta"
 };
 
+/**
+ * Nombre y código con los que nace una puerta dibujada en el plano: "Puerta 3" y "P3". La puerta
+ * del apartado "Control de acceso" y la zona del plano comparten nombre, y el código no pisa el de
+ * ninguna puerta ya existente del evento.
+ */
+function puertaSiguiente(gates: Gate[], zonasPuerta: Zone[]): { nombre: string; codigo: string } {
+  const usados = new Set<string>();
+  for (const puerta of gates) {
+    usados.add(puerta.name.trim().toLowerCase());
+    usados.add(puerta.code.trim().toLowerCase());
+  }
+  for (const zona of zonasPuerta) usados.add(zona.name.trim().toLowerCase());
+  let n = 1;
+  while (usados.has(`puerta ${n}`) || usados.has(`p${n}`)) n += 1;
+  return { nombre: `Puerta ${n}`, codigo: `P${n}` };
+}
+
 function useEventQuery(eventId: string | null) {
   const token = useSessionStore((s) => s.token);
   return useQuery({
@@ -337,22 +354,46 @@ export function SeatingPlanSection({ eventId, onValidationChange, registrarGuard
 
   async function addZone(kind: Zone["kind"]) {
     if (!venueId) return;
+    const puerta = kind === "gate" ? puertaSiguiente(gates, zones.filter((z) => z.kind === "gate")) : null;
     const adelante = await confirmar({
       title: "Añadir una zona",
-      message: `Se crea la zona "${ZONE_KIND_NAMES[kind]}" dentro del recinto. Empieza vacía, sin repartir ningún asiento, y la editas a continuación.`,
+      message: puerta
+        ? `Se crea la puerta "${puerta.nombre}" (código "${puerta.codigo}") en el plano y también en el apartado "Control de acceso", para no tener que escribirla dos veces. Desde ahí la asignas a la zona a la que da acceso, y el personal teclea su código en el dispositivo.`
+        : `Se crea la zona "${ZONE_KIND_NAMES[kind]}" dentro del recinto. Empieza vacía, sin repartir ningún asiento, y la editas a continuación.`,
       confirmLabel: "Sí, añadir",
       working: "Creando..."
     });
     if (!adelante) return;
     setError(null);
+    const nombre = puerta?.nombre ?? ZONE_KIND_NAMES[kind];
     const layout: ZoneLayout = defaultZoneLayout(kind, zones);
     try {
       const created = await apiClient.post<Zone>(
         `/venues/${venueId}/zones`,
-        { name: ZONE_KIND_NAMES[kind], kind, capacity: 0, ...layout },
+        { name: nombre, kind, capacity: 0, ...layout },
         { token: token! }
       );
       await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
+      if (puerta && eventId) {
+        await apiClient.post(
+          `/events/${eventId}/gates`,
+          {
+            name: puerta.nombre,
+            code: puerta.codigo,
+            subEventId: null,
+            zoneId: null,
+            direction: "in",
+            allowReentry: false,
+            maxScansPerTicket: 1,
+            allowedTicketTypeGroupIds: null,
+            opensAt: null,
+            closesAt: null,
+            operatorUserIds: []
+          },
+          { token: token! }
+        );
+        await queryClient.invalidateQueries({ queryKey: ["gates", eventId] });
+      }
       void syncEventChanges();
       setSelectedZoneId(created.id);
     } catch (e) {
