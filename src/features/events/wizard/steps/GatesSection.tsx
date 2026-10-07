@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Event, Gate, TicketType, User } from "@entraditas/types";
+import type { Event, Gate, SubEvent, TicketType, User, Zone } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { NumericInput } from "@/shared/ui/NumericInput";
-import { groupTicketTypes } from "./Step4TicketTypes";
+import { groupTicketTypes, type TicketTypeGroup } from "./Step4TicketTypes";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useConfirm } from "@/shared/ui/useConfirm";
 import { useZonesQuery } from "./useZonesQuery";
@@ -21,6 +21,8 @@ const ETIQUETA = "text-sm font-semibold";
 const timeFormatter = new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit" });
 
 const DIRECTION_LABEL: Record<Gate["direction"], string> = { in: "Entrada", out: "Salida", both: "Ambas" };
+
+const DIRECTION_OPTIONS: Gate["direction"][] = ["in", "out", "both"];
 
 function useEventQuery(eventId: string | null) {
   const token = useSessionStore((s) => s.token);
@@ -67,6 +69,288 @@ function formatWindow(gate: Pick<Gate, "opensAt" | "closesAt">): string {
   return `Hasta ${timeFormatter.format(new Date(gate.closesAt!))}`;
 }
 
+/** Lo que se puede tocar de una puerta, tanto al crearla como al editarla. */
+interface PuertaFormState {
+  name: string;
+  code: string;
+  subEventMode: "all" | "specific";
+  selectedSubEventId: string;
+  zoneId: string;
+  direction: Gate["direction"];
+  allowReentry: boolean;
+  maxScansInput: string;
+  ticketTypesMode: "all" | "specific";
+  selectedGroupIds: string[];
+  opensAt: string;
+  closesAt: string;
+  selectedOperatorIds: string[];
+}
+
+const PUERTA_VACIA: PuertaFormState = {
+  name: "",
+  code: "",
+  subEventMode: "all",
+  selectedSubEventId: "",
+  zoneId: "",
+  direction: "in",
+  allowReentry: false,
+  maxScansInput: "1",
+  ticketTypesMode: "all",
+  selectedGroupIds: [],
+  opensAt: "",
+  closesAt: "",
+  selectedOperatorIds: []
+};
+
+/** Rellena un <input type="datetime-local"> desde la ISO guardada en la base de datos (UTC):
+ * vuelve a pintar la misma hora del reloj que eligió quien la guardó. */
+function aValorLocal(iso: string | null): string {
+  if (!iso) return "";
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return "";
+  const rellena = (n: number) => String(n).padStart(2, "0");
+  return `${fecha.getFullYear()}-${rellena(fecha.getMonth() + 1)}-${rellena(fecha.getDate())}T${rellena(fecha.getHours())}:${rellena(fecha.getMinutes())}`;
+}
+
+function aEstadoDe(gate: Gate): PuertaFormState {
+  return {
+    name: gate.name,
+    code: gate.code,
+    subEventMode: gate.subEventId ? "specific" : "all",
+    selectedSubEventId: gate.subEventId ?? "",
+    zoneId: gate.zoneId ?? "",
+    direction: gate.direction,
+    allowReentry: gate.allowReentry,
+    maxScansInput: String(gate.maxScansPerTicket),
+    ticketTypesMode: gate.allowedTicketTypeGroupIds ? "specific" : "all",
+    selectedGroupIds: gate.allowedTicketTypeGroupIds ?? [],
+    opensAt: aValorLocal(gate.opensAt),
+    closesAt: aValorLocal(gate.closesAt),
+    selectedOperatorIds: gate.operatorUserIds
+  };
+}
+
+/** El cuerpo que entienden POST y PATCH de puertas, a partir del formulario. */
+function aCuerpoDe(v: PuertaFormState) {
+  return {
+    name: v.name,
+    code: v.code,
+    subEventId: v.subEventMode === "all" ? null : v.selectedSubEventId,
+    zoneId: v.zoneId === "" ? null : v.zoneId,
+    direction: v.direction,
+    allowReentry: v.allowReentry,
+    maxScansPerTicket: Math.max(1, Number(v.maxScansInput) || 1),
+    allowedTicketTypeGroupIds: v.ticketTypesMode === "all" ? null : v.selectedGroupIds,
+    opensAt: v.opensAt === "" ? null : new Date(v.opensAt).toISOString(),
+    closesAt: v.closesAt === "" ? null : new Date(v.closesAt).toISOString(),
+    operatorUserIds: v.selectedOperatorIds
+  };
+}
+
+/** Los mismos campos en el creación que en la edición, para que "Nueva puerta" y "Editar" no se
+ * acaben separando. */
+function CamposDePuerta({
+  valores,
+  setValores,
+  zones,
+  subEvents,
+  groups,
+  team
+}: {
+  valores: PuertaFormState;
+  setValores: Dispatch<SetStateAction<PuertaFormState>>;
+  zones: Zone[];
+  subEvents: SubEvent[];
+  groups: TicketTypeGroup[];
+  team: User[];
+}) {
+  const cambiar = <K extends keyof PuertaFormState>(campo: K, valor: PuertaFormState[K]) =>
+    setValores((prev) => ({ ...prev, [campo]: valor }));
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="flex flex-col gap-1">
+        <label htmlFor="gate-name" className={ETIQUETA}>
+          Nombre
+        </label>
+        <input id="gate-name" maxLength={LIMITES.titulo} value={valores.name} onChange={(e) => cambiar("name", e.target.value)} className={`${CASILLA} w-48`} />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="gate-code" className={ETIQUETA}>
+          Código
+        </label>
+        <input id="gate-code" maxLength={LIMITES.codigo} value={valores.code} onChange={(e) => cambiar("code", e.target.value)} className={`${CASILLA} w-32`} />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="gate-zone" className={ETIQUETA}>
+          Zona
+        </label>
+        <select id="gate-zone" value={valores.zoneId} onChange={(e) => cambiar("zoneId", e.target.value)} className={`${CASILLA} w-48`}>
+          <option value="">Sin zona</option>
+          {zones.map((z) => (
+            <option key={z.id} value={z.id}>{z.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="gate-max-scans" className={ETIQUETA}>
+          Escaneos máximos por ticket
+        </label>
+        <NumericInput
+          id="gate-max-scans"
+          min="1"
+          maxLength={3}
+          value={valores.maxScansInput}
+          onChange={(e) => cambiar("maxScansInput", e.target.value)}
+          className={`${CASILLA} w-24`}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="gate-opens-at" className={ETIQUETA}>
+          Abre
+        </label>
+        <input
+          id="gate-opens-at"
+          type="datetime-local"
+          value={valores.opensAt}
+          onChange={(e) => cambiar("opensAt", e.target.value)}
+          className={`${CASILLA} w-56`}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="gate-closes-at" className={ETIQUETA}>
+          Cierra
+        </label>
+        <input
+          id="gate-closes-at"
+          type="datetime-local"
+          value={valores.closesAt}
+          onChange={(e) => cambiar("closesAt", e.target.value)}
+          className={`${CASILLA} w-56`}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className={ETIQUETA}>Sentido</span>
+        <div className="flex flex-wrap gap-4">
+          {DIRECTION_OPTIONS.map((opcion) => (
+            <label key={opcion} className="flex items-center gap-2 text-sm font-medium">
+              <input type="radio" name="gate-direction" checked={valores.direction === opcion} onChange={() => cambiar("direction", opcion)} />
+              {DIRECTION_LABEL[opcion]}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 self-end text-sm font-medium">
+        <input type="checkbox" checked={valores.allowReentry} onChange={(e) => cambiar("allowReentry", e.target.checked)} />
+        Permite reentrada
+      </label>
+
+      {subEvents.length > 0 && (
+        <div className="flex flex-col gap-2 sm:col-span-2 xl:col-span-4">
+          <span className={ETIQUETA}>Sesiones</span>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="radio"
+                name="gate-subevent-mode"
+                checked={valores.subEventMode === "all"}
+                onChange={() => cambiar("subEventMode", "all")}
+              />
+              Todas las sesiones
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="radio"
+                name="gate-subevent-mode"
+                checked={valores.subEventMode === "specific"}
+                onChange={() => cambiar("subEventMode", "specific")}
+              />
+              Sesión concreta
+            </label>
+            {valores.subEventMode === "specific" && (
+              <select
+                aria-label="Sesión"
+                value={valores.selectedSubEventId}
+                onChange={(e) => cambiar("selectedSubEventId", e.target.value)}
+                className={`${CASILLA} w-56`}
+              >
+                <option value="">Selecciona una sesión</option>
+                {subEvents.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 sm:col-span-2 xl:col-span-4">
+        <span className={ETIQUETA}>Tipos de entrada admitidos</span>
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input type="radio" name="gate-types-mode" checked={valores.ticketTypesMode === "all"} onChange={() => cambiar("ticketTypesMode", "all")} />
+            Todos los tipos de entrada
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="radio"
+              name="gate-types-mode"
+              checked={valores.ticketTypesMode === "specific"}
+              onChange={() => cambiar("ticketTypesMode", "specific")}
+            />
+            Tipos concretos
+          </label>
+        </div>
+        {valores.ticketTypesMode === "specific" && (
+          <div className="flex flex-wrap gap-x-6 gap-y-1.5">
+            {groups.map((g) => (
+              <label key={g.groupId} className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={valores.selectedGroupIds.includes(g.groupId)}
+                  onChange={(e) =>
+                    cambiar("selectedGroupIds", e.target.checked ? [...valores.selectedGroupIds, g.groupId] : valores.selectedGroupIds.filter((id) => id !== g.groupId))
+                  }
+                />
+                {g.name}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2 sm:col-span-2 xl:col-span-4">
+        <span className={ETIQUETA}>Operadores</span>
+        {team.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hay subusuarios en esta organización</p>
+        ) : (
+          <div className="flex flex-wrap gap-x-6 gap-y-1.5">
+            {team.map((member) => (
+              <label key={member.id} className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={valores.selectedOperatorIds.includes(member.id)}
+                  onChange={(e) =>
+                    cambiar("selectedOperatorIds", e.target.checked ? [...valores.selectedOperatorIds, member.id] : valores.selectedOperatorIds.filter((id) => id !== member.id))
+                  }
+                />
+                {member.fullName}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function GatesSection({ eventId }: GatesSectionProps) {
   const token = useSessionStore((s) => s.token);
   const queryClient = useQueryClient();
@@ -80,30 +364,30 @@ export function GatesSection({ eventId }: GatesSectionProps) {
   const groups = groupTicketTypes(ticketTypes);
 
   const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  const [subEventMode, setSubEventMode] = useState<"all" | "specific">("all");
-  const [selectedSubEventId, setSelectedSubEventId] = useState("");
-  const [zoneId, setZoneId] = useState("");
-  const [direction, setDirection] = useState<Gate["direction"]>("in");
-  const [allowReentry, setAllowReentry] = useState(false);
-  const [maxScansInput, setMaxScansInput] = useState("1");
-  const [ticketTypesMode, setTicketTypesMode] = useState<"all" | "specific">("all");
-  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
-  const [opensAt, setOpensAt] = useState("");
-  const [closesAt, setClosesAt] = useState("");
-  const [selectedOperatorIds, setSelectedOperatorIds] = useState<string[]>([]);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [form, setForm] = useState<PuertaFormState>(PUERTA_VACIA);
 
-  const canCreate = name.trim() !== "" && code.trim() !== "";
+  const gateEditado = editandoId ? gates.find((g) => g.id === editandoId) ?? null : null;
+  const puedeGuardar = form.name.trim() !== "" && form.code.trim() !== "";
+
+  function empezarEdicion(gate: Gate) {
+    setEditandoId(gate.id);
+    setForm(aEstadoDe(gate));
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null);
+    setForm(PUERTA_VACIA);
+  }
 
   async function createGate() {
-    const zona = zoneId === "" ? null : zones.find((candidate) => candidate.id === zoneId) ?? null;
+    const zona = form.zoneId === "" ? null : zones.find((candidate) => candidate.id === form.zoneId) ?? null;
     const adonde = zona ? `en la zona "${zona.name}"` : "sin zona asignada todavía";
-    const puertas = allowReentry ? "y deja volver a entrar con la misma entrada" : "y no deja reentrada";
+    const puertas = form.allowReentry ? "y deja volver a entrar con la misma entrada" : "y no deja reentrada";
 
     const adelante = await confirmar({
       title: "Crear la puerta",
-      message: `Se crea la puerta "${name.trim()}" con código "${code.trim()}", ${DIRECTION_LABEL[direction].toLowerCase()} y ${adonde}. Escanea como máximo ${maxScansInput || "1"} ${Number(maxScansInput) === 1 ? "vez" : "veces"} por entrada ${puertas}.`,
+      message: `Se crea la puerta "${form.name.trim()}" con código "${form.code.trim()}", ${DIRECTION_LABEL[form.direction].toLowerCase()} y ${adonde}. Escanea como máximo ${form.maxScansInput || "1"} ${Number(form.maxScansInput) === 1 ? "vez" : "veces"} por entrada ${puertas}.`,
       confirmLabel: "Sí, crear la puerta",
       working: "Creando..."
     });
@@ -111,36 +395,20 @@ export function GatesSection({ eventId }: GatesSectionProps) {
 
     setError(null);
     try {
-      await apiClient.post(
-        `/events/${eventId}/gates`,
-        {
-          name,
-          code,
-          subEventId: subEventMode === "all" ? null : selectedSubEventId,
-          zoneId: zoneId === "" ? null : zoneId,
-          direction,
-          allowReentry,
-          maxScansPerTicket: Number(maxScansInput),
-          allowedTicketTypeGroupIds: ticketTypesMode === "all" ? null : selectedGroupIds,
-          opensAt: opensAt === "" ? null : new Date(opensAt).toISOString(),
-          closesAt: closesAt === "" ? null : new Date(closesAt).toISOString(),
-          operatorUserIds: selectedOperatorIds
-        },
-        { token: token! }
-      );
-      setName("");
-      setCode("");
-      setSubEventMode("all");
-      setSelectedSubEventId("");
-      setZoneId("");
-      setDirection("in");
-      setAllowReentry(false);
-      setMaxScansInput("1");
-      setTicketTypesMode("all");
-      setSelectedGroupIds([]);
-      setOpensAt("");
-      setClosesAt("");
-      setSelectedOperatorIds([]);
+      await apiClient.post(`/events/${eventId}/gates`, aCuerpoDe(form), { token: token! });
+      cancelarEdicion();
+      await queryClient.invalidateQueries({ queryKey: ["gates", eventId] });
+    } catch (e) {
+      if (e instanceof AppError) setError(e.message);
+    }
+  }
+
+  async function guardarCambios() {
+    if (!gateEditado) return;
+    setError(null);
+    try {
+      await apiClient.patch(`/gates/${gateEditado.id}`, aCuerpoDe(form), { token: token! });
+      cancelarEdicion();
       await queryClient.invalidateQueries({ queryKey: ["gates", eventId] });
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
@@ -164,31 +432,6 @@ export function GatesSection({ eventId }: GatesSectionProps) {
     setError(null);
     try {
       await apiClient.patch(`/gates/${gate.id}`, { isActive: !gate.isActive }, { token: token! });
-      await queryClient.invalidateQueries({ queryKey: ["gates", eventId] });
-    } catch (e) {
-      if (e instanceof AppError) setError(e.message);
-    }
-  }
-
-  async function updateOperators(gate: Gate, operatorUserIds: string[]) {
-    const nombres = operatorUserIds
-      .map((id) => team.find((miembro) => miembro.id === id)?.email ?? id)
-      .filter(Boolean);
-    const texto = nombres.length === 0
-      ? "se queda sin nadie que la vigile"
-      : `solo ${nombres.join(", ")} ${nombres.length === 1 ? "la vigila" : "la vigilan"}`;
-
-    const adelante = await confirmar({
-      title: "Cambiar quién vigila la puerta",
-      message: `En la puerta "${gate.name}" ${texto}. Las entradas ya validadas siguen valiendo.`,
-      confirmLabel: "Sí, guardar",
-      working: "Guardando..."
-    });
-    if (!adelante) return;
-
-    setError(null);
-    try {
-      await apiClient.patch(`/gates/${gate.id}`, { operatorUserIds }, { token: token! });
       await queryClient.invalidateQueries({ queryKey: ["gates", eventId] });
     } catch (e) {
       if (e instanceof AppError) setError(e.message);
@@ -237,6 +480,9 @@ export function GatesSection({ eventId }: GatesSectionProps) {
             <li key={gate.id} className="flex flex-col gap-2 rounded-md border-2 border-border bg-surface px-3 py-2 text-sm">
               <div className="flex items-center gap-3">
                 <span className="flex-1 font-semibold">{gate.name} — {gate.code}</span>
+                <Button type="button" variant="outline" onClick={() => empezarEdicion(gate)} className="h-8 px-2 text-xs">
+                  Editar
+                </Button>
                 <Button type="button" variant="outline" onClick={() => toggleActive(gate)} className="h-8 px-2 text-xs">
                   {gate.isActive ? "Desactivar" : "Activar"}
                 </Button>
@@ -248,32 +494,6 @@ export function GatesSection({ eventId }: GatesSectionProps) {
                 {subEventName} · {zoneName} · {DIRECTION_LABEL[gate.direction]} · Reentrada: {gate.allowReentry ? "Sí" : "No"} ·{" "}
                 {typesLabel} · {formatWindow(gate)}
               </p>
-              <fieldset>
-                <legend className="text-xs font-semibold">Operadores</legend>
-                {team.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No hay subusuarios en esta organización</p>
-                ) : (
-                  <div className="flex flex-wrap gap-3">
-                    {team.map((member) => (
-                      <label key={member.id} className="flex items-center gap-1.5 text-xs font-medium">
-                        <input
-                          type="checkbox"
-                          checked={gate.operatorUserIds.includes(member.id)}
-                          onChange={(e) =>
-                            updateOperators(
-                              gate,
-                              e.target.checked
-                                ? [...gate.operatorUserIds, member.id]
-                                : gate.operatorUserIds.filter((id) => id !== member.id)
-                            )
-                          }
-                        />
-                        {member.fullName}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </fieldset>
             </li>
           );
         })}
@@ -282,200 +502,26 @@ export function GatesSection({ eventId }: GatesSectionProps) {
       {/* Como en los descuentos: en rejilla y con cada casilla del ancho de lo que cabe en ella.
           Un codigo de puerta son unas letras y los escaneos por entrada, una cifra. */}
       <fieldset className="rounded-lg border-2 border-border bg-surface p-4">
-        <legend className="px-2 font-display font-semibold">Nueva puerta</legend>
+        <legend className="px-2 font-display font-semibold">
+          {gateEditado ? `Editar la puerta "${gateEditado.name}"` : "Nueva puerta"}
+        </legend>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="gate-name" className={ETIQUETA}>
-              Nombre
-            </label>
-            <input id="gate-name" maxLength={LIMITES.titulo} value={name} onChange={(e) => setName(e.target.value)} className={`${CASILLA} w-48`} />
+        <CamposDePuerta valores={form} setValores={setForm} zones={zones} subEvents={subEvents} groups={groups} team={team} />
+
+        {gateEditado ? (
+          <div className="mt-4 flex items-center gap-2">
+            <Button type="button" onClick={() => void guardarCambios()} disabled={!puedeGuardar}>
+              Guardar cambios
+            </Button>
+            <Button type="button" variant="ghost" onClick={cancelarEdicion}>
+              Cancelar
+            </Button>
           </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="gate-code" className={ETIQUETA}>
-              Código
-            </label>
-            <input id="gate-code" maxLength={LIMITES.codigo} value={code} onChange={(e) => setCode(e.target.value)} className={`${CASILLA} w-32`} />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="gate-zone" className={ETIQUETA}>
-              Zona
-            </label>
-            <select id="gate-zone" value={zoneId} onChange={(e) => setZoneId(e.target.value)} className={`${CASILLA} w-48`}>
-              <option value="">Sin zona</option>
-              {zones.map((z) => (
-                <option key={z.id} value={z.id}>{z.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="gate-max-scans" className={ETIQUETA}>
-              Escaneos máximos por ticket
-            </label>
-            <NumericInput
-              id="gate-max-scans"
-              min="1"
-              maxLength={3}
-              value={maxScansInput}
-              onChange={(e) => setMaxScansInput(e.target.value)}
-              className={`${CASILLA} w-24`}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="gate-opens-at" className={ETIQUETA}>
-              Abre
-            </label>
-            <input
-              id="gate-opens-at"
-              type="datetime-local"
-              value={opensAt}
-              onChange={(e) => setOpensAt(e.target.value)}
-              className={`${CASILLA} w-56`}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="gate-closes-at" className={ETIQUETA}>
-              Cierra
-            </label>
-            <input
-              id="gate-closes-at"
-              type="datetime-local"
-              value={closesAt}
-              onChange={(e) => setClosesAt(e.target.value)}
-              className={`${CASILLA} w-56`}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <span className={ETIQUETA}>Sentido</span>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="radio" name="gate-direction" checked={direction === "in"} onChange={() => setDirection("in")} />
-                Entrada
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="radio" name="gate-direction" checked={direction === "out"} onChange={() => setDirection("out")} />
-                Salida
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="radio" name="gate-direction" checked={direction === "both"} onChange={() => setDirection("both")} />
-                Ambas
-              </label>
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2 self-end text-sm font-medium">
-            <input type="checkbox" checked={allowReentry} onChange={(e) => setAllowReentry(e.target.checked)} />
-            Permite reentrada
-          </label>
-
-          {subEvents.length > 0 && (
-            <div className="flex flex-col gap-2 sm:col-span-2 xl:col-span-4">
-              <span className={ETIQUETA}>Sesiones</span>
-              <div className="flex flex-wrap items-center gap-4">
-                <label className="flex items-center gap-2 text-sm font-medium">
-                  <input
-                    type="radio"
-                    name="gate-subevent-mode"
-                    checked={subEventMode === "all"}
-                    onChange={() => setSubEventMode("all")}
-                  />
-                  Todas las sesiones
-                </label>
-                <label className="flex items-center gap-2 text-sm font-medium">
-                  <input
-                    type="radio"
-                    name="gate-subevent-mode"
-                    checked={subEventMode === "specific"}
-                    onChange={() => setSubEventMode("specific")}
-                  />
-                  Sesión concreta
-                </label>
-                {subEventMode === "specific" && (
-                  <select
-                    aria-label="Sesión"
-                    value={selectedSubEventId}
-                    onChange={(e) => setSelectedSubEventId(e.target.value)}
-                    className={`${CASILLA} w-56`}
-                  >
-                    <option value="">Selecciona una sesión</option>
-                    {subEvents.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2 sm:col-span-2 xl:col-span-4">
-            <span className={ETIQUETA}>Tipos de entrada admitidos</span>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="radio" name="gate-types-mode" checked={ticketTypesMode === "all"} onChange={() => setTicketTypesMode("all")} />
-                Todos los tipos de entrada
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="radio"
-                  name="gate-types-mode"
-                  checked={ticketTypesMode === "specific"}
-                  onChange={() => setTicketTypesMode("specific")}
-                />
-                Tipos concretos
-              </label>
-            </div>
-            {ticketTypesMode === "specific" && (
-              <div className="flex flex-wrap gap-x-6 gap-y-1.5">
-                {groups.map((g) => (
-                  <label key={g.groupId} className="flex items-center gap-2 text-sm font-medium">
-                    <input
-                      type="checkbox"
-                      checked={selectedGroupIds.includes(g.groupId)}
-                      onChange={(e) =>
-                        setSelectedGroupIds((prev) => (e.target.checked ? [...prev, g.groupId] : prev.filter((id) => id !== g.groupId)))
-                      }
-                    />
-                    {g.name}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2 sm:col-span-2 xl:col-span-4">
-            <span className={ETIQUETA}>Operadores</span>
-            {team.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay subusuarios en esta organización</p>
-            ) : (
-              <div className="flex flex-wrap gap-x-6 gap-y-1.5">
-                {team.map((member) => (
-                  <label key={member.id} className="flex items-center gap-2 text-sm font-medium">
-                    <input
-                      type="checkbox"
-                      checked={selectedOperatorIds.includes(member.id)}
-                      onChange={(e) =>
-                        setSelectedOperatorIds((prev) =>
-                          e.target.checked ? [...prev, member.id] : prev.filter((id) => id !== member.id)
-                        )
-                      }
-                    />
-                    {member.fullName}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <Button type="button" onClick={createGate} disabled={!canCreate} className="mt-4">
-          Crear puerta
-        </Button>
+        ) : (
+          <Button type="button" onClick={createGate} disabled={!puedeGuardar} className="mt-4">
+            Crear puerta
+          </Button>
+        )}
       </fieldset>
     </div>
   );

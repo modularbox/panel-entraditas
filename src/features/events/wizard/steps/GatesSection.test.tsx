@@ -19,6 +19,10 @@ const PUERTA = {
   isActive: true,
   direction: "in",
   allowReentry: false,
+  maxScansPerTicket: 1,
+  opensAt: null,
+  closesAt: null,
+  operatorUserIds: [],
   zoneId: null,
   subEventId: null,
   allowedTicketTypeGroupIds: null
@@ -123,6 +127,29 @@ describe("GatesSection pide confirmacion", () => {
     expect(patch).toHaveBeenCalledWith(
       "/gates/gt-1",
       { isActive: false },
+      { token: "token-de-prueba" }
+    );
+  });
+
+  it("editar una puerta rellena el formulario y guarda los cambios", async () => {
+    const patch = vi.spyOn(apiClient, "patch").mockResolvedValue({ ok: true });
+
+    pintar();
+    fireEvent.click(await screen.findByRole("button", { name: "Editar" }));
+
+    expect(screen.getByText('Editar la puerta "Puerta Norte"')).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Puerta Norte");
+    expect(screen.getByLabelText("Código")).toHaveValue("NOR");
+
+    fireEvent.change(screen.getByLabelText("Zona"), { target: { value: "zn-1" } });
+    fireEvent.click(screen.getByLabelText("Salida"));
+    fireEvent.click(screen.getByLabelText("Permite reentrada"));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+    expect(patch).toHaveBeenCalledWith(
+      "/gates/gt-1",
+      expect.objectContaining({ name: "Puerta Norte", code: "NOR", direction: "out", allowReentry: true, zoneId: "zn-1" }),
       { token: "token-de-prueba" }
     );
   });
