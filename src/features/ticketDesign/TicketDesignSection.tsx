@@ -9,6 +9,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useSubEventsQuery } from "@/features/events/wizard/steps/useSubEventsQuery";
 import { useTicketDesignQuery, useSaveTicketDesign } from "./useTicketDesignQuery";
 import { TicketDesignPreview } from "./TicketDesignPreview";
+import { ColorField } from "@/shared/ui/ColorField";
 import { LIMITES } from "@/shared/lib/formLimits";
 import { Cargando } from "@/shared/ui/Cargando";
 
@@ -155,12 +156,13 @@ export function TicketDesignSection({ eventId, onValidationChange }: TicketDesig
                   style={{ backgroundColor: item }}
                 />
               ))}
-              <input
+              <ColorField
                 id="td-color"
-                type="color"
+                label="Color corporativo"
                 value={draft.colorPrimario}
-                onChange={(e) => update("colorPrimario", e.target.value)}
-                className="h-9 w-12"
+                onChange={(valor) => update("colorPrimario", valor)}
+                swatchClassName="h-9 w-12"
+                textClassName="w-28"
               />
             </div>
 
@@ -171,15 +173,15 @@ export function TicketDesignSection({ eventId, onValidationChange }: TicketDesig
               <option value="Roboto">Roboto</option>
             </select>
 
-            <label htmlFor="td-opacidad">Opacidad de la marca de agua: {Math.round(draft.opacidadMarcaAgua * 100)}%</label>
+            <label htmlFor="td-opacidad">Opacidad de la marca de agua: {Math.round(draft.opacidadMarcaAgua * 1000)}%</label>
             <input
               id="td-opacidad"
               type="range"
               min={0}
-              max={0.1}
-              step={0.005}
-              value={draft.opacidadMarcaAgua}
-              onChange={(e) => update("opacidadMarcaAgua", Number(e.target.value))}
+              max={100}
+              step={1}
+              value={Math.round(draft.opacidadMarcaAgua * 1000)}
+              onChange={(e) => update("opacidadMarcaAgua", Number(e.target.value) / 1000)}
               className="w-full max-w-xs"
             />
           </>

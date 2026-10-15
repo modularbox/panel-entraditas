@@ -26,7 +26,9 @@ export const EVENT_CATEGORIES = [
   "familiar",
   "circo",
   "maritimo",
-  "ocio"
+  "ocio",
+  "congresos",
+  "aventura"
 ] as const;
 
 export const EventCategorySchema = z.enum(EVENT_CATEGORIES);

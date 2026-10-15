@@ -7,9 +7,11 @@ import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 import { NumericInput } from "@/shared/ui/NumericInput";
+import { TimeField } from "@/shared/ui/TimeField";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 import { useConfirm } from "@/shared/ui/useConfirm";
+import { hoyIso } from "@/shared/lib/fecha";
 
 export interface Step2ScheduleProps {
   eventId: string | null;
@@ -320,6 +322,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
                       <input
                         id={`subevent-date-${s.id}`}
                         type="date"
+                        min={hoyIso()}
                         disabled={editing.datePending}
                         value={editing.date}
                         onChange={(e) => setEditing({ ...editing, date: e.target.value })}
@@ -327,12 +330,12 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
                     </div>
                     <div>
                       <label htmlFor={`subevent-time-${s.id}`}>Hora</label>
-                      <input
+                      <TimeField
                         id={`subevent-time-${s.id}`}
-                        type="time"
-                        disabled={editing.datePending}
+                        label="Hora"
                         value={editing.time}
-                        onChange={(e) => setEditing({ ...editing, time: e.target.value })}
+                        onChange={(value) => setEditing({ ...editing, time: value })}
+                        disabled={editing.datePending}
                       />
                     </div>
                     <div>
@@ -349,12 +352,12 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
                     </div>
                     <div>
                       <label htmlFor={`subevent-doors-${s.id}`}>Puertas</label>
-                      <input
+                      <TimeField
                         id={`subevent-doors-${s.id}`}
-                        type="time"
-                        disabled={editing.datePending}
+                        label="Apertura de puertas"
                         value={editing.doorsTime}
-                        onChange={(e) => setEditing({ ...editing, doorsTime: e.target.value })}
+                        onChange={(value) => setEditing({ ...editing, doorsTime: value })}
+                        disabled={editing.datePending}
                       />
                     </div>
                   </div>
@@ -420,11 +423,17 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
             </label>
             <div>
               <label htmlFor="session-date">Fecha</label>
-              <input id="session-date" type="date" disabled={single.datePending} value={single.date} onChange={(e) => setSingle({ ...single, date: e.target.value })} />
+              <input id="session-date" type="date" min={hoyIso()} disabled={single.datePending} value={single.date} onChange={(e) => setSingle({ ...single, date: e.target.value })} />
             </div>
             <div>
               <label htmlFor="session-time">Hora</label>
-              <input id="session-time" type="time" disabled={single.datePending} value={single.time} onChange={(e) => setSingle({ ...single, time: e.target.value })} />
+              <TimeField
+                id="session-time"
+                label="Hora"
+                value={single.time}
+                onChange={(value) => setSingle({ ...single, time: value })}
+                disabled={single.datePending}
+              />
             </div>
             <div>
               <label htmlFor="session-duration">Duración minutos</label>
@@ -449,11 +458,16 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
           <div className="grid gap-3 md:grid-cols-5">
             <div>
               <label htmlFor="startDate">Fecha inicio</label>
-              <input id="startDate" type="date" value={pattern.startDate} onChange={(e) => setPattern({ ...pattern, startDate: e.target.value })} />
+              <input id="startDate" type="date" min={hoyIso()} value={pattern.startDate} onChange={(e) => setPattern({ ...pattern, startDate: e.target.value })} />
             </div>
             <div>
               <label htmlFor="session-recurring-time">Hora</label>
-              <input id="session-recurring-time" type="time" value={pattern.time} onChange={(e) => setPattern({ ...pattern, time: e.target.value })} />
+              <TimeField
+                id="session-recurring-time"
+                label="Hora"
+                value={pattern.time}
+                onChange={(value) => setPattern({ ...pattern, time: value })}
+              />
             </div>
             <div>
               <label htmlFor="occurrences">Número de sesiones</label>

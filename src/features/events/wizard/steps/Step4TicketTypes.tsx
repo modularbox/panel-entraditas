@@ -12,6 +12,7 @@ import { NumericInput } from "@/shared/ui/NumericInput";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 import { useConfirm } from "@/shared/ui/useConfirm";
+import { ColorField } from "@/shared/ui/ColorField";
 
 export interface Step4TicketTypesProps {
   eventId: string | null;
@@ -150,12 +151,13 @@ function SortableRow({
             </div>
             <div>
               <label htmlFor={`edit-color-${group.groupId}`}>Color</label>
-              <input
+              <ColorField
                 id={`edit-color-${group.groupId}`}
-                type="color"
+                label="Color"
                 value={editColor}
-                onChange={(e) => onEditColor(e.target.value)}
-                className="h-10 w-full rounded-md border-2 border-foreground bg-surface p-1"
+                onChange={onEditColor}
+                swatchClassName="h-10 w-14 rounded-md border-2 border-foreground bg-surface p-1"
+                textClassName="h-10 w-28"
               />
             </div>
             <Button type="button" onClick={onSaveEdit}>
@@ -479,7 +481,14 @@ export function Step4TicketTypes({ eventId, onValidationChange }: Step4TicketTyp
                   style={{ backgroundColor: item, boxShadow: color === item ? "0 0 0 3px hsl(var(--accent))" : undefined }}
                 />
               ))}
-              <input id="tt-color" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-12" />
+              <ColorField
+                id="tt-color"
+                label="Color"
+                value={color}
+                onChange={setColor}
+                swatchClassName="h-9 w-12"
+                textClassName="w-28"
+              />
             </div>
           </div>
 

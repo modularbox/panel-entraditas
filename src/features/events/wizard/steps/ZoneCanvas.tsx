@@ -27,6 +27,8 @@ interface DragState {
   origin: ZoneLayout;
   mode: "move" | "resize";
   moved: boolean;
+  /** Las demas zonas que no pueden solaparse con esta (se fijan al empezar a arrastrar). */
+  obstaculos: ZoneLayout[];
 }
 
 /** Movement under this many pixels counts as a tap, not a drag. Fingers are never still. */
@@ -86,8 +88,8 @@ export function ZoneCanvas({
       const deltaYPercent = ((e.clientY - drag.startY) / rect.height) * 100;
       const next: ZoneLayout =
         drag.mode === "move"
-          ? { ...drag.origin, ...computeDragPosition(drag.origin, deltaXPercent, deltaYPercent) }
-          : { ...drag.origin, ...computeResizeSize(drag.origin, deltaXPercent, deltaYPercent) };
+          ? { ...drag.origin, ...computeDragPosition(drag.origin, deltaXPercent, deltaYPercent, drag.obstaculos) }
+          : { ...drag.origin, ...computeResizeSize(drag.origin, deltaXPercent, deltaYPercent, drag.obstaculos) };
       setLiveLayouts((prev) => ({ ...prev, [drag.zoneId]: next }));
     }
 
@@ -119,6 +121,9 @@ export function ZoneCanvas({
     // by the time any synthesized click arrives.
     onSelectZone(zone.id);
     draggedRef.current = false;
+    // Las puertas no cuentan como tope: se dibujan pegadas a la zona a la que dan acceso, asi que
+    // tienen que poder pisarla. El resto de zonas del plano si que se apartan unas de otras.
+    const obstaculos = zones.filter((otra) => otra.id !== zone.id && otra.kind !== "gate").map((otra) => layoutFor(otra));
     dragRef.current = {
       zoneId: zone.id,
       pointerId: e.pointerId,
@@ -126,7 +131,8 @@ export function ZoneCanvas({
       startY: e.clientY,
       origin: layoutFor(zone),
       mode,
-      moved: false
+      moved: false,
+      obstaculos
     };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   }

@@ -68,7 +68,11 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
   const [seAplicaPos, setSeAplicaPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const esEspecifico = selectedGroupIds.length > 0;
-  const canCreate = code.trim() !== "" && valueInput.trim() !== "";
+  // Un código con usos máximos de 0 jamás se podría canjear: o se deja vacío (ilimitado) o es 1+.
+  const usosInvalidos =
+    (maxUsesInput.trim() !== "" && Number(maxUsesInput) < 1) ||
+    (maxUsesPerCustomerInput.trim() !== "" && Number(maxUsesPerCustomerInput) < 1);
+  const canCreate = code.trim() !== "" && valueInput.trim() !== "" && !usosInvalidos;
 
   function formatearImporte() {
     if (valueInput.trim() === "") return;
@@ -109,6 +113,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
   }
 
   async function createDiscountCode() {
+    if (usosInvalidos) return;
     const descuento =
       type === "percent" ? `${Number(valueInput)}% de descuento` : `${(Number(valueInput) / 100).toFixed(2)} EUR de descuento`;
     const alcance =
@@ -206,6 +211,11 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
   return (
     <div className="flex flex-col gap-3">
       {error && <p role="alert">{error}</p>}
+      {usosInvalidos && (
+        <p role="alert" className="text-sm text-destructive">
+          Los usos máximos tienen que ser 1 o más. Deja el campo vacío para que sean ilimitados.
+        </p>
+      )}
       <div className="min-w-0 overflow-x-auto rounded-lg border-2 border-border bg-surface">
         <table aria-label="Códigos de descuento" className="w-full min-w-[920px] border-collapse text-sm">
           <caption className="px-4 pt-3 text-left font-display text-base font-semibold">Códigos de descuento</caption>
@@ -320,7 +330,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
                   id="dc-max-uses"
                   aria-label="Usos máximos"
                   maxLength={6}
-                  min="0"
+                  min="1"
                   value={maxUsesInput}
                   onChange={(e) => setMaxUsesInput(e.target.value)}
                   placeholder="Ilimitado"
@@ -332,7 +342,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
                   id="dc-max-uses-per-customer"
                   aria-label="Usos máximos por cliente"
                   maxLength={6}
-                  min="0"
+                  min="1"
                   value={maxUsesPerCustomerInput}
                   onChange={(e) => setMaxUsesPerCustomerInput(e.target.value)}
                   placeholder="Ilimitado"
@@ -345,7 +355,11 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
                   type="date"
                   aria-label="Válido desde"
                   value={validFrom}
-                  onChange={(e) => setValidFrom(e.target.value)}
+                  onChange={(e) => {
+                    const desde = e.target.value;
+                    setValidFrom(desde);
+                    if (validTo && desde && validTo < desde) setValidTo(desde);
+                  }}
                   className={CELDA_INPUT}
                 />
               </td>
@@ -354,6 +368,7 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
                   id="dc-valid-to"
                   type="date"
                   aria-label="Válido hasta"
+                  min={validFrom || undefined}
                   value={validTo}
                   onChange={(e) => setValidTo(e.target.value)}
                   className={CELDA_INPUT}

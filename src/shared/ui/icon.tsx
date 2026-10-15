@@ -29,7 +29,9 @@ export type IconName =
   | "trash"
   | "check"
   | "robot"
-  | "shield";
+  | "shield"
+  | "users"
+  | "mountain";
 
 const paths: Record<IconName, ReactNode> = {
   ticket: (
@@ -155,6 +157,18 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <path d="M12 3l7 2.6v5.4c0 4.6-2.8 8.1-7 10-4.2-1.9-7-5.4-7-10V5.6L12 3Z" />
       <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  users: (
+    <>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19.5c1-3 3-4.6 5.5-4.6s4.5 1.6 5.5 4.6" />
+      <path d="M16 5.3a3 3 0 0 1 0 5.4M17.6 15.3c1.7.6 2.9 2 3.5 4.2" />
+    </>
+  ),
+  mountain: (
+    <>
+      <path d="M3 20h18L13.5 6.5 9 14l-2-3-4 9Z" />
     </>
   )
 };

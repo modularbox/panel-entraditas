@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { useQuery } from "@tanstack/react-query";
+import { Controller, useForm } from "react-hook-form";import { useQuery } from "@tanstack/react-query";
 import type { Event } from "@entraditas/types";
 import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { Icon } from "@/shared/ui/icon";
 import { NumericInput } from "@/shared/ui/NumericInput";
+import { TimeField } from "@/shared/ui/TimeField";
 import { borrarBorrador, describirGuardado, guardarBorrador, leerBorrador, type EventDraft } from "../eventDraft";
 import { OptionButton, QuestionSection } from "./EventRulesQuestions";
 import { CoverImageCropper } from "./CoverImageCropper";
@@ -17,6 +17,7 @@ import { useConfirm } from "@/shared/ui/useConfirm";
 import { useWizardStore } from "../wizardStore";
 import { useSyncEventChangesToWeb } from "@/features/publish/useSyncEventChangesToWeb";
 import { LIMITES } from "@/shared/lib/formLimits";
+import { hoyIso } from "@/shared/lib/fecha";
 import { useOrganizationsQuery } from "@/features/organizations/list/useOrganizationsQuery";
 
 /**
@@ -107,6 +108,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext, registrarGuardado, oc
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setValue,
@@ -510,12 +512,25 @@ export function Step1BasicInfo({ eventId, onSaved, goNext, registrarGuardado, oc
 
           <div>
             <label htmlFor="startDate">Fecha</label>
-            <input id="startDate" type="date" disabled={values.datePending} {...register("startDate")} />
+            <input id="startDate" type="date" min={hoyIso()} disabled={values.datePending} {...register("startDate")} />
             {errors.startDate && <span role="alert">{errors.startDate.message}</span>}
           </div>
           <div>
             <label htmlFor="startTime">Hora</label>
-            <input id="startTime" type="time" disabled={values.datePending} {...register("startTime")} />
+            <Controller
+              control={control}
+              name="startTime"
+              render={({ field }) => (
+                <TimeField
+                  id="startTime"
+                  label="Hora"
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  disabled={values.datePending}
+                />
+              )}
+            />
             {errors.startTime && <span role="alert">{errors.startTime.message}</span>}
           </div>
 
@@ -607,6 +622,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext, registrarGuardado, oc
                     <input
                       id={`dias-extra-${index}`}
                       type="date"
+                      min={hoyIso()}
                       value={dia}
                       onChange={(e) => setExtraDate(index, e.target.value)}
                     />

@@ -3,6 +3,7 @@ import { Button } from "@/shared/ui/button";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { useTips } from "@/shared/ui/tips";
 import { LIMITES } from "@/shared/lib/formLimits";
+import { computeResizeSize } from "./zoneGeometry";
 
 export interface ZoneEditorPanelProps {
   zones: Zone[];
@@ -49,6 +50,16 @@ export function ZoneEditorPanel({
   const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
   const { tip, capa } = useTips();
   const assignedGate = selectedZone ? gates.find((gate) => gate.zoneId === selectedZone.id) ?? null : null;
+
+  // Las zonas vecinas que no pueden quedar debajo al redimensionar (las puertas se apartan la
+  // excepcion: se dibujan pegadas a la zona a la que dan acceso).
+  const vecinas = selectedZone ? zones.filter((z) => z.id !== selectedZone.id && z.kind !== "gate") : [];
+
+  /** Ancho/alto pedidos a mano, recortados para no invadir una zona vecina ni salirse del plano. */
+  function tamanoPedido(anchoPedido: number, altoPedido: number) {
+    const zona = selectedZone!;
+    return computeResizeSize(zona, anchoPedido - zona.width, altoPedido - zona.height, vecinas);
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -161,8 +172,8 @@ export function ZoneEditorPanel({
             maxLength={3}
             step="0.1"
             defaultValue={redondear(selectedZone.width)}
-            {...tip("Lo ancha que es la zona dentro del plano")}
-            onBlur={(e) => onUpdateZone(selectedZone.id, { width: Number(e.target.value) })}
+            {...tip("Lo ancha que es la zona dentro del plano; no puede invadir una zona vecina")}
+            onBlur={(e) => onUpdateZone(selectedZone.id, { width: tamanoPedido(Number(e.target.value), selectedZone.height).width })}
           />
 
           <label htmlFor="zone-height">Alto %</label>
@@ -173,8 +184,8 @@ export function ZoneEditorPanel({
             maxLength={3}
             step="0.1"
             defaultValue={redondear(selectedZone.height)}
-            {...tip("Lo alta que es la zona dentro del plano")}
-            onBlur={(e) => onUpdateZone(selectedZone.id, { height: Number(e.target.value) })}
+            {...tip("Lo alta que es la zona dentro del plano; no puede invadir una zona vecina")}
+            onBlur={(e) => onUpdateZone(selectedZone.id, { height: tamanoPedido(selectedZone.width, Number(e.target.value)).height })}
           />
 
           <Button

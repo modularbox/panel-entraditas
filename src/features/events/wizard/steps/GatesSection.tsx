@@ -217,7 +217,14 @@ function CamposDePuerta({
           id="gate-opens-at"
           type="datetime-local"
           value={valores.opensAt}
-          onChange={(e) => cambiar("opensAt", e.target.value)}
+          onChange={(e) => {
+            const abre = e.target.value;
+            setValores((prev) => ({
+              ...prev,
+              opensAt: abre,
+              closesAt: prev.closesAt && abre && prev.closesAt < abre ? abre : prev.closesAt
+            }));
+          }}
           className={`${CASILLA} w-56`}
         />
       </div>
@@ -229,6 +236,7 @@ function CamposDePuerta({
         <input
           id="gate-closes-at"
           type="datetime-local"
+          min={valores.opensAt || undefined}
           value={valores.closesAt}
           onChange={(e) => cambiar("closesAt", e.target.value)}
           className={`${CASILLA} w-56`}
