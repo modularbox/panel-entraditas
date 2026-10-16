@@ -5,6 +5,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { apiClient, AppError } from "@/shared/lib/apiClient";
 import { Button } from "@/shared/ui/button";
 import { NumericInput } from "@/shared/ui/NumericInput";
+import { DateTimeField } from "@/shared/ui/DateTimeField";
 import { groupTicketTypes, type TicketTypeGroup } from "./Step4TicketTypes";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useConfirm } from "@/shared/ui/useConfirm";
@@ -102,7 +103,7 @@ const PUERTA_VACIA: PuertaFormState = {
   selectedOperatorIds: []
 };
 
-/** Rellena un <input type="datetime-local"> desde la ISO guardada en la base de datos (UTC):
+/** Rellena el campo de fecha y hora (formato de datetime-local, "YYYY-MM-DDTHH:MM") desde la ISO guardada en la base de datos (UTC):
  * vuelve a pintar la misma hora del reloj que eligió quien la guardó. */
 function aValorLocal(iso: string | null): string {
   if (!iso) return "";
@@ -213,19 +214,19 @@ function CamposDePuerta({
         <label htmlFor="gate-opens-at" className={ETIQUETA}>
           Abre
         </label>
-        <input
+        <DateTimeField
           id="gate-opens-at"
-          type="datetime-local"
+          label="Abre"
           value={valores.opensAt}
-          onChange={(e) => {
-            const abre = e.target.value;
+          onChange={(abre) => {
+            // Si la puerta ya cerraba antes de la nueva apertura, el cierre se lleva a la apertura.
             setValores((prev) => ({
               ...prev,
               opensAt: abre,
               closesAt: prev.closesAt && abre && prev.closesAt < abre ? abre : prev.closesAt
             }));
           }}
-          className={`${CASILLA} w-56`}
+          dateClassName={`${CASILLA} w-40`}
         />
       </div>
 
@@ -233,13 +234,14 @@ function CamposDePuerta({
         <label htmlFor="gate-closes-at" className={ETIQUETA}>
           Cierra
         </label>
-        <input
+        <DateTimeField
           id="gate-closes-at"
-          type="datetime-local"
+          label="Cierra"
           min={valores.opensAt || undefined}
           value={valores.closesAt}
-          onChange={(e) => cambiar("closesAt", e.target.value)}
-          className={`${CASILLA} w-56`}
+          // El cierre no puede quedar antes de la apertura, ni tecleando la fecha a mano.
+          onChange={(cierra) => cambiar("closesAt", cierra && valores.opensAt && cierra < valores.opensAt ? valores.opensAt : cierra)}
+          dateClassName={`${CASILLA} w-40`}
         />
       </div>
 

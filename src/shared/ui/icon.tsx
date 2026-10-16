@@ -31,6 +31,7 @@ export type IconName =
   | "robot"
   | "shield"
   | "users"
+  | "building"
   | "mountain";
 
 const paths: Record<IconName, ReactNode> = {
@@ -164,6 +165,13 @@ const paths: Record<IconName, ReactNode> = {
       <circle cx="9" cy="8" r="3.2" />
       <path d="M3.5 19.5c1-3 3-4.6 5.5-4.6s4.5 1.6 5.5 4.6" />
       <path d="M16 5.3a3 3 0 0 1 0 5.4M17.6 15.3c1.7.6 2.9 2 3.5 4.2" />
+    </>
+  ),
+  // El mismo edificio que la web publica usa para Congresos (y para el recinto).
+  building: (
+    <>
+      <rect x="4" y="3.5" width="16" height="17" rx="1.5" />
+      <path d="M8 7h1.8M14.2 7H16M8 10.5h1.8M14.2 10.5H16M8 14h1.8M14.2 14H16M10 20.5v-3h4v3" />
     </>
   ),
   mountain: (

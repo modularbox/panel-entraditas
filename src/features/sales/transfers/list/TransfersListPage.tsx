@@ -101,7 +101,7 @@ export function TransfersListPage() {
       <header>
         <h1 className="font-display text-2xl font-semibold">Transferencias</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cesiones de entradas: a quién se ofrecieron y a quién acabó yendo cada una.
+          Entradas transferidas: a quién se ofrecieron y a quién acabó yendo cada una.
         </p>
       </header>
 

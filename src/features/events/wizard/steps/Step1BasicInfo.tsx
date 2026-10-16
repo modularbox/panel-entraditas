@@ -11,7 +11,7 @@ import { TimeField } from "@/shared/ui/TimeField";
 import { borrarBorrador, describirGuardado, guardarBorrador, leerBorrador, type EventDraft } from "../eventDraft";
 import { OptionButton, QuestionSection } from "./EventRulesQuestions";
 import { CoverImageCropper } from "./CoverImageCropper";
-import { step1Schema, type Step1FormValues } from "./step1Schema";
+import { crearStep1Schema, type FechaGuardada, type Step1FormValues } from "./step1Schema";
 import { PREVIEW_CATEGORIES, PublicEventPreview, RichTextEditor } from "./publicEventPreview";
 import { useConfirm } from "@/shared/ui/useConfirm";
 import { useWizardStore } from "../wizardStore";
@@ -106,6 +106,14 @@ export function Step1BasicInfo({ eventId, onSaved, goNext, registrarGuardado, oc
     enabled: Boolean(eventId && token)
   });
 
+  // La fecha con la que el evento ya estaba guardado. Si ya ha pasado, se deja tal cual (para poder
+  // seguir editando un evento antiguo), pero no se puede mover a otra fecha pasada.
+  const fechaGuardada: FechaGuardada | null =
+    existingEvent?.startsAt && !existingEvent.datePending ? dateParts(existingEvent.startsAt) : null;
+  const fechaGuardadaRef = useRef<FechaGuardada | null>(fechaGuardada);
+  fechaGuardadaRef.current = fechaGuardada;
+  const fechaMinima = fechaGuardada && fechaGuardada.startDate < hoyIso() ? fechaGuardada.startDate : hoyIso();
+
   const {
     register,
     control,
@@ -116,7 +124,8 @@ export function Step1BasicInfo({ eventId, onSaved, goNext, registrarGuardado, oc
     getValues,
     formState: { errors, isSubmitting, isDirty }
   } = useForm<Step1FormValues>({
-    resolver: zodResolver(step1Schema),
+    resolver: (valores, contexto, opciones) =>
+      zodResolver(crearStep1Schema(fechaGuardadaRef.current))(valores, contexto, opciones),
     defaultValues: {
       coverImageUrl: "",
       gallery: "",
@@ -377,7 +386,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext, registrarGuardado, oc
         notifyWhenDateConfirmed: crudos.notifyWhenDateConfirmed === true,
         hasSubEvents: crudos.hasSubEvents === true
       };
-      const resultado = step1Schema.safeParse(valores);
+      const resultado = crearStep1Schema(fechaGuardadaRef.current).safeParse(valores);
       if (!resultado.success) {
         return { ok: false, error: "Faltan campos obligatorios en la información general." };
       }
@@ -512,7 +521,7 @@ export function Step1BasicInfo({ eventId, onSaved, goNext, registrarGuardado, oc
 
           <div>
             <label htmlFor="startDate">Fecha</label>
-            <input id="startDate" type="date" min={hoyIso()} disabled={values.datePending} {...register("startDate")} />
+            <input id="startDate" type="date" min={fechaMinima} disabled={values.datePending} {...register("startDate")} />
             {errors.startDate && <span role="alert">{errors.startDate.message}</span>}
           </div>
           <div>

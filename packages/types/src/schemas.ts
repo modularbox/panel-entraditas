@@ -250,7 +250,8 @@ export const TicketDesignSchema = z.object({
   logo: z.string().nullable(),
   // Marca de agua centrada del documento, muy transparente (5-8%).
   marcaAgua: z.string().nullable(),
-  opacidadMarcaAgua: z.number().min(0).max(1),
+  // Opacidad real, de 0 a 0.10: la barra del panel (0-100%) se reparte en ese tramo.
+  opacidadMarcaAgua: z.number().min(0).max(0.1),
   // Bloques de la plantilla que se imprimiran. El contenido de cada bloque lo rellena el emisor.
   mostrarInformacion: z.boolean(), // datos del titular
   mostrarQR: z.boolean(),

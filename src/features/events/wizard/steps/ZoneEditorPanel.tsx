@@ -3,7 +3,7 @@ import { Button } from "@/shared/ui/button";
 import { NumericInput } from "@/shared/ui/NumericInput";
 import { useTips } from "@/shared/ui/tips";
 import { LIMITES } from "@/shared/lib/formLimits";
-import { computeResizeSize } from "./zoneGeometry";
+import { computeResizeSize, obstaculosPara, TAMANO_MINIMO_ZONA } from "./zoneGeometry";
 
 export interface ZoneEditorPanelProps {
   zones: Zone[];
@@ -51,9 +51,14 @@ export function ZoneEditorPanel({
   const { tip, capa } = useTips();
   const assignedGate = selectedZone ? gates.find((gate) => gate.zoneId === selectedZone.id) ?? null : null;
 
-  // Las zonas vecinas que no pueden quedar debajo al redimensionar (las puertas se apartan la
-  // excepcion: se dibujan pegadas a la zona a la que dan acceso).
-  const vecinas = selectedZone ? zones.filter((z) => z.id !== selectedZone.id && z.kind !== "gate") : [];
+  // Las zonas vecinas que no pueden quedar debajo al redimensionar. Las puertas pueden pisar la
+  // zona a la que dan acceso, pero no otra puerta (las mismas reglas que al arrastrar).
+  const vecinas = selectedZone
+    ? obstaculosPara(
+        selectedZone.kind,
+        zones.filter((z) => z.id !== selectedZone.id)
+      )
+    : [];
 
   /** Ancho/alto pedidos a mano, recortados para no invadir una zona vecina ni salirse del plano. */
   function tamanoPedido(anchoPedido: number, altoPedido: number) {
@@ -167,7 +172,7 @@ export function ZoneEditorPanel({
           <label htmlFor="zone-width">Ancho %</label>
           <NumericInput
             id="zone-width"
-            min="1"
+            min={TAMANO_MINIMO_ZONA}
             max="100"
             maxLength={3}
             step="0.1"
@@ -179,7 +184,7 @@ export function ZoneEditorPanel({
           <label htmlFor="zone-height">Alto %</label>
           <NumericInput
             id="zone-height"
-            min="1"
+            min={TAMANO_MINIMO_ZONA}
             max="100"
             maxLength={3}
             step="0.1"

@@ -98,7 +98,7 @@ describe("CreateEventDialog", () => {
       ["El sistema asigna la butaca", "El comprador elige su butaca", "yes"],
       ["Basta con los datos del comprador", "Se pide el nombre de cada asistente", "no"],
       ["No se pide documento", "Se pide DNI/NIE de cada asistente", "no"],
-      ["La entrada no se puede ceder", "Se puede ceder", "yes"],
+      ["La entrada no se puede transferir", "Se puede transferir", "yes"],
       ["Una vez dentro, no se puede reentrar", "Se permite salir y volver a entrar", "no"],
       ["No se admiten devoluciones", "Se admiten devoluciones", "yes"],
       ["No se muestra el número", "Se muestran las entradas que quedan", "yes"],

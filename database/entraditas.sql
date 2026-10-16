@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS `eventos` (
     `id_recinto`                   VARCHAR(64)  NULL,
     `slug`                         VARCHAR(120) NOT NULL,
     `titulo`                       VARCHAR(255) NOT NULL,
-    `categoria`                    ENUM('concierto','teatro','cine','festival','deporte','conferencia','familiar') NOT NULL,
+    `categoria`                    ENUM('concierto','teatro','cine','festival','deporte','conferencia','familiar','circo','maritimo','ocio','congresos','aventura') NOT NULL,
     `descripcion`                  TEXT NOT NULL,
     `descripcion_larga`            TEXT NULL,
     `imagen_portada`               VARCHAR(500) NULL,

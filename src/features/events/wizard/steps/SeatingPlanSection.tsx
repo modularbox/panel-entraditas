@@ -9,7 +9,14 @@ import { zoneTicketTypeGroupId } from "@/shared/lib/zoneTicketType";
 import { useWizardStore } from "../wizardStore";
 import { useSubEventsQuery } from "./useSubEventsQuery";
 import { useZonesQuery } from "./useZonesQuery";
-import { defaultZoneLayout, type ZoneLayout } from "./zoneGeometry";
+import {
+  colocarPlantilla,
+  colocarSinSolape,
+  defaultZoneLayout,
+  obstaculosPara,
+  zonasSuperpuestas,
+  type ZoneLayout
+} from "./zoneGeometry";
 import { ZoneCanvas } from "./ZoneCanvas";
 import { ZoneEditorPanel } from "./ZoneEditorPanel";
 import { ZoneListEditor } from "./ZoneListEditor";
@@ -366,7 +373,9 @@ export function SeatingPlanSection({ eventId, onValidationChange, registrarGuard
     if (!adelante) return;
     setError(null);
     const nombre = puerta?.nombre ?? ZONE_KIND_NAMES[kind];
-    const layout: ZoneLayout = defaultZoneLayout(kind, zones);
+    // La posicion de partida se ajusta para que la zona nueva no pise a ninguna ni se salga del
+    // plano. Las puertas pueden ir encima de la zona a la que dan, pero no encima de otra puerta.
+    const layout: ZoneLayout = colocarSinSolape(defaultZoneLayout(kind, zones), obstaculosPara(kind, zones));
     try {
       const created = await apiClient.post<Zone>(
         `/venues/${venueId}/zones`,
@@ -421,15 +430,19 @@ export function SeatingPlanSection({ eventId, onValidationChange, registrarGuard
     });
     if (!adelante) return;
 
-    const { id: _id, venueId: _venueId, name, x, y, ...rest } = zone;
+    const { id: _id, venueId: _venueId, name, x, y, width, height, ...rest } = zone;
+    // La copia va al hueco libre mas cercano a la derecha de la original, sin pisar ninguna zona.
+    const hueco = colocarSinSolape(
+      zone.kind === "gate" ? { x: x + 5, y: y + 5, width, height } : { x: x + width, y, width, height },
+      obstaculosPara(zone.kind, zones)
+    );
     try {
       const created = await apiClient.post<Zone>(
         `/venues/${venueId}/zones`,
         {
           ...rest,
           name: `${name} (copia)`,
-          x: Math.min(x + 5, Math.max(0, 100 - zone.width)),
-          y: Math.min(y + 5, Math.max(0, 100 - zone.height))
+          ...hueco
         },
         { token: token! }
       );
@@ -706,7 +719,9 @@ export function SeatingPlanSection({ eventId, onValidationChange, registrarGuard
   /** Recreates a saved layout's zones in this venue. Additive: it never deletes what is there. */
   async function applyTemplate(templateZones: TemplateZone[]) {
     if (!venueId) return;
-    for (const zone of templateZones) {
+    // Cada zona de la plantilla va al hueco libre mas cercano a donde se guardo, sin pisar las que
+    // ya hay ni las de la plantilla colocadas antes que ella.
+    for (const zone of colocarPlantilla(templateZones, zones)) {
       await apiClient.post(`/venues/${venueId}/zones`, zone, { token: token! });
     }
     await queryClient.invalidateQueries({ queryKey: ["zones", venueId] });
@@ -716,6 +731,8 @@ export function SeatingPlanSection({ eventId, onValidationChange, registrarGuard
   const groups = useMemo(() => groupTicketTypes(ticketTypes), [ticketTypes]);
   const sellableZones = useMemo(() => zones.filter((z) => SELLABLE_KINDS.includes(z.kind)), [zones]);
   const stage = useMemo(() => zones.find((zone) => zone.kind === "stage") ?? null, [zones]);
+  // Planos guardados antes de que se impidiera el solape: no se mueven solos, solo se avisa.
+  const superpuestas = useMemo(() => zonasSuperpuestas(zones), [zones]);
 
   // Seats are derived from each numbered zone's shape, and their ticket types come from the
   // pool's sparse breakdown. Assignments pointing at seats that no longer exist (after a
@@ -939,6 +956,12 @@ export function SeatingPlanSection({ eventId, onValidationChange, registrarGuard
               {canvasHeight} px de alto - {canvasWidth}% de ancho
             </span>
           </div>
+
+          {superpuestas.length > 0 && (
+            <p role="alert" className="rounded-md border-2 border-destructive px-3 py-2 text-sm font-semibold">
+              Hay zonas superpuestas: muévelas para separarlas ({superpuestas.join(", ")}).
+            </p>
+          )}
 
           <div className="grid gap-4 md:grid-cols-[1fr_260px]">
             <div style={{ width: `${canvasWidth}%` }}>

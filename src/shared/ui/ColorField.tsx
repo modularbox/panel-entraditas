@@ -1,7 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ClipboardEvent } from "react";
 import { cn } from "@/shared/lib/cn";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/**
+ * Convierte lo que se pega o se escribe en un hexadecimal "#rrggbb", o null si no lo es.
+ *
+ * Acepta lo que suele venir del portapapeles: con o sin "#", con espacios o saltos de línea
+ * alrededor (o en medio, al copiar de una tabla), en mayúsculas, y la forma corta "#f0a".
+ */
+export function normalizarHex(entrada: string): string | null {
+  const limpio = entrada.replace(/\s+/g, "").replace(/^#+/, "").replace(/;$/, "");
+  if (/^[0-9a-fA-F]{6}$/.test(limpio)) return `#${limpio.toLowerCase()}`;
+  if (/^[0-9a-fA-F]{3}$/.test(limpio)) {
+    return `#${limpio
+      .split("")
+      .map((c) => c + c)
+      .join("")
+      .toLowerCase()}`;
+  }
+  return null;
+}
 
 export interface ColorFieldProps {
   id: string;
@@ -18,7 +37,8 @@ export interface ColorFieldProps {
 
 /**
  * Selector de color con hueco para pegar el hexadecimal a mano. El valor solo se propaga cuando el
- * texto es un hexadecimal válido (#RRGGBB), para no romper el diseño mientras se escribe.
+ * texto es un hexadecimal válido, para no romper el diseño mientras se escribe. Se puede pegar
+ * "#FF00AA", "FF00AA", "#f0a" o el código con espacios alrededor: se normaliza a "#rrggbb".
  */
 export function ColorField({ id, value, onChange, label, swatchClassName, textClassName, className }: ColorFieldProps) {
   const [texto, setTexto] = useState(value);
@@ -27,11 +47,25 @@ export function ColorField({ id, value, onChange, label, swatchClassName, textCl
     setTexto(value);
   }, [value]);
 
-  const valido = HEX.test(texto);
+  const valido = normalizarHex(texto) !== null;
 
   function escribir(siguiente: string) {
     setTexto(siguiente);
-    if (HEX.test(siguiente)) onChange(siguiente.toLowerCase());
+    // Mientras se teclea solo vale la forma larga: "#abc" puede ser el principio de "#abcdef" y
+    // no debe saltar a "#aabbcc" a medias. La corta se acepta al pegar o al salir del campo.
+    const hex = normalizarHex(siguiente);
+    if (hex && siguiente.replace(/[\s#;]/g, "").length === 6) onChange(hex);
+  }
+
+  // Se coge el portapapeles entero: con un límite de caracteres, el navegador recortaba lo pegado
+  // (" #FF00AA" se quedaba en " #FF00A") y el código nunca llegaba a ser válido.
+  function pegar(e: ClipboardEvent<HTMLInputElement>) {
+    const pegado = e.clipboardData.getData("text");
+    const hex = normalizarHex(pegado);
+    if (!hex) return;
+    e.preventDefault();
+    setTexto(hex);
+    onChange(hex);
   }
 
   return (
@@ -40,7 +74,7 @@ export function ColorField({ id, value, onChange, label, swatchClassName, textCl
         id={id}
         type="color"
         aria-label={`${label}: selector`}
-        value={HEX.test(value) ? value : "#000000"}
+        value={HEX.test(value) ? value.toLowerCase() : "#000000"}
         onChange={(e) => escribir(e.target.value)}
         className={cn("shrink-0", swatchClassName)}
       />
@@ -48,10 +82,16 @@ export function ColorField({ id, value, onChange, label, swatchClassName, textCl
         type="text"
         aria-label={`${label}: código hexadecimal`}
         value={texto}
-        maxLength={7}
+        maxLength={16}
         spellCheck={false}
+        autoComplete="off"
         onChange={(e) => escribir(e.target.value)}
-        onBlur={() => setTexto(value)}
+        onPaste={pegar}
+        onBlur={() => {
+          const hex = normalizarHex(texto);
+          if (hex && hex !== value.toLowerCase()) onChange(hex);
+          setTexto(hex ?? value);
+        }}
         placeholder="#RRGGBB"
         className={cn(
           "h-9 min-w-0 rounded-md border-2 bg-surface px-2 text-sm",

@@ -9,6 +9,7 @@ import { useSessionStore } from "@/shared/auth/sessionStore";
 import { useSubEventsQuery } from "@/features/events/wizard/steps/useSubEventsQuery";
 import { useTicketDesignQuery, useSaveTicketDesign } from "./useTicketDesignQuery";
 import { TicketDesignPreview } from "./TicketDesignPreview";
+import { opacidadEnBarra, opacidadReal } from "./format";
 import { ColorField } from "@/shared/ui/ColorField";
 import { LIMITES } from "@/shared/lib/formLimits";
 import { Cargando } from "@/shared/ui/Cargando";
@@ -173,15 +174,16 @@ export function TicketDesignSection({ eventId, onValidationChange }: TicketDesig
               <option value="Roboto">Roboto</option>
             </select>
 
-            <label htmlFor="td-opacidad">Opacidad de la marca de agua: {Math.round(draft.opacidadMarcaAgua * 1000)}%</label>
+            <label htmlFor="td-opacidad">Opacidad de la marca de agua: {opacidadEnBarra(draft.opacidadMarcaAgua)}%</label>
             <input
               id="td-opacidad"
               type="range"
               min={0}
               max={100}
               step={1}
-              value={Math.round(draft.opacidadMarcaAgua * 1000)}
-              onChange={(e) => update("opacidadMarcaAgua", Number(e.target.value) / 1000)}
+              value={opacidadEnBarra(draft.opacidadMarcaAgua)}
+              onChange={(e) => update("opacidadMarcaAgua", opacidadReal(Number(e.target.value)))}
+              aria-valuetext={`${opacidadEnBarra(draft.opacidadMarcaAgua)}% (opacidad real ${(draft.opacidadMarcaAgua * 100).toFixed(1).replace(".", ",")}%)`}
               className="w-full max-w-xs"
             />
           </>

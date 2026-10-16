@@ -19,6 +19,11 @@ const SELLABLE_GRID_GAP = 4;
 const EPS = 0.01;
 /** Cuantas veces se reintenta sacar una zona encima de otra de su vecina mas cercana. */
 const MAX_PASADAS = 8;
+/**
+ * Lo minimo que puede medir una zona (en % del plano, por lado). Con menos no se ve ni se puede
+ * agarrar para moverla o estirarla.
+ */
+export const TAMANO_MINIMO_ZONA = 3;
 
 export function clampPercent(value: number, min = 0, max = 100): number {
   return Math.min(max, Math.max(min, value));
@@ -150,7 +155,7 @@ function limitarEje(zone: ZoneLayout, eje: "x" | "y", valor: number, banda: numb
  *
  * La esquina que se estira es la de abajo a la derecha, asi que crecer topa con lo que haya a la
  * derecha (el ancho se para en su borde izquierdo) o por debajo (el alto se para en su borde
- * superior). Tambien se respeta el borde del plano y el minimo de 1%.
+ * superior). Tambien se respeta el borde del plano y el tamano minimo (TAMANO_MINIMO_ZONA).
  */
 export function computeResizeSize(
   zone: ZoneLayout,
@@ -158,8 +163,9 @@ export function computeResizeSize(
   deltaHeightPercent: number,
   obstacles: ZoneLayout[] = []
 ): { width: number; height: number } {
-  let width = clampPercent(zone.width + deltaWidthPercent, 1, 100 - zone.x);
-  let height = clampPercent(zone.height + deltaHeightPercent, 1, 100 - zone.y);
+  const minimo = TAMANO_MINIMO_ZONA;
+  let width = clampPercent(zone.width + deltaWidthPercent, Math.min(minimo, 100 - zone.x), 100 - zone.x);
+  let height = clampPercent(zone.height + deltaHeightPercent, Math.min(minimo, 100 - zone.y), 100 - zone.y);
 
   // El ancho y el alto se afectan entre si (al alargar uno cambia con que vecinas topa el otro),
   // asi que se recalcula un par de veces hasta que se asientan.
@@ -168,15 +174,107 @@ export function computeResizeSize(
       // Un vecino que se pise en vertical y empiece a la derecha: el ancho se para en su borde.
       const solapaVertical = zone.y + EPS < otra.y + otra.height && zone.y + height > otra.y + EPS;
       if (solapaVertical && otra.x > zone.x + EPS && otra.x < zone.x + width) {
-        width = Math.max(1, otra.x - zone.x);
+        width = Math.max(Math.min(minimo, width), otra.x - zone.x);
       }
       // Uno que se pise en horizontal y empiece por debajo: el alto se para en su borde.
       const solapaHorizontal = zone.x + EPS < otra.x + otra.width && zone.x + width > otra.x + EPS;
       if (solapaHorizontal && otra.y > zone.y + EPS && otra.y < zone.y + height) {
-        height = Math.max(1, otra.y - zone.y);
+        height = Math.max(Math.min(minimo, height), otra.y - zone.y);
       }
     }
   }
 
   return { width, height };
+}
+
+/**
+ * Coloca una zona nueva (o una copia) sin salirse del plano ni pisar a ninguna de `obstaculos`.
+ *
+ * Primero se recorta al plano: ningun lado pasa del 100% ni baja del minimo, y la esquina queda
+ * dentro. Si en ese sitio choca con otra zona, se busca el hueco libre mas cercano recorriendo el
+ * plano de punto en punto. Si no cabe en ninguna parte, se prueba a encogerla poco a poco; y si ni
+ * asi, se devuelve recortada al plano (el plano esta lleno y quien la coloca decide).
+ */
+export function colocarSinSolape(deseado: ZoneLayout, obstaculos: ZoneLayout[]): ZoneLayout {
+  let width = clampPercent(deseado.width, TAMANO_MINIMO_ZONA, 100);
+  let height = clampPercent(deseado.height, TAMANO_MINIMO_ZONA, 100);
+  const enPlano = (w: number, h: number): ZoneLayout => ({
+    x: clampPercent(deseado.x, 0, 100 - w),
+    y: clampPercent(deseado.y, 0, 100 - h),
+    width: w,
+    height: h
+  });
+
+  while (true) {
+    const inicial = enPlano(width, height);
+    if (!obstaculos.some((otra) => seSolapan(inicial, otra))) return inicial;
+
+    let mejor: ZoneLayout | null = null;
+    let mejorDistancia = Infinity;
+    for (let y = 0; y <= 100 - height + EPS; y += 1) {
+      for (let x = 0; x <= 100 - width + EPS; x += 1) {
+        const candidato = { x: Math.min(x, 100 - width), y: Math.min(y, 100 - height), width, height };
+        const distancia = Math.hypot(candidato.x - inicial.x, candidato.y - inicial.y);
+        if (distancia >= mejorDistancia) continue;
+        if (obstaculos.some((otra) => seSolapan(candidato, otra))) continue;
+        mejor = candidato;
+        mejorDistancia = distancia;
+      }
+    }
+    if (mejor) return mejor;
+
+    if (width <= TAMANO_MINIMO_ZONA && height <= TAMANO_MINIMO_ZONA) return enPlano(width, height);
+    width = Math.max(TAMANO_MINIMO_ZONA, width * 0.8);
+    height = Math.max(TAMANO_MINIMO_ZONA, height * 0.8);
+  }
+}
+
+type ZonaEnPlano = ZoneLayout & { kind: Zone["kind"] };
+
+/**
+ * Las zonas del plano que no puede pisar una zona de tipo `kind`.
+ *
+ * Las puertas marcan un acceso en el borde de su zona, asi que pueden quedar encima de cualquier
+ * zona, pero no encima de otra puerta. El resto de zonas se apartan unas de otras y no cuentan
+ * las puertas como tope.
+ */
+export function obstaculosPara(kind: Zone["kind"], zonas: ZonaEnPlano[]): ZoneLayout[] {
+  const esPuerta = kind === "gate";
+  return zonas
+    .filter((otra) => (otra.kind === "gate") === esPuerta)
+    .map(({ x, y, width, height }) => ({ x, y, width, height }));
+}
+
+/**
+ * Donde cae cada zona de una plantilla al aplicarla sobre un plano que ya tiene zonas.
+ *
+ * Cada zona se coloca con `colocarSinSolape` contra las que ya hay y contra las de la plantilla
+ * colocadas antes que ella, con las mismas reglas que una zona nueva (las puertas solo chocan con
+ * puertas). Devuelve las zonas en el mismo orden, con la posicion y el tamano ya ajustados.
+ */
+export function colocarPlantilla<T extends ZonaEnPlano>(plantilla: T[], existentes: ZonaEnPlano[]): T[] {
+  const ocupadas: ZonaEnPlano[] = [...existentes];
+  return plantilla.map((zona) => {
+    const hueco = colocarSinSolape(zona, obstaculosPara(zona.kind, ocupadas));
+    const colocada = { ...zona, ...hueco };
+    ocupadas.push(colocada);
+    return colocada;
+  });
+}
+
+/**
+ * Nombres de las zonas que ya se pisan entre si (con las reglas de `obstaculosPara`). Sirve para
+ * avisar de planos guardados antes de que se impidiera el solape, sin moverlos por sorpresa.
+ */
+export function zonasSuperpuestas<T extends ZonaEnPlano & { name: string }>(zonas: T[]): string[] {
+  const nombres = new Set<string>();
+  zonas.forEach((zona, i) => {
+    for (const otra of zonas.slice(i + 1)) {
+      if ((zona.kind === "gate") !== (otra.kind === "gate")) continue;
+      if (!seSolapan(zona, otra)) continue;
+      nombres.add(zona.name);
+      nombres.add(otra.name);
+    }
+  });
+  return [...nombres];
 }

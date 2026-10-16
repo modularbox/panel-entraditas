@@ -136,10 +136,10 @@ export const RULE_GROUPS: QuestionGroup[] = [
       {
         kind: "boolean",
         key: "isTransferable",
-        label: "Ceder la entrada a otra persona",
-        help: "Al ceder se genera un QR nuevo y el anterior deja de valer.",
-        yes: "Se puede ceder",
-        no: "La entrada no se puede ceder"
+        label: "Transferir la entrada a otra persona",
+        help: "Al transferirla se genera un QR nuevo y el anterior deja de valer.",
+        yes: "Se puede transferir",
+        no: "La entrada no se puede transferir"
       }
     ]
   },

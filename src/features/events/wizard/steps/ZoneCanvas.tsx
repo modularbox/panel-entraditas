@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { Zone } from "@entraditas/types";
 import { cn } from "@/shared/lib/cn";
-import { computeDragPosition, computeResizeSize, type ZoneLayout } from "./zoneGeometry";
+import { computeDragPosition, computeResizeSize, obstaculosPara, type ZoneLayout } from "./zoneGeometry";
 import { buildSeatGrid, rowOriginForStage, seatGridExtent, type SeatAssignments } from "./seatMap";
 
 export interface ZoneCanvasProps {
@@ -121,9 +121,12 @@ export function ZoneCanvas({
     // by the time any synthesized click arrives.
     onSelectZone(zone.id);
     draggedRef.current = false;
-    // Las puertas no cuentan como tope: se dibujan pegadas a la zona a la que dan acceso, asi que
-    // tienen que poder pisarla. El resto de zonas del plano si que se apartan unas de otras.
-    const obstaculos = zones.filter((otra) => otra.id !== zone.id && otra.kind !== "gate").map((otra) => layoutFor(otra));
+    // Las puertas marcan el acceso en el borde de su zona, asi que pueden pisar zonas pero no otras
+    // puertas. El resto de zonas se apartan unas de otras y no topan con las puertas.
+    const obstaculos = obstaculosPara(
+      zone.kind,
+      zones.filter((otra) => otra.id !== zone.id).map((otra) => ({ kind: otra.kind, ...layoutFor(otra) }))
+    );
     dragRef.current = {
       zoneId: zone.id,
       pointerId: e.pointerId,

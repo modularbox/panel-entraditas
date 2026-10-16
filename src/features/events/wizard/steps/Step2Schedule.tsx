@@ -42,6 +42,16 @@ function isPast(date: string, time: string): boolean {
   return new Date(`${date}T${time}:00`).getTime() < Date.now();
 }
 
+/**
+ * El `min` del día al editar una sesión: hoy, salvo que la sesión ya estuviera guardada en un día
+ * anterior y no se haya cambiado (si no, el formulario no dejaría guardarla tal cual estaba).
+ */
+function minimoEdicion(subEvent: SubEvent, fechaElegida: string): string {
+  const hoy = hoyIso();
+  const guardada = dateParts(subEvent.startsAt).date;
+  return guardada && guardada < hoy && fechaElegida === guardada ? guardada : hoy;
+}
+
 function toRange(date: string, time: string, durationMinutes: number) {
   const startsAt = `${date}T${time}:00.000Z`;
   const endsAt = new Date(new Date(startsAt).getTime() + durationMinutes * 60_000).toISOString();
@@ -178,7 +188,11 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
       setError("Elige fecha y hora para guardar la sesión.");
       return;
     }
-    if (!editing.datePending && isPast(editing.date, editing.time)) {
+    // Una sesion que ya se celebro se puede seguir editando (el nombre, por ejemplo) mientras no se
+    // mueva a otra fecha u hora que tambien haya pasado.
+    const guardada = dateParts(subEvents.find((s) => s.id === editing.id)?.startsAt);
+    const mismaFecha = guardada.date === editing.date && guardada.time === editing.time;
+    if (!editing.datePending && isPast(editing.date, editing.time) && !mismaFecha) {
       setError("No se pueden guardar sesiones en el pasado.");
       return;
     }
@@ -322,7 +336,7 @@ export function Step2Schedule({ eventId, goNext }: Step2ScheduleProps) {
                       <input
                         id={`subevent-date-${s.id}`}
                         type="date"
-                        min={hoyIso()}
+                        min={minimoEdicion(s, editing.date)}
                         disabled={editing.datePending}
                         value={editing.date}
                         onChange={(e) => setEditing({ ...editing, date: e.target.value })}

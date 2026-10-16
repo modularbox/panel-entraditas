@@ -370,7 +370,11 @@ export function DiscountCodesSection({ eventId }: DiscountCodesSectionProps) {
                   aria-label="Válido hasta"
                   min={validFrom || undefined}
                   value={validTo}
-                  onChange={(e) => setValidTo(e.target.value)}
+                  onChange={(e) => {
+                    // Ni tecleando la fecha a mano puede acabar antes de "Válido desde".
+                    const hasta = e.target.value;
+                    setValidTo(hasta && validFrom && hasta < validFrom ? validFrom : hasta);
+                  }}
                   className={CELDA_INPUT}
                 />
               </td>

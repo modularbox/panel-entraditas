@@ -51,7 +51,7 @@ export const PREVIEW_CATEGORIES: PreviewCategory[] = [
   { id: "circo", label: "Circo", icon: "circus", bg: "#a3246b", text: "#ffffff" },
   { id: "maritimo", label: "Marítimo", icon: "anchor", bg: "#0b5d8a", text: "#ffffff" },
   { id: "ocio", label: "Ocio", icon: "sparkles", bg: "#c2580f", text: "#ffffff" },
-  { id: "congresos", label: "Congresos", icon: "users", bg: "#1f3a5f", text: "#ffffff" },
+  { id: "congresos", label: "Congresos", icon: "building", bg: "#1f3a5f", text: "#ffffff" },
   { id: "aventura", label: "Aventura", icon: "mountain", bg: "#2f6b3a", text: "#ffffff" }
 ];
 
